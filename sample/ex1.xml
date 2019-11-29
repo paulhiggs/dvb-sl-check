@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Example of response to query: https://dvbisr.private-service-list-registry.com/query?TargetCountry%20in%20(DE%2CAT)&Language=en -->
+<ServiceListEntryPoints xmlns="urn:dvb:metadata:servicelistdiscovery:2019" xmlns:mpeg7="urn:tva:mpeg7:2008" xmlns:dvbisd="urn:dvb:metadata:servicediscovery:2019" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="urn:dvb:metadata:servicelistdiscovery:2019 ../dvbi_service_list_discovery_v1.0.xsd">
+	<ServiceListRegistryEntity>
+		<Name>A Private Service List Registry</Name>
+		<ElectronicAddress>
+			<mpeg7:Email>info@private-service-list-registry.com</mpeg7:Email>
+			<mpeg7:Url>dvbisr.private-service-list-registry.com</mpeg7:Url>
+		</ElectronicAddress>
+	</ServiceListRegistryEntity>
+	<ProviderOffering>
+		<Provider>
+			<Name>TVfromTheWorld</Name>
+			<Address>
+				<mpeg7:Name>John Doe</mpeg7:Name>
+				<mpeg7:PostalAddress>
+					<mpeg7:AddressLine>U.S.</mpeg7:AddressLine>
+				</mpeg7:PostalAddress>
+			</Address>
+			<ElectronicAddress>
+				<mpeg7:Telephone>+1 555 0000000</mpeg7:Telephone>
+				<mpeg7:Email>dvbi_lists@TVfromTheWorld.com</mpeg7:Email>
+			</ElectronicAddress>
+		</Provider>
+		<ServiceListOffering>
+			<ServiceListName xml:lang="en">TV services from the world in English</ServiceListName>		
+			<ServiceListName xml:lang="de">Fernsehen aus ter Welt in Englisch</ServiceListName>
+			<ServiceListName xml:lang="fr">Télévision du monde en anglais</ServiceListName>
+			<ServiceListName xml:lang="it">TV del mondo in inglese</ServiceListName>
+			<ServiceListURI contentType="application/xml">
+				<dvbisd:URI>http://dvbi.TVfromTheWorld.com/engTVservices.xml</dvbisd:URI>
+			</ServiceListURI>
+			<Language>en</Language>
+			<!-- Assumption: if TargetCountry is not specified, the service list is assumed to be targeted to any country -->
+		</ServiceListOffering>
+		<ServiceListOffering>
+			<ServiceListName xml:lang="de">TV aus Deutschland</ServiceListName>
+			<ServiceListName xml:lang="en">TV from Germany</ServiceListName>
+			<ServiceListURI contentType="application/xml">
+				<dvbisd:URI>http://dvbi.TVfromTheWorld.com/TVservices_Germany.xml</dvbisd:URI>
+			</ServiceListURI>
+			<Language>de</Language>
+			<Language>en</Language>
+			<TargetCountry>DEU</TargetCountry>
+		</ServiceListOffering>
+	</ProviderOffering>
+	<ProviderOffering>
+		<Provider>
+			<Name>British DVB-I</Name>
+			<Address>
+				<mpeg7:Name>John Doe</mpeg7:Name>
+				<mpeg7:PostalAddress>
+					<mpeg7:AddressLine>London, UK</mpeg7:AddressLine>
+				</mpeg7:PostalAddress>
+			</Address>
+			<ElectronicAddress>
+				<mpeg7:Telephone>+44 020 00000000</mpeg7:Telephone>
+				<mpeg7:Email>dvbi@british-service-list-provider.co.uk</mpeg7:Email>
+			</ElectronicAddress>
+		</Provider>
+		<ServiceListOffering>
+			<ServiceListName>Documentaries</ServiceListName>
+			<ServiceListURI contentType="application/xml">
+				<dvbisd:URI>
+					http://www.british-service-list-provider.co.uk/documentaries.xml
+				</dvbisd:URI>
+			</ServiceListURI>
+			<ServiceListURI contentType="application/xml">
+				<dvbisd:URI>
+					http://alt.british-service-list-provider.co.uk/documentaries.xml
+				</dvbisd:URI>
+			</ServiceListURI>
+			<Language>en</Language>
+			<TargetCountry>GBR</TargetCountry>
+			<TargetCountry>FRA</TargetCountry>
+			<TargetCountry>ITA</TargetCountry>
+			<TargetCountry>DEU</TargetCountry>
+			<TargetCountry>AUT</TargetCountry>
+		</ServiceListOffering>
+	</ProviderOffering>
+</ServiceListEntryPoints>
+
