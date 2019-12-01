@@ -23,7 +23,7 @@
 <!--   26/11/19b:                                                                                                                                     -->
 <!--      - fixed uid syntax                                                                                                                         -->
 <!--      - added Postcodes for  Region Berlin                                                                                                     -->
-<ServiceList xmlns="urn:dvb:metadata:servicediscovery:2019" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:tva="urn:tva:metadata:2019" version="191126165755" xsi:schemaLocation="urn:dvb:metadata:servicediscovery:2019 ../dvbi_v1.0.xsd">
+<ServiceList xmlns="urn:dvb:metadata:servicediscovery:2019" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:tva="urn:tva:metadata:2019" version="191126165755" xsi:schemaLocation="urn:dvb:metadata:servicediscovery:2019 dvbi_v1.0.xsd">
 	<Name>Germany FTA</Name>
 	<ProviderName>SES</ProviderName>
 	<RegionList version="1">
