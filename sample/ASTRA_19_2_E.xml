@@ -10905,7 +10905,7 @@
 		</LCNTable>
 	</LCNTableList>
 	<Service version="1">
-		<UniqueIdentifier>tag:ses.com,2019:RNE RADIO 1.RNE RADIO 1</UniqueIdentifier>
+		<UniqueIdentifier>tag:ses.com,2019:RNE%20RADIO%201.RNE%20RADIO%201</UniqueIdentifier>
 		<ServiceInstance priority="1">
 			<DisplayName>RNE RADIO 1</DisplayName>
 			<ContentAttributes>
