@@ -21,7 +21,7 @@ const syncRequest = require('sync-request');
 //var XMLHttpRequest = require("xmlhttprequest").XMLHttpRequest;
 
 const https=require('https');
-const HTTP_SERVICE_PORT = 3000;
+const HTTP_SERVICE_PORT = 3010;
 const HTTPS_SERVICE_PORT=HTTP_SERVICE_PORT+1;
 const keyFilename=path.join('.','selfsigned.key'), certFilename=path.join('.','selfsigned.crt');
 
