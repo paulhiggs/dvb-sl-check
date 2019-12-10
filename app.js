@@ -15,6 +15,8 @@ const morgan = require('morgan')
 const fs=require('fs'), path=require('path');
 
 //const request = require('request');
+
+// sync-request - https://github.com/ForbesLindesay/sync-request
 const syncRequest = require('sync-request');
 //var XMLHttpRequest = require("xmlhttprequest").XMLHttpRequest;
 
@@ -22,6 +24,12 @@ const https=require('https');
 const HTTP_SERVICE_PORT = 3000;
 const HTTPS_SERVICE_PORT=HTTP_SERVICE_PORT+1;
 const keyFilename=path.join('.','selfsigned.key'), certFilename=path.join('.','selfsigned.crt');
+
+const { parse } = require('querystring');
+
+// https://github.com/alexei/sprintf.js
+var sprintf = require('sprintf-js').sprintf,
+    vsprintf = require('sprintf-js').vsprintf
 
 const TVA_ContentCSFilename=path.join('cs','ContentCS.xml'),
       TVA_FormatCSFilename=path.join('cs','FormatCS.xml'),
@@ -35,7 +43,7 @@ const TVA_ContentCSFilename=path.join('cs','ContentCS.xml'),
 	  DVB_VideoConformanceCSFilename=path.join('cs','VideoConformancePointsCS.xml'),
 	  ISO3166_Filename=path.join('.','iso3166-countries.json');
 
-var allowedGenres=[], allowedServiceTypes=[], allowedAudioSchemes=[], allowedVideoSchemes=[], allowedCountries=[];
+var allowedGenres=[], allowedServiceTypes=[], allowedAudioSchemes=[], allowedVideoSchemes=[], allowedCountries=[], allowedAudioConformancePoints=[], allowedVideoConformancePoints=[];
 
 //TODO: validation against schema
 //const DVBI_ServiceListSchemaFilename=path.join('schema','dvbi_v1.0.xsd');
@@ -144,15 +152,15 @@ function loadDataFiles() {
 	allowedServiceTypes=[];
 	loadCS(allowedServiceTypes,DVBI_ServiceTypeCSFilename);
 
-	allowedAudioSchemes=[];
+	allowedAudioSchemes=[]; allowedAudioConformancePoints=[];
 	loadCS(allowedAudioSchemes,DVB_AudioCodecCSFilename);
 	loadCS(allowedAudioSchemes,MPEG7_AudioCodingFormatCSFilename);
-	loadCS(allowedAudioSchemes,DVB_AudioConformanceCSFilename);
+	loadCS(allowedAudioConformancePoints,DVB_AudioConformanceCSFilename);
 	
-	allowedVideoSchemes=[];
+	allowedVideoSchemes=[]; allowedVideoConformancePoints=[];
 	loadCS(allowedVideoSchemes, DVB_VideoCodecCSFilename);
 	loadCS(allowedVideoSchemes, MPEG7_VisualCodingFormatCSFilename);
-	loadCS(allowedVideoSchemes, DVB_VideoConformanceCSFilename);
+	loadCS(allowedVideoConformancePoints, DVB_VideoConformanceCSFilename);
 
 	loadCountries(ISO3166_Filename);
 
@@ -218,20 +226,97 @@ function addRegion(Region, depth, knownRegionIDs, validationErrors, errCounts) {
 	}
 }
 
-app.get('/check', async function(req,res){
-	if (!checkQuery(req)) {
+function isEmpty(obj) {
+    for(var key in obj) {
+        if(obj.hasOwnProperty(key))
+            return false;
+    }
+    return true;
+}
+const FORM_TOP='<html><head><title>DVB-I Service List Validator</title></head><body>';
+
+const PAGE_HEADING='<h1>DVB-I Service List Validator</h1>';
+const ENTRY_FORM='<form method=\"post\"><p><i>URL:</i></p><input type=\"url\" name="SLurl\" value=\"%s"><input type=\"submit\" value=\"submit\"></form>';
+const RESULT_WITH_INSTRUCTION='<br><p><i>Results:</i></p>';
+
+const FORM_BOTTOM='</body></html>';
+
+function drawForm(res, lastURL, o) {
+	res.write(FORM_TOP);	
+	res.write(PAGE_HEADING);	
+	res.write(sprintf(ENTRY_FORM, lastURL ? lastURL : ""));
+	res.write(RESULT_WITH_INSTRUCTION);
+	if (o) {
+		if (o.error) {
+			res.write('<p>'+o.error+'</p>');
+		}
+		var resultsShown=false;
+		if (o.counts) {
+			var tableHeader=false;
+			for (var i in o.counts) {
+				if (o.counts[i] != 0) {
+					if (!tableHeader) {
+						res.write('<table><tr><th>item</th><th>count</th></tr>');
+						tableHeader=true;
+					}
+					res.write('<tr><td>'+i+'</td><td>'+o.counts[i]+'</td></tr>');
+					resultsShown=true;
+				}
+			}
+			if (tableHeader) res.write('</table>');
+	
+		}
+		if (o.issues) {
+			var tableHeader=false;
+			o.issues.forEach(function(value)
+			{
+				if (!tableHeader) {
+					res.write('<table><tr><th>error</th></tr>');
+					tableHeader=true;					
+				}
+				res.write('<p>'+value+'</p>');
+				resultsShown=true;
+			});
+			if (tableHeader) res.write('</table>');
+		}
+		if (!resultsShown) res.write('no errors');
+	}
+	res.write(FORM_BOTTOM);		
+}
+
+app.use(express.urlencoded());
+
+app.post('/check', function(req,res) {
+	
+	req.query.SLurl=req.body.SLurl;
+	processQuery(req,res);
+});
+
+app.get('/check', function(req,res){
+	processQuery(req,res);
+});
+	
+function processQuery(req,res) {
+	if (isEmpty(req.query)) {
+		drawForm(res);	
+	} else if (!checkQuery(req)) {
+		drawForm(res, req.query.Slurl, {error:'URL not specified'});
 		res.status(400);
 	}
 	else {
-		var validationErrors=[], SL;
-		var SLxml = syncRequest('GET', req.query.SLurl);
-//		var SLxml=fs.readFileSync(path.join('sample','ASTRA_19_2_Er2.xml'));
+		var validationErrors=[], errCounts=[], SL, SLxml;
 		try {
-			var SL = libxml.parseXmlString(SLxml.getBody().toString().replace(/(\r\n|\n|\r|\t)/gm,""));
-//			var SL = libxml.parseXmlString(SLxml.getBody().toString());
-//			var SL = libxml.parseXmlString(SLxml.toString().replace(/(\r\n|\n|\r|\t)/gm,""));
+			SLxml = syncRequest('GET', req.query.SLurl);
+		}
+		catch (err) {
+			validationErrors.push('retrieval of URL ('+req.query.SLurl+') failed');
+			SLxml = null;
+		}
+		if (SLxml) try {
+			SL = libxml.parseXmlString(SLxml.getBody().toString().replace(/(\r\n|\n|\r|\t)/gm,""));
 			for (err in SL.errors) {
-				console.dir(err);
+				console.log('XML parsing failed');
+				validationErrors.push('XML parsing failed');
 			}
 			// check the retrieved service list against the schema
 			// https://syssgx.github.io/xml.js/
@@ -260,7 +345,7 @@ app.get('/check', async function(req,res){
 				var SL_SCHEMA = {}, SCHEMA_PREFIX=SL.root().namespace().prefix();
 				SL_SCHEMA[SL.root().namespace().prefix()]=SL.root().namespace().href();
 				
-				var s=1, service, errCounts=[], knownServices=[];
+				var s=1, service, knownServices=[];
 				
 				errCounts['invalid tag']=0; errCounts['non unique id']=0; errCounts['num services']=0; errCounts['invalid ServiceGenre']=0;
 				errCounts['duplicate regionID']=0; errCounts['undefined region']=0; errCounts['duplicate channel number']=0; 
@@ -293,7 +378,7 @@ app.get('/check', async function(req,res){
 						// Check @href of ContentAttributes/AudioConformancePoints
 						var cp=1, conf;
 						while (conf=SL.get('//'+SCHEMA_PREFIX+':Service['+s+']/'+SCHEMA_PREFIX+':ServiceInstance['+si+']/'+SCHEMA_PREFIX+':ContentAttributes/'+SCHEMA_PREFIX+':AudioConformancePoint['+cp+']', SL_SCHEMA)) {
-							if (conf.attr('href') && !isIn(allowedAudioSchemes,conf.attr('href').value())) {
+							if (conf.attr('href') && !isIn(allowedAudioConformancePoints,conf.attr('href').value())) {
 								validationErrors.push('invalid value for <AudioConformancePoint> ('+conf.attr('href').value()+')');
 								errCounts['audio codec']++;
 							}
@@ -314,7 +399,7 @@ app.get('/check', async function(req,res){
 						// Check @href of ContentAttributes/VideoConformancePoints
 						cp=1;
 						while (conf=SL.get('//'+SCHEMA_PREFIX+':Service['+s+']/'+SCHEMA_PREFIX+':ServiceInstance['+si+']/'+SCHEMA_PREFIX+':ContentAttributes/'+SCHEMA_PREFIX+':VideoConformancePoint['+cp+']', SL_SCHEMA)) {
-							if (conf.attr('href') && !isIn(allowedVideoSchemes,conf.attr('href').value())) {
+							if (conf.attr('href') && !isIn(allowedVideoConformancePoints,conf.attr('href').value())) {
 								validationErrors.push('invalid value for <VideoConformancePoint> ('+conf.attr('href').value()+')');
 								errCounts['video codec']++;
 							}							
@@ -332,8 +417,8 @@ app.get('/check', async function(req,res){
 							cp++;
 						}
 						
-						si++;
-						
+
+						si++;  // next <ServiceInstance>
 					}
 					
 					var serviceGenre=SL.get('//'+SCHEMA_PREFIX+':Service['+s+']/'+SCHEMA_PREFIX+':ServiceGenre', SL_SCHEMA);
@@ -350,7 +435,8 @@ app.get('/check', async function(req,res){
 							errCounts['invalid ServiceType']++;
 						}
 					}
-					s++;
+					
+					s++;  // next <Service>
 				}
 				
 				var knownRegionIDs=[], RegionList=SL.get('//'+SCHEMA_PREFIX+':RegionList', SL_SCHEMA);
@@ -402,22 +488,15 @@ app.get('/check', async function(req,res){
 		catch (err) {
 			console.log(err);
 		}
-		console.log(validationErrors);
-		console.log(errCounts);
 
-		res.send("BooHa");
-//		res.send("");
+		drawForm(res, req.query.SLurl, {issues:validationErrors, counts:errCounts});
 	}
 	res.end();
-});
+}
 
 
 function checkQuery(req) {
 	if (req.query) {
-		if (req.query.def) {
-			req.query.SLurl= "http://www.satip.info/sites/satip/files/files/ASTRA_19_2_E.xml";
-			return true;
-		}
 		if (req.query.SLurl)
 			return true;
 		
