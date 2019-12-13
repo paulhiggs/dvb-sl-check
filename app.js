@@ -226,6 +226,32 @@ function addRegion(Region, depth, knownRegionIDs, validationErrors, errCounts) {
 	}
 }
 
+function validOutScheduleHours(HowRelated) {
+	// return true if val is a valid CS value for Out of Service Banners (A177 5.2.5.3)
+	// urn:dvb:metadata:cs:HowRelatedCS:2019
+	var val= HowRelated.attr('href') ? HowRelated.attr('href').value() : null;
+	return val==='urn:dvb:metadata:cs:HowRelatedCS:2019:1000.1'	
+}
+
+function validServiceApplication(HowRelated) {
+	// return true if val is a valid CS value for Service Related Applications (A177 5.2.3)
+	// urn:dvb:metadata:cs:LinkedApplicationCS:2019 
+
+	var val= HowRelated.attr('href') ? HowRelated.attr('href').value() : null;
+	return val==='urn:dvb:metadata:cs:LinkedApplicationCS:2019:1.1'
+	    || val==='urn:dvb:metadata:cs:LinkedApplicationCS:2019:1.2'
+	    || val==='urn:dvb:metadata:cs:LinkedApplicationCS:2019:2'
+}
+
+function validServiceLogo(HowRelated) {
+	// return true if val is a valid CS value Service Logos (A177 5.2.6.2)
+	var val= HowRelated.attr('href') ? HowRelated.attr('href').value() : null;
+	
+	return val==='urn:dvb:metadata:cs:HowRelatedCS:2019:1001.2'
+}
+
+
+
 function isEmpty(obj) {
     for(var key in obj) {
         if(obj.hasOwnProperty(key))
@@ -295,6 +321,9 @@ app.post('/check', function(req,res) {
 app.get('/check', function(req,res){
 	processQuery(req,res);
 });
+
+
+
 	
 function processQuery(req,res) {
 	if (isEmpty(req.query)) {
@@ -335,7 +364,7 @@ function processQuery(req,res) {
 
 /*
 			if (!SL.validate(SLschema)){
-				Sl.validatioinErrors.forEach(err => console.log("validation error:", err));
+				Sl.validationErrors.forEach(err => console.log("validation error:", err));
 			};
 */
 			if (SL.root().name() !== 'ServiceList') {
@@ -351,11 +380,26 @@ function processQuery(req,res) {
 				errCounts['duplicate regionID']=0; errCounts['undefined region']=0; errCounts['duplicate channel number']=0; 
 				errCounts['invalid ServiceType']=0; errCounts['audio codec']=0; errCounts['video codec']=0;
 				errCounts['LCN unknown services']=0; errCounts['ccode in subRegion']=0; errCounts['region depth exceeded']=0;
-				errCounts['bad country code']=0;
+				errCounts['bad country code']=0; errCounts['target region']=0; errCounts['no RelatedMaterial']=0;
+				errCounts['no href']=0; errCounts['invalid href']=0;
 				
+				// check <RegionList> and remember regionID values
+				var knownRegionIDs=[], RegionList=SL.get('//'+SCHEMA_PREFIX+':RegionList', SL_SCHEMA);
+				if (RegionList) {
+					// recurse the regionlist - Regions can be nested in Regions
+					var r=1, Region;
+					while (Region=SL.get('//'+SCHEMA_PREFIX+':RegionList/'+SCHEMA_PREFIX+':Region['+r+']', SL_SCHEMA)) {
+						addRegion(Region, 0, knownRegionIDs, validationErrors, errCounts);
+						r++;
+					}
+				}				
+				
+				// check <Service>
 				while (service=SL.get('//'+SCHEMA_PREFIX+':Service['+s+']', SL_SCHEMA)) {
 					// for each service
 					errCounts['num services']=s;
+					
+					// check <Service><UniqueIdentifier>
 					var uID=SL.get('//'+SCHEMA_PREFIX+':Service['+s+']/'+SCHEMA_PREFIX+':UniqueIdentifier', SL_SCHEMA);
 					if (!uID) {
 						validationErrors.push('<UniqueIdentifier> not present for service '+s);
@@ -370,10 +414,35 @@ function processQuery(req,res) {
 						}
 						knownServices.push(uID.text());
 					}
-					
+
+					//check <Service><ServiceInstance>
 					var si=1, ServiceInstance;
 					while (ServiceInstance=SL.get('//'+SCHEMA_PREFIX+':Service['+s+']/'+SCHEMA_PREFIX+':ServiceInstance['+si+']', SL_SCHEMA)) {
 						//for each service instance
+						
+						// check @href of <RelatedMaterial><HowRelated>
+						var rm=1, RelatedMaterial;
+						while (RelatedMaterial=SL.get('//'+SCHEMA_PREFIX+':Service['+s+']/'+SCHEMA_PREFIX+':ServiceInstance['+si+']/'+SCHEMA_PREFIX+':RelatedMaterial['+rm+']', SL_SCHEMA)) {
+							var HowRelated=SL.get('//'+SCHEMA_PREFIX+':Service['+s+']/'+SCHEMA_PREFIX+':ServiceInstance['+si+']/'+SCHEMA_PREFIX+':RelatedMaterial['+rm+']/'+SCHEMA_PREFIX+':HowRelated', SL_SCHEMA);
+							if (HowRelated) {
+								var HRhref=HowRelated.attr('href');
+								if (HRhref) {
+									if (!validOutScheduleHours(HowRelated) || !validServiceApplication(HowRelated) || !validServiceLogo(HowRelated)) {
+										validationErrors.push('invalid @href \"'+HRhref.value()+'\" for <RelatedMaterial> in service \"'+uID.text()+'\"');
+										errCounts['invalid href']++;	
+									}
+								}
+								else {
+									validationErrors.push('no @href specified for <RelatedMaterial><HowRelated> in service instance for service \"'+uID.text()+'\"');
+									errCounts['no href']++;
+								}
+							}
+							else {
+								validationErrors.push('<HowRelated> not specified for <RelatedMaterial> in service instance for service \"'+uID.text()+'\"');
+								errCounts['no RelatedMaterial']++;
+							}
+							rm++;
+						}
 						
 						// Check @href of ContentAttributes/AudioConformancePoints
 						var cp=1, conf;
@@ -421,34 +490,74 @@ function processQuery(req,res) {
 						si++;  // next <ServiceInstance>
 					}
 					
-					var serviceGenre=SL.get('//'+SCHEMA_PREFIX+':Service['+s+']/'+SCHEMA_PREFIX+':ServiceGenre', SL_SCHEMA);
-					if (serviceGenre) {
-						if (!isIn(allowedGenres,serviceGenre.text())) {
-							validationErrors.push('service \"'+uID.text()+'\" has an invalid <ServiceGenre>'+serviceGenre.text());
+					//check <Service><TargetRegion>
+					var tr=1, TargetRegion;
+					while (TargetRegion=SL.get('//'+SCHEMA_PREFIX+':Service['+s+']/'+SCHEMA_PREFIX+':TargetRegion['+tr+']', SL_SCHEMA)) {
+						if (!isIn(knownRegionIDs,TargetRegion.text())) {
+							validationErrors.push('service \"'+uID.text()+'\" has an invalid <TargetRegion>'+TargetRegion.text());
+							errCounts['target region']++;
+						}
+						tr++;
+					}
+					
+					//check <Service><RelatedMaterial>
+					var rm=1, RelatedMaterial;
+					while (RelatedMaterial=SL.get('//'+SCHEMA_PREFIX+':Service['+s+']/'+SCHEMA_PREFIX+':RelatedMaterial['+rm+']', SL_SCHEMA)) {
+						var HowRelated=SL.get('//'+SCHEMA_PREFIX+':Service['+s+']/'+SCHEMA_PREFIX+':RelatedMaterial['+rm+']/'+SCHEMA_PREFIX+':HowRelated', SL_SCHEMA);
+						if (HowRelated) {
+							var HRhref=HowRelated.attr('href');
+							if (HRhref) {
+								if (!validOutScheduleHours(HowRelated) || !validServiceApplication(HowRelated) || !validServiceLogo(HowRelated)) {
+									validationErrors.push('invalid @href \"'+HRhref.value()+'\" for <RelatedMaterial> in service \"'+uID.text()+'\"');
+									errCounts['invalid href']++;
+								}
+							}
+							else {
+								validationErrors.push('no @href specified for <RelatedMaterial><HowRelated> in service \"'+uID.text()+'\"');
+								errCounts['no href']++;
+							}
+						}
+						else {
+							validationErrors.push('<HowRelated> not specified for <RelatedMaterial> in service \"'+uID.text()+'\"');
+							errCounts['no RelatedMaterial']++;
+						}
+						rm++;
+					}					
+
+					//check <Service><ServiceGenre>
+					var ServiceGenre=SL.get('//'+SCHEMA_PREFIX+':Service['+s+']/'+SCHEMA_PREFIX+':ServiceGenre', SL_SCHEMA);
+					if (ServiceGenre) {
+						if (!isIn(allowedGenres,ServiceGenre.text())) {
+							validationErrors.push('service \"'+uID.text()+'\" has an invalid <ServiceGenre>'+ServiceGenre.text());
 							errCounts['invalid ServiceGenre']++;
 						}
 					}
-					var serviceType=SL.get('//'+SCHEMA_PREFIX+':Service['+s+']/'+SCHEMA_PREFIX+':ServiceType', SL_SCHEMA);
-					if (serviceType) {
-						if (!isIn(allowedServiceTypes,serviceType.attr('href').value())) {
-							validationErrors.push('service \"'+uID.text()+'\" has an invalid <ServiceType>'+serviceType.attr('href').value());
+					
+					//check <Service><ServiceType>					
+					var ServiceType=SL.get('//'+SCHEMA_PREFIX+':Service['+s+']/'+SCHEMA_PREFIX+':ServiceType', SL_SCHEMA);
+					if (ServiceType) {
+						if (!isIn(allowedServiceTypes,ServiceType.attr('href').value())) {
+							validationErrors.push('service \"'+uID.text()+'\" has an invalid <ServiceType>'+ServiceType.attr('href').value());
 							errCounts['invalid ServiceType']++;
 						}
 					}
 					
 					s++;  // next <Service>
 				}
-				
-				var knownRegionIDs=[], RegionList=SL.get('//'+SCHEMA_PREFIX+':RegionList', SL_SCHEMA);
-				if (RegionList) {
-					// recurse the regionlist - Regions can be nested in Regions
-					var r=1, Region;
-					while (Region=SL.get('//'+SCHEMA_PREFIX+':RegionList/'+SCHEMA_PREFIX+':Region['+r+']', SL_SCHEMA)) {
-						addRegion(Region, 0, knownRegionIDs, validationErrors, errCounts);
-						r++;
+
+				//check <TargetRegion> for the service list
+				var tr=1, TargetRegion;
+				while (TargetRegion=SL.get('//'+SCHEMA_PREFIX+':ServiceList/'+SCHEMA_PREFIX+':TargetRegion['+tr+']', SL_SCHEMA)) {
+					if (!isIn(knownRegionIDs,TargetRegion.text())) {
+						validationErrors.push('service list has an invalid <TargetRegion>'+TargetRegion.text());
+						errCounts['target region']++;
 					}
+					tr++;
 				}
-				
+
+
+					
+				// check <LCNTableList>
 				var LCNtableList=SL.get('//'+SCHEMA_PREFIX+':LCNTableList', SL_SCHEMA);
 				if (LCNtableList) {
 					var l=1, LCNTable;
@@ -457,7 +566,7 @@ function processQuery(req,res) {
 						var tr=1, TargetRegion, lastTargetRegion="";
 						while (TargetRegion=SL.get('//'+SCHEMA_PREFIX+':LCNTableList/'+SCHEMA_PREFIX+':LCNTable['+l+']/'+SCHEMA_PREFIX+':TargetRegion['+tr+']', SL_SCHEMA)) {
 							if (!isIn(knownRegionIDs, TargetRegion.text())) {
-								validationErrors.push('TargetRegion '+TargetRegion.text()+'for LCNTable is not defined');
+								validationErrors.push('<TargetRegion> '+TargetRegion.text()+'for LCNTable is not defined');
 								errCounts['undefined region']++;
 							}
 							lastTargetRegion=TargetRegion.text();
