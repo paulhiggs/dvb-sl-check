@@ -78,7 +78,7 @@ const MAX_SUBREGION_LEVELS=3; // definied for <RegionElement> in Table 33 of A17
 
 
 class ErrorList {
-	counts = [];
+	counts=[]; messages=[];
 	
 	increment(key) {
 		if (this.counts[key]===undefined)
@@ -87,6 +87,11 @@ class ErrorList {
 	}
 	set(key,value) {
 		this.counts[key]=value;
+	}
+	
+	push(message) {
+		console.log('-->', message)
+		this.messages.push(message);
 	}
 }
 
@@ -222,17 +227,17 @@ function uniqueServiceIdentifier(identifier,identifiers) {
 	return !isIn(identifiers,identifier);
 }
 
-function addRegion(Region, depth, knownRegionIDs, validationErrors, errs) {
+function addRegion(Region, depth, knownRegionIDs, errs) {
 	var regionID=Region.attr('regionID').value();
 	var countryCodeSpecified=Region.attr('countryCodes');
 	if (isIn(knownRegionIDs, regionID)) {
-		validationErrors.push('Duplicate RegionID \"'+regionID+'\"');
+		errs.push('Duplicate RegionID \"'+regionID+'\"');
 		errs.increment('duplicate regionID')
 	}
 	else knownRegionIDs.push(regionID);	
 	
 	if ((depth != 0) && countryCodeSpecified) {
-		validationErrors.push('@countryCodes not permitted for sub-region \"'+regionID+'\"');
+		errs.push('@countryCodes not permitted for sub-region \"'+regionID+'\"');
 		errs.increment('ccode in subRegion');
 	}
 	
@@ -240,14 +245,14 @@ function addRegion(Region, depth, knownRegionIDs, validationErrors, errs) {
 		var countries=countryCodeSpecified.value().split(",");
 		countries.forEach(country => {
 			if (!isISO3166code(country)) {
-				validationErrors.push('invalid country code ('+country+') for region \"'+regionID+'\"');
+				errs.push('invalid country code ('+country+') for region \"'+regionID+'\"');
 				errs.increment('bad country code');	
 			}
 		});
 	}
 	
 	if (depth > MAX_SUBREGION_LEVELS) {
-		validationErrors.push('<Region> depth exceeded (>'+MAX_SUBREGION_LEVELS+') for sub-region \"'+regionID+'\"');
+		errs.push('<Region> depth exceeded (>'+MAX_SUBREGION_LEVELS+') for sub-region \"'+regionID+'\"');
 		errs.increment('region depth exceeded');
 	}
 	
@@ -255,7 +260,7 @@ function addRegion(Region, depth, knownRegionIDs, validationErrors, errs) {
 	while ((RegionChild=Region.child(i)) != null) {
 		if (RegionChild.type()==='element' && RegionChild.name()=='Region') {
 			// its a child Region
-			addRegion(RegionChild,depth+1,knownRegionIDs,validationErrors,errs);
+			addRegion(RegionChild,depth+1,knownRegionIDs,errs);
 		}
 		i++;
 	}
@@ -295,7 +300,7 @@ function validContentGuideSourceLogo(HowRelated) {
 	return val==LOGO_CG_PROVIDER
 }
 
-function checkValidLogo(HowRelated,Format,MediaLocator,validationErrors,errs,Location,LocationType,SCHEMA_PREFIX,SL_SCHEMA)
+function checkValidLogo(HowRelated,Format,MediaLocator,errs,Location,LocationType,SCHEMA_PREFIX,SL_SCHEMA)
 {
 	// irrespective of the HowRelated@href, all logos have specific requirements
 	var isJPEG=false, isPNG=false;
@@ -310,29 +315,29 @@ function checkValidLogo(HowRelated,Format,MediaLocator,validationErrors,errs,Loc
 			if (child.name() == 'StillPictureFormat') {
 				hasStillPictureFormat=true;
 				if (!child.attr('horizontalSize')) {
-					validationErrors.push('@horizontalSize not specified for <RelatedMaterial><Format><StillPictureFormat> in '+Location );
+					errs.push('@horizontalSize not specified for <RelatedMaterial><Format><StillPictureFormat> in '+Location );
 					errs.increment('no @horizontalSize');
 				}
 				if (!child.attr('verticalSize')) {
-					validationErrors.push('@verticalSize not specified for <RelatedMaterial><Format><StillPictureFormat> in '+Location );
+					errs.push('@verticalSize not specified for <RelatedMaterial><Format><StillPictureFormat> in '+Location );
 					errs.increment('no @verticalSize');
 				}
 				if (child.attr('href')) {
 					if (child.attr('href').value() != JPEG_IMAGE_CS_VALUE && child.attr('href').value() != PNG_IMAGE_CS_VALUE) {
-						validationErrors.push('invalid @href \"'+child.attr('href').value()+'\" specified for <RelatedMaterial><Format><StillPictureFormat> in '+Location);
+						errs.push('invalid @href \"'+child.attr('href').value()+'\" specified for <RelatedMaterial><Format><StillPictureFormat> in '+Location);
 						errs.increment('invalid href');				
 					}
 					if (child.attr('href').value() == JPEG_IMAGE_CS_VALUE) isJPEG=true;
 					if (child.attr('href').value() == PNG_IMAGE_CS_VALUE) isPNG=true;
 				}
 				else {
-					validationErrors.push('no @href specified for <RelatedMaterial><Format> in '+Location);
+					errs.push('no @href specified for <RelatedMaterial><Format> in '+Location);
 					errs.increment('no href');
 				}
 			}
 		});
 		if (!hasStillPictureFormat) {
-			validationErrors.push('<StillPictureFormat> not specified for <Format> in '+Location);
+			errs.push('<StillPictureFormat> not specified for <Format> in '+Location);
 			errs.increment('no StillPictureFormat');
 		}		
 	}
@@ -343,37 +348,37 @@ function checkValidLogo(HowRelated,Format,MediaLocator,validationErrors,errs,Loc
 			if (child.name()=='MediaUri') {
 				hasMediaURI=true;
 				if (!child.attr('contentType')) {
-					validationErrors.push('@contentType not specified for logo <MediaUri> in '+Location);
+					errs.push('@contentType not specified for logo <MediaUri> in '+Location);
 					errs.increment('unspecified MediaUri@contentType');
 				}
 				else {
 					if (child.attr('contentType').value()!=JPEG_MIME && child.attr('contentType').value()!=PNG_MIME) {
-						validationErrors.push('invalid @contentType \"'+child.attr('contentType').value()+'\" specified for <RelatedMaterial><MediaLocator> in '+Location);
+						errs.push('invalid @contentType \"'+child.attr('contentType').value()+'\" specified for <RelatedMaterial><MediaLocator> in '+Location);
 						errs.increment('invalid MediaUri@contentType');
 					}
 					if (Format && ((child.attr('contentType').value()==JPEG_MIME && !isJPEG) ||
 						           (child.attr('contentType').value()==PNG_MIME && !isPNG))){
-						validationErrors.push('conflicting media types in <Format> and <MediaUri> for '+Location);
+						errs.push('conflicting media types in <Format> and <MediaUri> for '+Location);
 						errs.increment('conflicting mime types');
 					}	
 				}
 			}
 		});
 		if (!hasMediaURI) {
-			validationErrors.push('<MediaUri> not specified for logo <MediaLocator> in '+Location);
+			errs.push('<MediaUri> not specified for logo <MediaLocator> in '+Location);
 			errs.increment('no MediaUri');
 		}
 	}
 	else {
-		validationErrors.push('MediaLocator not specified for <RelatedMaterial> in '+Location);
+		errs.push('MediaLocator not specified for <RelatedMaterial> in '+Location);
 		errs.increment('no MediaLocator');
 	}
 }
 
-function checkSignalledApplication(HowRelated,Format,MediaLocator,validationErrors,errs,Location,LocationType,SCHEMA_PREFIX,SL_SCHEMA)
+function checkSignalledApplication(HowRelated,Format,MediaLocator,errs,Location,LocationType,SCHEMA_PREFIX,SL_SCHEMA)
 {
 	if (!MediaLocator) {
-		validationErrors.push('application <MediaLocator><MediaUri> not defined for application in '+Location);
+		errs.push('application <MediaLocator><MediaUri> not defined for application in '+Location);
 		errs.increment('no MediaUri')
 	}
 	else {
@@ -382,27 +387,27 @@ function checkSignalledApplication(HowRelated,Format,MediaLocator,validationErro
 			if (child.name()=='MediaUri') {
 				hasMediaURI=true;
 				if (!child.attr('contentType')) {
-					validationErrors.push('@contentType not specified for <MediaUri> in '+Location);
+					errs.push('@contentType not specified for <MediaUri> in '+Location);
 					errs.increment('unspecified MediaUri@contentType');
 				}
 				else {
 					if (child.attr('contentType').value()!=DVB_AIT) {
-						validationErrors.push('!@contentType \"'+child.attr('contentType').value()+'\" is not DVB AIT for <RelatedMaterial><MediaLocator> in '+Location);
+						errs.push('!@contentType \"'+child.attr('contentType').value()+'\" is not DVB AIT for <RelatedMaterial><MediaLocator> in '+Location);
 						errs.increment('!invalid MediaUri@contentType');
 					}
 				}
 			}
 		});
 		if (!hasMediaURI) {
-			validationErrors.push('<MediaUri> not specified for application <MediaLocator> in '+Location);
+			errs.push('<MediaUri> not specified for application <MediaLocator> in '+Location);
 			errs.increment('no MediaUri');
 		}
 		
 	}
 }
 
-function validateRelatedMaterial(RelatedMaterial,validationErrors,errs,Location,LocationType,SCHEMA_PREFIX,SL_SCHEMA) {
-	
+function validateRelatedMaterial(RelatedMaterial,errs,Location,LocationType,SCHEMA_PREFIX,SL_SCHEMA) 
+{
 	var HowRelated=null, Format=null, MediaLocator=null;
 	var elem=RelatedMaterial.child(0);
 	while (elem) {
@@ -417,7 +422,7 @@ function validateRelatedMaterial(RelatedMaterial,validationErrors,errs,Location,
 	}
 		
 	if (!HowRelated) {
-		validationErrors.push('<HowRelated> not specified for <RelatedMaterial> in '+Location);
+		errs.push('<HowRelated> not specified for <RelatedMaterial> in '+Location);
 		errs.increment('no HowRelated');		
 	}		
 	else {
@@ -425,37 +430,37 @@ function validateRelatedMaterial(RelatedMaterial,validationErrors,errs,Location,
 		if (HRhref) {
 			if (LocationType=="service list") {
 				if (!validServiceListLogo(HowRelated)) {
-					validationErrors.push('invalid @href \"'+HRhref.value()+'\" for <RelatedMaterial> in '+Location);
+					errs.push('invalid @href \"'+HRhref.value()+'\" for <RelatedMaterial> in '+Location);
 					errs.increment('invalid href');
 				}
 				else {
-					checkValidLogo(HowRelated,Format,MediaLocator,validationErrors,errs,Location,LocationType,SCHEMA_PREFIX,SL_SCHEMA);
+					checkValidLogo(HowRelated,Format,MediaLocator,errs,Location,LocationType,SCHEMA_PREFIX,SL_SCHEMA);
 				}
 			}
 			if (LocationType=="service") {
 				if (!(validOutScheduleHours(HowRelated) || validServiceApplication(HowRelated) || validServiceLogo(HowRelated))) {
-					validationErrors.push('invalid @href \"'+HRhref.value()+'\" for <RelatedMaterial> in '+Location);
+					errs.push('invalid @href \"'+HRhref.value()+'\" for <RelatedMaterial> in '+Location);
 					errs.increment('invalid href');
 				}
 				else {
 					if (validServiceLogo(HowRelated)||validOutScheduleHours(HowRelated))
-						checkValidLogo(HowRelated,Format,MediaLocator,validationErrors,errs,Location,LocationType,SCHEMA_PREFIX,SL_SCHEMA);
+						checkValidLogo(HowRelated,Format,MediaLocator,errs,Location,LocationType,SCHEMA_PREFIX,SL_SCHEMA);
 					if (validServiceApplication(HowRelated))
-						checkSignalledApplication(HowRelated,Format,MediaLocator,validationErrors,errs,Location,LocationType,SCHEMA_PREFIX,SL_SCHEMA);
+						checkSignalledApplication(HowRelated,Format,MediaLocator,errs,Location,LocationType,SCHEMA_PREFIX,SL_SCHEMA);
 				}
 			}
 			if (LocationType=="content guide") {
 				if (!validContentGuideLogo(HowRelated)) {
-					validationErrors.push('invalid @href \"'+HRhref.value()+'\" for <RelatedMaterial> in '+Location);
+					errs.push('invalid @href \"'+HRhref.value()+'\" for <RelatedMaterial> in '+Location);
 					errs.increment('invalid href');
 				}
 				else {
-					checkValidLogo(HowRelated,Format,MediaLocator,validationErrors,errs,Location,LocationType,SCHEMA_PREFIX,SL_SCHEMA);
+					checkValidLogo(HowRelated,Format,MediaLocator,errs,Location,LocationType,SCHEMA_PREFIX,SL_SCHEMA);
 				}
 			}	
 		}
 		else {
-			validationErrors.push('no @href specified for <RelatedMaterial><HowRelated> in '+Location);
+			errs.push('no @href specified for <RelatedMaterial><HowRelated> in '+Location);
 			errs.increment('no href');
 		}
 	}
@@ -486,24 +491,23 @@ function drawForm(res, lastURL, o) {
 			res.write('<p>'+o.error+'</p>');
 		}
 		var resultsShown=false;
-		if (o.counts) {
+		if (o.errors) {
 			var tableHeader=false;
-			for (var i in o.counts.counts) {
-				if (o.counts.counts[i] != 0) {
+			for (var i in o.errors.counts) {
+				if (o.errors.counts[i] != 0) {
 					if (!tableHeader) {
 						res.write('<table><tr><th>item</th><th>count</th></tr>');
 						tableHeader=true;
 					}
 					var t = i.startsWith('!') ? i.substr(1) : i;
-					res.write('<tr><td>'+t+'</td><td>'+o.counts.counts[i]+'</td></tr>');
+					res.write('<tr><td>'+t+'</td><td>'+o.errors.counts[i]+'</td></tr>');
 					resultsShown=true;
 				}
 			}
 			if (tableHeader) res.write('</table>');
-		}
-		if (o.issues) {
-			var tableHeader=false;
-			o.issues.forEach(function(value)
+
+			tableHeader=false;
+			o.errors.messages.forEach(function(value)
 			{
 				if (!value.startsWith('!')) {
 					if (!tableHeader) {
@@ -518,7 +522,7 @@ function drawForm(res, lastURL, o) {
 			if (tableHeader) res.write('</table>');
 			
 			tableHeader=false;
-			o.issues.forEach(function(value)
+			o.errors.messages.forEach(function(value)
 			{
 				if (value.startsWith('!')) {
 					if (!tableHeader) {
@@ -560,20 +564,20 @@ function processQuery(req,res) {
 		res.status(400);
 	}
 	else {
-		var validationErrors=[], SL, SLxml;
+		var SL, SLxml;
 		var errs=new ErrorList();
 		try {
 			SLxml = syncRequest('GET', req.query.SLurl);
 		}
 		catch (err) {
-			validationErrors.push('retrieval of URL ('+req.query.SLurl+') failed');
+			errs.push('retrieval of URL ('+req.query.SLurl+') failed');
 			SLxml = null;
 		}
 		if (SLxml) try {
 			SL = libxml.parseXmlString(SLxml.getBody().toString().replace(/(\r\n|\n|\r|\t)/gm,""));
 			for (err in SL.errors) {
 				console.log('XML parsing failed');
-				validationErrors.push('XML parsing failed');
+				errs.push('XML parsing failed');
 			}
 			// check the retrieved service list against the schema
 			// https://syssgx.github.io/xml.js/
@@ -592,11 +596,11 @@ function processQuery(req,res) {
 
 /*
 			if (!SL.validate(SLschema)){
-				Sl.validationErrors.forEach(err => console.log("validation error:", err));
+				SL.validationErrors.forEach(err => console.log("validation error:", err));
 			};
 */
 			if (SL.root().name() !== 'ServiceList') {
-				validationErrors.push('Root element is not <ServiceList>.');
+				errs.push('Root element is not <ServiceList>.');
 			}
 			else {
 				var SL_SCHEMA = {}, SCHEMA_PREFIX=SL.root().namespace().prefix();
@@ -611,7 +615,7 @@ function processQuery(req,res) {
 					// recurse the regionlist - Regions can be nested in Regions
 					var r=1, Region;
 					while (Region=SL.get('//'+SCHEMA_PREFIX+':RegionList/'+SCHEMA_PREFIX+':Region['+r+']', SL_SCHEMA)) {
-						addRegion(Region, 0, knownRegionIDs, validationErrors, errs);
+						addRegion(Region, 0, knownRegionIDs, errs);
 						r++;
 					}
 				}				
@@ -619,7 +623,7 @@ function processQuery(req,res) {
 				//check <RelatedMaterial> for service list
 				var rm=1, RelatedMaterial;
 				while (RelatedMaterial=SL.get('//'+SCHEMA_PREFIX+':ServiceList/'+SCHEMA_PREFIX+':RelatedMaterial['+rm+']', SL_SCHEMA)) {
-					validateRelatedMaterial(RelatedMaterial,validationErrors,errs,'service list', 'service list', SCHEMA_PREFIX, SL_SCHEMA);
+					validateRelatedMaterial(RelatedMaterial,errs,'service list', 'service list', SCHEMA_PREFIX, SL_SCHEMA);
 					rm++;
 				}					
 				
@@ -631,14 +635,14 @@ function processQuery(req,res) {
 					// check <Service><UniqueIdentifier>
 					var uID=SL.get('//'+SCHEMA_PREFIX+':Service['+s+']/'+SCHEMA_PREFIX+':UniqueIdentifier', SL_SCHEMA);
 					if (!uID) {
-						validationErrors.push('<UniqueIdentifier> not present for service '+s);
+						errs.push('<UniqueIdentifier> not present for service '+s);
 					} else{
 						if (!validServiceIdentifier(uID.text())) {
-							validationErrors.push('\"'+uID.text()+'\" is not a valid identifier');
+							errs.push('\"'+uID.text()+'\" is not a valid identifier');
 							errs.increment('invalid tag');
 						}
 						if (!uniqueServiceIdentifier(uID.text(),knownServices)) {
-							validationErrors.push('\"'+uID.text()+'\" is not unique');
+							errs.push('\"'+uID.text()+'\" is not unique');
 							errs.increment('non unique id');
 						}
 						knownServices.push(uID.text());
@@ -652,7 +656,7 @@ function processQuery(req,res) {
 						// check @href of <RelatedMaterial><HowRelated>
 						var rm=1, RelatedMaterial;
 						while (RelatedMaterial=SL.get('//'+SCHEMA_PREFIX+':Service['+s+']/'+SCHEMA_PREFIX+':ServiceInstance['+si+']/'+SCHEMA_PREFIX+':RelatedMaterial['+rm+']', SL_SCHEMA)) {
-							validateRelatedMaterial(RelatedMaterial,validationErrors,errs,'service instance of \"'+uID.text()+'\"', 'service', SCHEMA_PREFIX, SL_SCHEMA);
+							validateRelatedMaterial(RelatedMaterial,errs,'service instance of \"'+uID.text()+'\"', 'service', SCHEMA_PREFIX, SL_SCHEMA);
 							rm++;
 						}
 						
@@ -660,7 +664,7 @@ function processQuery(req,res) {
 						var cp=1, conf;
 						while (conf=SL.get('//'+SCHEMA_PREFIX+':Service['+s+']/'+SCHEMA_PREFIX+':ServiceInstance['+si+']/'+SCHEMA_PREFIX+':ContentAttributes/'+SCHEMA_PREFIX+':AudioConformancePoint['+cp+']', SL_SCHEMA)) {
 							if (conf.attr('href') && !isIn(allowedAudioConformancePoints,conf.attr('href').value())) {
-								validationErrors.push('invalid value for <AudioConformancePoint> ('+conf.attr('href').value()+')');
+								errs.push('invalid value for <AudioConformancePoint> ('+conf.attr('href').value()+')');
 								errs.increment('audio conf point');
 							}
 							cp++;
@@ -670,7 +674,7 @@ function processQuery(req,res) {
 						cp=1;
 						while (conf=SL.get('//'+SCHEMA_PREFIX+':Service['+s+']/'+SCHEMA_PREFIX+':ServiceInstance['+si+']/'+SCHEMA_PREFIX+':ContentAttributes/'+SCHEMA_PREFIX+':AudioAttributes['+cp+']/*', SL_SCHEMA)) {
 							if (conf.name()==='Coding' && conf.attr('href') && !isIn(allowedAudioSchemes,conf.attr('href').value())) {
-								validationErrors.push('invalid value for <AudioAttributes> ('+conf.attr('href').value()+')');
+								errs.push('invalid value for <AudioAttributes> ('+conf.attr('href').value()+')');
 								errs.increment('audio codec');
 							}
 							cp++;
@@ -680,7 +684,7 @@ function processQuery(req,res) {
 						cp=1;
 						while (conf=SL.get('//'+SCHEMA_PREFIX+':Service['+s+']/'+SCHEMA_PREFIX+':ServiceInstance['+si+']/'+SCHEMA_PREFIX+':ContentAttributes/'+SCHEMA_PREFIX+':VideoConformancePoint['+cp+']', SL_SCHEMA)) {
 							if (conf.attr('href') && !isIn(allowedVideoConformancePoints,conf.attr('href').value())) {
-								validationErrors.push('invalid value for <VideoConformancePoint> ('+conf.attr('href').value()+')');
+								errs.push('invalid value for <VideoConformancePoint> ('+conf.attr('href').value()+')');
 								errs.increment('video conf point');
 							}							
 							cp++;
@@ -691,7 +695,7 @@ function processQuery(req,res) {
 						while (conf=SL.get('//'+SCHEMA_PREFIX+':Service['+s+']/'+SCHEMA_PREFIX+':ServiceInstance['+si+']/'+SCHEMA_PREFIX+':ContentAttributes/'+SCHEMA_PREFIX+':VideoAttributes['+cp+']/*', SL_SCHEMA)) {
 							// console.log('found VideoAttributes/'+conf.namespace().prefix()+':'+conf.name());
 							if (conf.name()==='Coding' && conf.attr('href') && !isIn(allowedVideoSchemes,conf.attr('href').value())) {
-								validationErrors.push('invalid value for <VideoAttributes> ('+conf.attr('href').value()+')');
+								errs.push('invalid value for <VideoAttributes> ('+conf.attr('href').value()+')');
 								errs.increment('video codec');
 							}
 							cp++;
@@ -705,7 +709,7 @@ function processQuery(req,res) {
 					var tr=1, TargetRegion;
 					while (TargetRegion=SL.get('//'+SCHEMA_PREFIX+':Service['+s+']/'+SCHEMA_PREFIX+':TargetRegion['+tr+']', SL_SCHEMA)) {
 						if (!isIn(knownRegionIDs,TargetRegion.text())) {
-							validationErrors.push('service \"'+uID.text()+'\" has an invalid <TargetRegion>'+TargetRegion.text());
+							errs.push('service \"'+uID.text()+'\" has an invalid <TargetRegion>'+TargetRegion.text());
 							errs.increment('target region');
 						}
 						tr++;
@@ -714,7 +718,7 @@ function processQuery(req,res) {
 					//check <Service><RelatedMaterial>
 					var rm=1, RelatedMaterial;
 					while (RelatedMaterial=SL.get('//'+SCHEMA_PREFIX+':Service['+s+']/'+SCHEMA_PREFIX+':RelatedMaterial['+rm+']', SL_SCHEMA)) {
-						validateRelatedMaterial(RelatedMaterial,validationErrors,errs,'service \"'+uID.text()+'\"', 'service', SCHEMA_PREFIX, SL_SCHEMA);
+						validateRelatedMaterial(RelatedMaterial,errs,'service \"'+uID.text()+'\"', 'service', SCHEMA_PREFIX, SL_SCHEMA);
 						rm++;
 					}					
 
@@ -722,7 +726,7 @@ function processQuery(req,res) {
 					var ServiceGenre=SL.get('//'+SCHEMA_PREFIX+':Service['+s+']/'+SCHEMA_PREFIX+':ServiceGenre', SL_SCHEMA);
 					if (ServiceGenre) {
 						if (!isIn(allowedGenres,ServiceGenre.text())) {
-							validationErrors.push('service \"'+uID.text()+'\" has an invalid <ServiceGenre>'+ServiceGenre.text());
+							errs.push('service \"'+uID.text()+'\" has an invalid <ServiceGenre>'+ServiceGenre.text());
 							errs.increment('invalid ServiceGenre');
 						}
 					}
@@ -731,7 +735,7 @@ function processQuery(req,res) {
 					var ServiceType=SL.get('//'+SCHEMA_PREFIX+':Service['+s+']/'+SCHEMA_PREFIX+':ServiceType', SL_SCHEMA);
 					if (ServiceType) {
 						if (!isIn(allowedServiceTypes,ServiceType.attr('href').value())) {
-							validationErrors.push('service \"'+uID.text()+'\" has an invalid <ServiceType>'+ServiceType.attr('href').value());
+							errs.push('service \"'+uID.text()+'\" has an invalid <ServiceType>'+ServiceType.attr('href').value());
 							errs.increment('invalid ServiceType');
 						}
 					}
@@ -743,7 +747,7 @@ function processQuery(req,res) {
 				var tr=1, TargetRegion;
 				while (TargetRegion=SL.get('//'+SCHEMA_PREFIX+':ServiceList/'+SCHEMA_PREFIX+':TargetRegion['+tr+']', SL_SCHEMA)) {
 					if (!isIn(knownRegionIDs,TargetRegion.text())) {
-						validationErrors.push('service list has an invalid <TargetRegion>'+TargetRegion.text());
+						errs.push('service list has an invalid <TargetRegion>'+TargetRegion.text());
 						errs.increment('target region');
 					}
 					tr++;
@@ -760,7 +764,7 @@ function processQuery(req,res) {
 						var tr=1, TargetRegion, lastTargetRegion="";
 						while (TargetRegion=SL.get('//'+SCHEMA_PREFIX+':LCNTableList/'+SCHEMA_PREFIX+':LCNTable['+l+']/'+SCHEMA_PREFIX+':TargetRegion['+tr+']', SL_SCHEMA)) {
 							if (!isIn(knownRegionIDs, TargetRegion.text())) {
-								validationErrors.push('<TargetRegion> '+TargetRegion.text()+' in LCNTable is not defined');
+								errs.push('<TargetRegion> '+TargetRegion.text()+' in LCNTable is not defined');
 								errs.increment('undefined region');
 							}
 							lastTargetRegion=TargetRegion.text();
@@ -770,13 +774,13 @@ function processQuery(req,res) {
 						var LCNNumbers=[],e=1,LCN;
 						while (LCN=SL.get('//'+SCHEMA_PREFIX+':LCNTableList/'+SCHEMA_PREFIX+':LCNTable['+l+']/'+SCHEMA_PREFIX+':LCN['+e+']', SL_SCHEMA)) {
 							if (isIn(LCNNumbers,LCN.attr('channelNumber').value())) {
-								validationErrors.push('duplicated channel number '+LCN.attr('channelNumber').value()+' for <TargetRegion>'+lastTargetRegion);
+								errs.push('duplicated channel number '+LCN.attr('channelNumber').value()+' for <TargetRegion>'+lastTargetRegion);
 								errs.increment('duplicate channel number');
 							} 
 							else LCNNumbers.push(LCN.attr('channelNumber').value());
 
 							if (!isIn(knownServices,LCN.attr('serviceRef').value())) {
-								validationErrors.push('LCN reference to unknown service '+LCN.attr('serviceRef').value());
+								errs.push('LCN reference to unknown service '+LCN.attr('serviceRef').value());
 								errs.increment('LCN unknown services');
 							}
 							e++;
@@ -792,7 +796,7 @@ function processQuery(req,res) {
 			console.log(err);
 		}
 
-		drawForm(res, req.query.SLurl, {issues:validationErrors, counts:errs});
+		drawForm(res, req.query.SLurl, {errors:errs});
 	}
 	res.end();
 }
