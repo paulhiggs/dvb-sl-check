@@ -47,7 +47,21 @@ const JPEG_IMAGE_CS_VALUE = 'urn:mpeg:mpeg7:cs:FileFormatCS:2001:1',
 	  PNG_IMAGE_CS_VALUE =  'urn:mpeg:mpeg7:cs:FileFormatCS:2001:15';
 
 const JPEG_MIME = 'image/jpg',
-	  PNG_MIME =  'image/png';
+	  PNG_MIME =  'image/png',
+	  DVB_AIT =   'application/vnd.dvb.ait+xml';
+
+// A177 7.3.2	  
+const LINKED_APLICATION_CS = 'urn:dvb:metadata:cs:LinkedApplicationCS:2019'
+      APP_IN_PARALLEL = LINKED_APLICATION_CS+':1.1',
+      APP_IN_CONTROL  = LINKED_APLICATION_CS+':1.2',
+	  APP_OUTSIDE_AVAILABILITY = LINKED_APLICATION_CS+':2';
+
+// A177 7.3.1
+const DVB_RELATED_CS = 'urn:dvb:metadata:cs:HowRelatedCS:2019',
+      LOGO_OUTSIDE_AVAILABILITY = DVB_RELATED_CS+':1000.1',
+	  LOGO_SERVICE_LIST = DVB_RELATED_CS+':1001.1',
+	  LOGO_SERVICE = DVB_RELATED_CS+':1001.2',
+	  LOGO_CG_PROVIDER = DVB_RELATED_CS+':1002.1';
 	  
 var allowedGenres=[], allowedServiceTypes=[], allowedAudioSchemes=[], allowedVideoSchemes=[], allowedCountries=[], allowedAudioConformancePoints=[], allowedVideoConformancePoints=[];
 
@@ -240,42 +254,42 @@ function addRegion(Region, depth, knownRegionIDs, validationErrors, errCounts) {
 	}
 }
 
-
 function validServiceApplication(HowRelated) {
 	// return true if val is a valid CS value for Service Related Applications (A177 5.2.3)
 	// urn:dvb:metadata:cs:LinkedApplicationCS:2019 
 	var val= HowRelated.attr('href') ? HowRelated.attr('href').value() : null;
-	return val=='urn:dvb:metadata:cs:LinkedApplicationCS:2019:1.1'
-	    || val=='urn:dvb:metadata:cs:LinkedApplicationCS:2019:1.2'
-	    || val=='urn:dvb:metadata:cs:LinkedApplicationCS:2019:2'
+	return val==APP_IN_PARALLEL
+	    || val==APP_IN_CONTROL
+	    || val==APP_OUTSIDE_AVAILABILITY
 }
 
 function validOutScheduleHours(HowRelated) {
 	// return true if val is a valid CS value for Out of Service Banners (A177 5.2.5.3)
 	// urn:dvb:metadata:cs:HowRelatedCS:2019
 	var val= HowRelated.attr('href') ? HowRelated.attr('href').value() : null;
-	return val=='urn:dvb:metadata:cs:HowRelatedCS:2019:1000.1'	
+	return val==LOGO_OUTSIDE_AVAILABILITY	
 }
 
 function validServiceListLogo(HowRelated) {
 	// return true if val is a valid CS value Service List Logo (A177 5.2.6.1)
 	var val= HowRelated.attr('href') ? HowRelated.attr('href').value() : null;
-	return val=='urn:dvb:metadata:cs:HowRelatedCS:2019:1001.1'
+	return val==LOGO_SERVICE_LIST
 }
 
 function validServiceLogo(HowRelated) {
 	// return true if val is a valid CS value Service Logo (A177 5.2.6.2)
 	var val= HowRelated.attr('href') ? HowRelated.attr('href').value() : null;
-	return val=='urn:dvb:metadata:cs:HowRelatedCS:2019:1001.2'
+	return val==LOGO_SERVICE
 }
 
 function validContentGuideSourceLogo(HowRelated) {
 	// return true if val is a valid CS value Service Logo (A177 5.2.6.3)
 	var val= HowRelated.attr('href') ? HowRelated.attr('href').value() : null;
-	return val=='urn:dvb:metadata:cs:HowRelatedCS:2019:1002.2'
+	return val==LOGO_CG_PROVIDER
 }
 
-function checkValidLogo(HowRelated,Format,MediaLocator,validationErrors,errCounts,Location,LocationType,SCHEMA_PREFIX,SL_SCHEMA) {
+function checkValidLogo(HowRelated,Format,MediaLocator,validationErrors,errCounts,Location,LocationType,SCHEMA_PREFIX,SL_SCHEMA)
+{
 	// irrespective of the HowRelated@href, all logos have specific requirements
 	var isJPEG=false, isPNG=false;
 
@@ -322,7 +336,7 @@ function checkValidLogo(HowRelated,Format,MediaLocator,validationErrors,errCount
 			if (child.name()=='MediaUri') {
 				hasMediaURI=true;
 				if (!child.attr('contentType')) {
-					validationErrors.push('@contentType not specified for <MediaUri> in '+Location);
+					validationErrors.push('@contentType not specified for logo <MediaUri> in '+Location);
 					incrErr(errCounts,'unspecified MediaUri@contentType');
 				}
 				else {
@@ -339,13 +353,44 @@ function checkValidLogo(HowRelated,Format,MediaLocator,validationErrors,errCount
 			}
 		});
 		if (!hasMediaURI) {
-			validationErrors.push('<MediaUri> not specified for <MediaLocator> in '+Location);
+			validationErrors.push('<MediaUri> not specified for logo <MediaLocator> in '+Location);
 			incrErr(errCounts,'no MediaUri');
 		}
 	}
 	else {
 		validationErrors.push('MediaLocator not specified for <RelatedMaterial> in '+Location);
 		incrErr(errCounts,'no MediaLocator');
+	}
+}
+
+function checkSignalledApplication(HowRelated,Format,MediaLocator,validationErrors,errCounts,Location,LocationType,SCHEMA_PREFIX,SL_SCHEMA)
+{
+	if (!MediaLocator) {
+		validationErrors.push('application <MediaLocator><MediaUri> not defined for application in '+Location);
+		incrErr(errCounts,'no MediaUri')
+	}
+	else {
+		var subElems=MediaLocator.childNodes(), hasMediaURI=false;
+		subElems.forEach(child => {
+			if (child.name()=='MediaUri') {
+				hasMediaURI=true;
+				if (!child.attr('contentType')) {
+					validationErrors.push('@contentType not specified for <MediaUri> in '+Location);
+					incrErr(errCounts,'unspecified MediaUri@contentType');
+				}
+				else {
+					if (child.attr('contentType').value()!=DVB_AIT) {
+						validationErrors.push('!@contentType \"'+child.attr('contentType').value()+'\" is not DVB AIT for <RelatedMaterial><MediaLocator> in '+Location);
+						incrErr(errCounts,'!invalid MediaUri@contentType');
+					}
+				}
+			}
+		});
+		if (!hasMediaURI) {
+			validationErrors.push('<MediaUri> not specified for application <MediaLocator> in '+Location);
+			incrErr(errCounts,'no MediaUri');
+		}
+		
 	}
 }
 
@@ -386,8 +431,10 @@ function validateRelatedMaterial(RelatedMaterial,validationErrors,errCounts,Loca
 					incrErr(errCounts,'invalid href');
 				}
 				else {
-					if (validServiceLogo(HowRelated))
+					if (validServiceLogo(HowRelated)||validOutScheduleHours(HowRelated))
 						checkValidLogo(HowRelated,Format,MediaLocator,validationErrors,errCounts,Location,LocationType,SCHEMA_PREFIX,SL_SCHEMA);
+					if (validServiceApplication(HowRelated))
+						checkSignalledApplication(HowRelated,Format,MediaLocator,validationErrors,errCounts,Location,LocationType,SCHEMA_PREFIX,SL_SCHEMA);
 				}
 			}
 			if (LocationType=="content guide") {
@@ -404,10 +451,7 @@ function validateRelatedMaterial(RelatedMaterial,validationErrors,errCounts,Loca
 			validationErrors.push('no @href specified for <RelatedMaterial><HowRelated> in '+Location);
 			incrErr(errCounts,'no href');
 		}
-		
-		
 	}
-
 }
 
 function isEmpty(obj) {
@@ -443,7 +487,8 @@ function drawForm(res, lastURL, o) {
 						res.write('<table><tr><th>item</th><th>count</th></tr>');
 						tableHeader=true;
 					}
-					res.write('<tr><td>'+i+'</td><td>'+o.counts[i]+'</td></tr>');
+					var t = i.startsWith('!') ? i.substr(1) : i;
+					res.write('<tr><td>'+t+'</td><td>'+o.counts[i]+'</td></tr>');
 					resultsShown=true;
 				}
 			}
@@ -454,17 +499,34 @@ function drawForm(res, lastURL, o) {
 			var tableHeader=false;
 			o.issues.forEach(function(value)
 			{
-				if (!tableHeader) {
-					res.write('<table><tr><th>error</th></tr>');
-					tableHeader=true;					
+				if (!value.startsWith('!')) {
+					if (!tableHeader) {
+						res.write('<table><tr><th>errors</th></tr>');
+						tableHeader=true;					
+					}
+					var t=value.replace(/</g,'&lt').replace(/>/g,'&gt');
+					res.write('<tr><td>'+t+'</td></tr>');
+					resultsShown=true;
 				}
-				var o=value.replace(/</g,'&lt').replace(/>/g,'&gt');
-				res.write('<tr><td>'+o+'</td></tr>');
-				resultsShown=true;
 			});
 			if (tableHeader) res.write('</table>');
+			
+			tableHeader=false;
+			o.issues.forEach(function(value)
+			{
+				if (value.startsWith('!')) {
+					if (!tableHeader) {
+						res.write('<table><tr><th>warnings</th></tr>');
+						tableHeader=true;					
+					}
+					var t=value.replace(/</g,'&lt').replace(/>/g,'&gt');
+					res.write('<tr><td>'+t.substr(1)+'</td></tr>');
+					resultsShown=true;
+				}
+			});
+			if (tableHeader) res.write('</table>');		
 		}
-		if (!resultsShown) res.write('no errors');
+		if (!resultsShown) res.write('no errors or warnings');
 	}
 	res.write(FORM_BOTTOM);		
 }

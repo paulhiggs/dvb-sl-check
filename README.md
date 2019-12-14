@@ -26,5 +26,7 @@ Checks performed:
   * DVB VideoConformancePointsCS
 * ServiceType according to DVB ServiceTypeCS-2019
 * TargetRegion is defined in the region table
+* Validation of <RelatedMaterial> for Service List, Service, Service Instance
+  * still need to calidate content guide source elements
 
 <server>/check gives a basic/primitive UI. Enter the URL to your service list and press "Submit" button. Await results!
