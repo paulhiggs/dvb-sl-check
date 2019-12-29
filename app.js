@@ -78,22 +78,33 @@ const MAX_SUBREGION_LEVELS=3; // definied for <RegionElement> in Table 33 of A17
 
 
 class ErrorList {
-	counts=[]; messages=[];
+	counts=[]; messages=[]; countsWarn=[]; messagesWarn=[];
 	
 	increment(key) {
 		if (this.counts[key]===undefined)
-			this.set(key,1); //counts[key]=1;
+			this.set(key,1); 
 		else this.counts[key]++;
 	}
 	set(key,value) {
 		this.counts[key]=value;
 	}
+	incrementW(key) {
+		if (this.countsWarn[key]===undefined)
+			this.set(key,1); 
+		else this.countsWarn[key]++;
+	}
+	setW(key,value) {
+		this.countsWarn[key]=value;
+	}
 	
 	push(message) {
-		console.log('-->', message)
+//		console.log('-E->', message)
 		this.messages.push(message);
 	}
-}
+	pushW(message) {
+//		console.log('-W->', message)
+		this.messagesWarn.push(message);
+	}}
 
 
 morgan.token('protocol', function getProtocol(req) {
@@ -392,8 +403,8 @@ function checkSignalledApplication(HowRelated,Format,MediaLocator,errs,Location,
 				}
 				else {
 					if (child.attr('contentType').value()!=DVB_AIT) {
-						errs.push('!@contentType \"'+child.attr('contentType').value()+'\" is not DVB AIT for <RelatedMaterial><MediaLocator> in '+Location);
-						errs.increment('!invalid MediaUri@contentType');
+						errs.pushW('@contentType \"'+child.attr('contentType').value()+'\" is not DVB AIT for <RelatedMaterial><MediaLocator> in '+Location);
+						errs.incrementW('invalid MediaUri@contentType');
 					}
 				}
 			}
@@ -504,35 +515,42 @@ function drawForm(res, lastURL, o) {
 					resultsShown=true;
 				}
 			}
+			for (var i in o.errors.countsWarn) {
+				if (o.errors.countsWarn[i] != 0) {
+					if (!tableHeader) {
+						res.write('<table><tr><th>item</th><th>count</th></tr>');
+						tableHeader=true;
+					}
+					res.write('<tr><td><i>'+t+'</i></td><td>'+o.errors.countsWarn[i]+'</td></tr>');
+					resultsShown=true;
+				}
+			}
+
 			if (tableHeader) res.write('</table>');
 
 			tableHeader=false;
 			o.errors.messages.forEach(function(value)
 			{
-				if (!value.startsWith('!')) {
-					if (!tableHeader) {
-						res.write('<table><tr><th>errors</th></tr>');
-						tableHeader=true;					
-					}
-					var t=value.replace(/</g,'&lt').replace(/>/g,'&gt');
-					res.write('<tr><td>'+t+'</td></tr>');
-					resultsShown=true;
+				if (!tableHeader) {
+					res.write('<table><tr><th>errors</th></tr>');
+					tableHeader=true;					
 				}
+				var t=value.replace(/</g,'&lt').replace(/>/g,'&gt');
+				res.write('<tr><td>'+t+'</td></tr>');
+				resultsShown=true;
 			});
 			if (tableHeader) res.write('</table>');
 			
 			tableHeader=false;
-			o.errors.messages.forEach(function(value)
+			o.errors.messagesWarn.forEach(function(value)
 			{
-				if (value.startsWith('!')) {
-					if (!tableHeader) {
-						res.write('<table><tr><th>warnings</th></tr>');
-						tableHeader=true;					
-					}
-					var t=value.replace(/</g,'&lt').replace(/>/g,'&gt');
-					res.write('<tr><td>'+t.substr(1)+'</td></tr>');
-					resultsShown=true;
+				if (!tableHeader) {
+					res.write('<table><tr><th>warnings</th></tr>');
+					tableHeader=true;					
 				}
+				var t=value.replace(/</g,'&lt').replace(/>/g,'&gt');
+				res.write('<tr><td>'+t.substr(1)+'</td></tr>');
+				resultsShown=true;
 			});
 			if (tableHeader) res.write('</table>');		
 		}
@@ -541,10 +559,9 @@ function drawForm(res, lastURL, o) {
 	res.write(FORM_BOTTOM);		
 }
 
-app.use(express.urlencoded());
+app.use(express.urlencoded({ extended: true }));
 
 app.post('/check', function(req,res) {
-	
 	req.query.SLurl=req.body.SLurl;
 	processQuery(req,res);
 });
