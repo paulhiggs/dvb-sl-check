@@ -4,7 +4,6 @@ const express = require('express');
 var app = express();
 
 /* TODO
- - check <ContentGuideServiceRef> refers to an existing service!
 
 */
 
@@ -684,7 +683,6 @@ function processQuery(req,res) {
 				var SL_SCHEMA = {}, SCHEMA_PREFIX=SL.root().namespace().prefix();
 				SL_SCHEMA[SL.root().namespace().prefix()]=SL.root().namespace().href();
 				
-				var s=1, service, knownServices=[];
 				errs.set('num services',0);
 	
 				// check <RegionList> and remember regionID values
@@ -740,6 +738,7 @@ function processQuery(req,res) {
 				}
 				
 				// check <Service>
+				var s=1, service, knownServices=[];
 				while (service=SL.get('//'+SCHEMA_PREFIX+':Service['+s+']', SL_SCHEMA)) {
 					// for each service
 					errs.set('num services',s);
@@ -881,6 +880,25 @@ function processQuery(req,res) {
 					}
 					
 					s++;  // next <Service>
+				}		
+				
+				// check <Service><ContentGuideServiceRef>
+				s=1;
+				while (service=SL.get('//'+SCHEMA_PREFIX+':Service['+s+']', SL_SCHEMA)) {
+					var CGSR=service.get(SCHEMA_PREFIX+':ContentGuideServiceRef', SL_SCHEMA);
+					if (CGSR) {
+						var uID=SL.get('//'+SCHEMA_PREFIX+':Service['+s+']/'+SCHEMA_PREFIX+':UniqueIdentifier', SL_SCHEMA);
+						if (!isIn(knownServices,CGSR.text())) {
+							errs.pushW('service \"'+uID.text()+'\" has <ContentGuideServiceRef> \"'+CGSR.text()+'\" - undefined service');
+							errs.incrementW('invalid <ContentGuideServiceRef>');
+						}
+						if (CGSR.text() == uID.text()) {
+							errs.push('<ContentGuideServiceRef> is self');
+							errs.increment('self <ContentGuideServiceRef>');			
+						}
+						
+					}
+					s++;
 				}
 
 				//check <TargetRegion> for the service list
@@ -892,7 +910,6 @@ function processQuery(req,res) {
 					}
 					tr++;
 				}
-
 
 					
 				// check <LCNTableList>
