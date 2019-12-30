@@ -4,9 +4,7 @@ const express = require('express');
 var app = express();
 
 /* TODO
- - check that the CGSID valies in a ContentGuideSourceList are unique
- - check that the Service.ContentGuideSourceRef refers to a CGSID in ServiceList.ContentGuideSourceList
- - check that the correct type for a content provider logo is specified
+ - check <ContentGuideServiceRef> refers to an existing service!
 
 */
 
@@ -51,8 +49,23 @@ const TVA_ContentCSFilename=path.join('cs','ContentCS.xml'),
 	  DVB_AudioConformanceCSFilename=path.join('cs','AudioConformancePointsCS.xml'),
 	  DVB_VideoConformanceCSFilename=path.join('cs','VideoConformancePointsCS.xml'),
 	  ISO3166_Filename=path.join('.','iso3166-countries.json'),
-	  DVB_RecordingInfoCSFilename=path.join('cs','DVBRecordingInfoCS-2019.xml');
-
+	  DVBI_RecordingInfoCSFilename=path.join('cs','DVBRecordingInfoCS-2019.xml');
+/*
+const REPO_RAW = "https://raw.githubusercontent.com/paulhiggs/dvb-sl-check/master/",
+	  DVB_METADATA = "https://dvb.org/metadata/",
+	  TVA_ContentCSURL=REPO_RAW + 'cs/' + 'ContentCS.xml',
+      TVA_FormatCSURL=REPO_RAW + 'cs/' + 'FormatCS.xml',
+	  DVBI_ContentSubjectURL=REPO_RAW + 'cs/' + 'DVBContentSubjectCS-2019.xml',
+	  DVBI_ServiceTypeCSURL=REPO_RAW + 'cs/' + 'DVBServiceTypeCS-2019.xml',
+	  DVB_AudioCodecCSURL=DVB_METADATA + 'cs/2007/' + 'AudioCodecCS.xml',
+	  DVB_VideoCodecCSURL=DVB_METADATA + 'cs/2007/' + 'VideoCodecCS.xml',
+	  MPEG7_AudioCodingFormatCSURL=REPO_RAW + 'cs/' + 'AudioCodingFormatCS.xml',
+	  MPEG7_VisualCodingFormatCSURL=REPO_RAW + 'cs/' + 'VisualCodingFormatCS.xml',
+	  DVB_AudioConformanceCSURL=DVB_METADATA + 'cs/2017/' + 'AudioConformancePointsCS.xml',
+	  DVB_VideoConformanceCSURL=DVB_METADATA + 'cs/2017/' + 'VideoConformancePointsCS.xml',
+	  ISO3166_URL=REPO_RAW + 'iso3166-countries.json',
+	  DVBI_RecordingInfoCSURL=REPO_RAW + 'cs/' + 'DVBRecordingInfoCS-2019.xml';
+*/
 const JPEG_IMAGE_CS_VALUE = 'urn:mpeg:mpeg7:cs:FileFormatCS:2001:1',
 	  PNG_IMAGE_CS_VALUE =  'urn:mpeg:mpeg7:cs:FileFormatCS:2001:15';
 
@@ -224,7 +237,7 @@ function loadDataFiles() {
 
 	loadCountries(ISO3166_Filename);
 	
-	loadCS(RecordingInfoCSvalules, DVB_RecordingInfoCSFilename);
+	loadCS(RecordingInfoCSvalules, DVBI_RecordingInfoCSFilename);
 
 //TODO: validation against schema
 //	SLschema=fs.readFileSync(DVBI_ServiceListSchemaFilename);
@@ -232,6 +245,38 @@ function loadDataFiles() {
 //	MPEG7schema=fs.readFileSync(MPEG7_SchemaFilename);
 //	XMLschema=fs.readFileSync(XML_SchemaFilename);
 }
+
+/*
+function loadDataFilesWeb() {
+	allowedGenres=[];
+	loadCS(allowedGenres,TVA_ContentCSURL);
+	loadCS(allowedGenres,TVA_FormatCSURL);
+	loadCS(allowedGenres,DVBI_ContentSubjectURL);
+	
+	allowedServiceTypes=[];
+	loadCS(allowedServiceTypes,DVBI_ServiceTypeCSURL);
+
+	allowedAudioSchemes=[]; allowedAudioConformancePoints=[];
+	loadCS(allowedAudioSchemes,DVB_AudioCodecCSURL);
+	loadCS(allowedAudioSchemes,MPEG7_AudioCodingFormatCSURL);
+	loadCS(allowedAudioConformancePoints,DVB_AudioConformanceCSURL);
+	
+	allowedVideoSchemes=[]; allowedVideoConformancePoints=[];
+	loadCS(allowedVideoSchemes, DVB_VideoCodecCSURL);
+	loadCS(allowedVideoSchemes, MPEG7_VisualCodingFormatCSURL);
+	loadCS(allowedVideoConformancePoints, DVB_VideoConformanceCSURL);
+
+	loadCountries(ISO3166_URL);
+	
+	loadCS(RecordingInfoCSvalules, DVBI_RecordingInfoCSURL);
+
+//TODO: validation against schema
+//	SLschema=fs.readFileSync(DVBI_ServiceListSchemaFilename);
+//	TVAschema=fs.readFileSync(TVA_SchemaFilename);
+//	MPEG7schema=fs.readFileSync(MPEG7_SchemaFilename);
+//	XMLschema=fs.readFileSync(XML_SchemaFilename);
+}
+*/
 
 
 function isTAGURI(identifier){
@@ -476,7 +521,7 @@ function validateRelatedMaterial(RelatedMaterial,errs,Location,LocationType,SCHE
 				}
 			}
 			if (LocationType=="content guide") {
-				if (!validContentGuideLogo(HowRelated)) {
+				if (!validContentGuideSourceLogo(HowRelated)) {
 					errs.push('invalid @href \"'+HRhref.value()+'\" for <RelatedMaterial> in '+Location);
 					errs.increment('invalid href');
 				}
@@ -608,15 +653,16 @@ function processQuery(req,res) {
 		}
 		if (SLxml) try {
 			SL = libxml.parseXmlString(SLxml.getBody().toString().replace(/(\r\n|\n|\r|\t)/gm,""));
-			for (err in SL.errors) {
-				console.log('XML parsing failed');
-				errs.push('XML parsing failed');
-			}
+		} catch (err) {
+			errs.push('XML parsing failed: '+err.message);
+			errs.increment('malformed XML');
+			SL = null;
+		}
+		if (SL) {
 			// check the retrieved service list against the schema
 			// https://syssgx.github.io/xml.js/
 
 //TODO: look into why both of these validation approaches are failing
-
 /*
 			console.log(xmllint.validateXML({
 				xml: SL.toString(),
@@ -626,7 +672,6 @@ function processQuery(req,res) {
 						 XMLschema.toString()]
 			}));
 */
-
 /*
 			if (!SL.validate(SLschema)){
 				SL.validationErrors.forEach(err => console.log("validation error:", err));
@@ -659,6 +704,40 @@ function processQuery(req,res) {
 					validateRelatedMaterial(RelatedMaterial,errs,'service list', 'service list', SCHEMA_PREFIX, SL_SCHEMA);
 					rm++;
 				}					
+				
+				
+				// check service list <ContentGuideSource>
+				var CGSource=SL.get('//'+SCHEMA_PREFIX+':ContentGuideSource', SL_SCHEMA);
+				if (CGSource) {
+					var rm=1, CGrm;
+					while (CGrm=SL.get('//'+SCHEMA_PREFIX+':ContentGuideSource/'+SCHEMA_PREFIX+':RelatedMaterial['+rm+']', SL_SCHEMA)) {
+						validateRelatedMaterial(CGrm,errs,'<ServiceList><ContentGuideSource>', 'content guide', SCHEMA_PREFIX, SL_SCHEMA);
+						rm++;
+					}
+				}
+				//check service list <ContentGuideSourceList>
+				var CGSourceList=SL.get('//'+SCHEMA_PREFIX+':ContentGuideSourceList', SL_SCHEMA);
+				var ContentGuideSourceIDs=[];
+				if (CGSourceList) {
+					var i=1, CGSource;
+					while (CGSource=SL.get('//'+SCHEMA_PREFIX+':ContentGuideSourceList/'+SCHEMA_PREFIX+':ContentGuideSource['+i+']', SL_SCHEMA)) {
+						
+						if (isIn(ContentGuideSourceIDs,CGSource.attr('CGSID').value())) {
+							errs.push('duplicate @CGSID in service list');
+							errs.increment('duplicate CGSID');
+						}
+						else ContentGuideSourceIDs.push(CGSource.attr('CGSID').value());
+						
+						var rm=1, CGrm;
+						while (CGrm=SL.get('//'+SCHEMA_PREFIX+':ContentGuideSourceList/'+SCHEMA_PREFIX+':ContentGuideSource['+i+']/'+SCHEMA_PREFIX+':RelatedMaterial['+rm+']', SL_SCHEMA)) {
+							validateRelatedMaterial(CGrm,errs,'<ServiceList><ContentGuideSourceList>', 'content guide', SCHEMA_PREFIX, SL_SCHEMA);
+							rm++;
+						}					
+						
+						
+						i++;
+					}
+				}
 				
 				// check <Service>
 				while (service=SL.get('//'+SCHEMA_PREFIX+':Service['+s+']', SL_SCHEMA)) {
@@ -781,7 +860,25 @@ function processQuery(req,res) {
 							errs.increment('invalid RecordingInfo');
 						}
 					}
-					
+
+					// check <Service><ContentGuideSource>
+					var sCG=SL.get('//'+SCHEMA_PREFIX+':Service['+s+']/'+SCHEMA_PREFIX+':ContentGuideSource', SL_SCHEMA);
+					if (sCG) {
+						var rm=1, CGrm;
+						while (CGrm=SL.get('//'+SCHEMA_PREFIX+':Service['+s+']/'+SCHEMA_PREFIX+':ContentGuideSource/'+SCHEMA_PREFIX+':RelatedMaterial['+rm+']', SL_SCHEMA)) {
+							validateRelatedMaterial(CGrm,errs,'<ContentGuideSource> in service '+uID.text(), 'content guide', SCHEMA_PREFIX, SL_SCHEMA);
+							rm++
+						}
+					}
+
+					//check <Service><ContentGuideSourceRef>
+					var sCGref=SL.get('//'+SCHEMA_PREFIX+':Service['+s+']/'+SCHEMA_PREFIX+':ContentGuideSourceRef', SL_SCHEMA);
+					if (sCGref) {
+						if (!isIn(ContentGuideSourceIDs,sCGref.text())) {
+							errs.push('content guide reference \"'+sCGref.text()+'\" for service \"'+uID.text()+'\" not specified');
+							errs.increment('unspecified content guide source');
+						}
+					}
 					
 					s++;  // next <Service>
 				}
@@ -831,13 +928,10 @@ function processQuery(req,res) {
 						l++;
 					}
 				}
+				
+				
 			}
-	
 			
-		}
-		catch (err) {
-			errs.push('XML parsing failed: '+err.message);
-			errs.increment('malformed XML');
 		}
 
 		drawForm(res, req.query.SLurl, {errors:errs});
