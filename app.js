@@ -3,6 +3,15 @@
 const express = require('express');
 var app = express();
 
+/* TODO
+ - check that the CGSID valies in a ContentGuideSourceList are unique
+ - check that the Service.ContentGuideSourceRef refers to a CGSID in ServiceList.ContentGuideSourceList
+ - check that the correct type for a content provider logo is specified
+
+*/
+
+
+
 // libxmljs - https://github.com/libxmljs/libxmljs
 const libxml = require('libxmljs');
 
@@ -41,7 +50,8 @@ const TVA_ContentCSFilename=path.join('cs','ContentCS.xml'),
 	  MPEG7_VisualCodingFormatCSFilename=path.join('cs','VisualCodingFormatCS.xml'),
 	  DVB_AudioConformanceCSFilename=path.join('cs','AudioConformancePointsCS.xml'),
 	  DVB_VideoConformanceCSFilename=path.join('cs','VideoConformancePointsCS.xml'),
-	  ISO3166_Filename=path.join('.','iso3166-countries.json');
+	  ISO3166_Filename=path.join('.','iso3166-countries.json'),
+	  DVB_RecordingInfoCSFilename=path.join('cs','DVBRecordingInfoCS-2019.xml');
 
 const JPEG_IMAGE_CS_VALUE = 'urn:mpeg:mpeg7:cs:FileFormatCS:2001:1',
 	  PNG_IMAGE_CS_VALUE =  'urn:mpeg:mpeg7:cs:FileFormatCS:2001:15';
@@ -63,7 +73,7 @@ const DVB_RELATED_CS = 'urn:dvb:metadata:cs:HowRelatedCS:2019',
 	  LOGO_SERVICE = DVB_RELATED_CS+':1001.2',
 	  LOGO_CG_PROVIDER = DVB_RELATED_CS+':1002.1';
 	  
-var allowedGenres=[], allowedServiceTypes=[], allowedAudioSchemes=[], allowedVideoSchemes=[], allowedCountries=[], allowedAudioConformancePoints=[], allowedVideoConformancePoints=[];
+var allowedGenres=[], allowedServiceTypes=[], allowedAudioSchemes=[], allowedVideoSchemes=[], allowedCountries=[], allowedAudioConformancePoints=[], allowedVideoConformancePoints=[], RecordingInfoCSvalules=[];
 
 //TODO: validation against schema
 //const DVBI_ServiceListSchemaFilename=path.join('schema','dvbi_v1.0.xsd');
@@ -213,6 +223,8 @@ function loadDataFiles() {
 	loadCS(allowedVideoConformancePoints, DVB_VideoConformanceCSFilename);
 
 	loadCountries(ISO3166_Filename);
+	
+	loadCS(RecordingInfoCSvalules, DVB_RecordingInfoCSFilename);
 
 //TODO: validation against schema
 //	SLschema=fs.readFileSync(DVBI_ServiceListSchemaFilename);
@@ -419,7 +431,7 @@ function checkSignalledApplication(HowRelated,Format,MediaLocator,errs,Location,
 
 function validateRelatedMaterial(RelatedMaterial,errs,Location,LocationType,SCHEMA_PREFIX,SL_SCHEMA) 
 {
-	var HowRelated=null, Format=null, MediaLocator=null;
+	var HowRelated=null, Format=null, MediaLocator=[];
 	var elem=RelatedMaterial.child(0);
 	while (elem) {
 		if (elem.name()==='HowRelated') 
@@ -427,7 +439,7 @@ function validateRelatedMaterial(RelatedMaterial,errs,Location,LocationType,SCHE
 		else if (elem.name()==='Format')
 			Format=elem;
 		else if (elem.name()==='MediaLocator')
-			MediaLocator=elem;
+			MediaLocator.push(elem);
 
 		elem = elem.nextElement();
 	}
@@ -445,7 +457,8 @@ function validateRelatedMaterial(RelatedMaterial,errs,Location,LocationType,SCHE
 					errs.increment('invalid href');
 				}
 				else {
-					checkValidLogo(HowRelated,Format,MediaLocator,errs,Location,LocationType,SCHEMA_PREFIX,SL_SCHEMA);
+					MediaLocator.forEach(locator => 
+						checkValidLogo(HowRelated,Format,locator,errs,Location,LocationType,SCHEMA_PREFIX,SL_SCHEMA));
 				}
 			}
 			if (LocationType=="service") {
@@ -455,9 +468,11 @@ function validateRelatedMaterial(RelatedMaterial,errs,Location,LocationType,SCHE
 				}
 				else {
 					if (validServiceLogo(HowRelated)||validOutScheduleHours(HowRelated))
-						checkValidLogo(HowRelated,Format,MediaLocator,errs,Location,LocationType,SCHEMA_PREFIX,SL_SCHEMA);
+						MediaLocator.forEach(locator =>
+							checkValidLogo(HowRelated,Format,locator,errs,Location,LocationType,SCHEMA_PREFIX,SL_SCHEMA));
 					if (validServiceApplication(HowRelated))
-						checkSignalledApplication(HowRelated,Format,MediaLocator,errs,Location,LocationType,SCHEMA_PREFIX,SL_SCHEMA);
+						MediaLocator.forEach(locator =>
+							checkSignalledApplication(HowRelated,Format,locator,errs,Location,LocationType,SCHEMA_PREFIX,SL_SCHEMA));
 				}
 			}
 			if (LocationType=="content guide") {
@@ -466,7 +481,8 @@ function validateRelatedMaterial(RelatedMaterial,errs,Location,LocationType,SCHE
 					errs.increment('invalid href');
 				}
 				else {
-					checkValidLogo(HowRelated,Format,MediaLocator,errs,Location,LocationType,SCHEMA_PREFIX,SL_SCHEMA);
+					MediaLocator.forEach(locator =>
+						checkValidLogo(HowRelated,Format,locator,errs,Location,LocationType,SCHEMA_PREFIX,SL_SCHEMA));
 				}
 			}	
 		}
@@ -757,6 +773,16 @@ function processQuery(req,res) {
 						}
 					}
 					
+					// check <Service><RecordingInfo>
+					var RecordingInfo=SL.get('//'+SCHEMA_PREFIX+':Service['+s+']/'+SCHEMA_PREFIX+':RecordingInfo', SL_SCHEMA);
+					if (RecordingInfo) {
+						if (!isIn(RecordingInfoCSvalules,RecordingInfo.attr('href').value())) {
+							errs.push('invalid <RecordingInfo> value \"'+RecordingInfo.attr('href').value()+'\"for service '+uID.text());
+							errs.increment('invalid RecordingInfo');
+						}
+					}
+					
+					
 					s++;  // next <Service>
 				}
 
@@ -810,7 +836,8 @@ function processQuery(req,res) {
 			
 		}
 		catch (err) {
-			console.log(err);
+			errs.push('XML parsing failed: '+err.message);
+			errs.increment('malformed XML');
 		}
 
 		drawForm(res, req.query.SLurl, {errors:errs});
