@@ -811,7 +811,25 @@ function processQuery(req,res) {
 							}
 							cp++;
 						}
-						
+
+						var Availability = conf=SL.get('//'+SCHEMA_PREFIX+':Service['+s+']/'+SCHEMA_PREFIX+':ServiceInstance['+si+']/'+SCHEMA_PREFIX+':Availability', SL_SCHEMA);
+						if (Availability) {
+							var Period, p=1;
+							while (Period=SL.get('//'+SCHEMA_PREFIX+':Service['+s+']/'+SCHEMA_PREFIX+':ServiceInstance['+si+']/'+SCHEMA_PREFIX+':Availability/'+SCHEMA_PREFIX+':Period['+p+']', SL_SCHEMA)) {
+								if (Period.attr('validFrom') && Period.attr('validTo')) {
+									// validTo should be >= validFrom
+									var fr=new Date(Period.attr('validFrom').value()), 
+									    to=new Date(Period.attr('validTo').value());
+								
+									if (to.getTime() < fr.getTime()) {
+										errs.push('invalid availability period for service \"'+uID.text()+'\". '+fr+">"+to);
+										errs.increment('period start>end');
+									}
+								}
+								p++;
+							}
+							
+						}
 
 						si++;  // next <ServiceInstance>
 					}
