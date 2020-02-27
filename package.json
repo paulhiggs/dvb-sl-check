@@ -1,7 +1,7 @@
 {
 	"name": "DVB-ServiceList-Check",
 	"description": "DVB Service List validator",
-	"version": "0.0.2",
+	"version": "0.0.3",
 	"private": true,
 	"dependencies": {
 		"express": "4.x",
@@ -9,6 +9,6 @@
 		"morgan": "^1.9.1",
 		"sync-request": "6.1.0",
 		"xmllint": "0.1.1",
-		"sprintf-js": "1.1.2"
+		"sprintf-js": "^1.1.2"
 	}
 }

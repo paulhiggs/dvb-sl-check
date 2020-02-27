@@ -290,6 +290,16 @@ function validServiceIdentifier(identifier){
 	return isTAGURI(identifier);
 }
 
+function validSourceType(sourceType) {
+	// validate against values in table 15 of A177
+	return sourceType=="urn:dvb:metadata:source:dvb-t"
+	    || sourceType=="urn:dvb:metadata:source:dvb-s"
+	    || sourceType=="urn:dvb:metadata:source:dvb-c"
+	    || sourceType=="urn:dvb:metadata:source:dvb-iptv"
+	    || sourceType=="urn:dvb:metadata:source:dvb-dash"
+	    || sourceType=="urn:dvb:metadata:source:application"
+}
+
 function uniqueServiceIdentifier(identifier,identifiers) {
 	return !isIn(identifiers,identifier);
 }
@@ -746,7 +756,9 @@ function processQuery(req,res) {
 					// check <Service><UniqueIdentifier>
 					var uID=SL.get('//'+SCHEMA_PREFIX+':Service['+s+']/'+SCHEMA_PREFIX+':UniqueIdentifier', SL_SCHEMA);
 					if (!uID) {
+						// this should not happen as UniqueIdentifier is a mandatory element within Service
 						errs.push('<UniqueIdentifier> not present for service '+s);
+						errs.increment('no <UniqueIdentifier>')
 					} else{
 						if (!validServiceIdentifier(uID.text())) {
 							errs.push('\"'+uID.text()+'\" is not a valid identifier');
@@ -828,9 +840,21 @@ function processQuery(req,res) {
 								}
 								p++;
 							}
-							
 						}
 
+						var SourceType = SL.get('//'+SCHEMA_PREFIX+':Service['+s+']/'+SCHEMA_PREFIX+':ServiceInstance['+si+']/'+SCHEMA_PREFIX+':SourceType', SL_SCHEMA);
+						if (SourceType) {
+							if (!validSourceType(SourceType.text())) {
+								errs.push('SouurceType \"'+SourceType.text()+'\" is not valid in Service \"'+uID.text()+'\".');
+								errs.increment('invalid SourceType');
+							}
+							
+						}
+						else {
+							// this should not happen as SourceType is a mandatory element within ServiceInstance
+							errs.push('SourceTpe not specifcied in ServiceInstance of service \"'+uID.text()+'\".');
+							errs.increment('no SourceType');
+						}
 						si++;  // next <ServiceInstance>
 					}
 					

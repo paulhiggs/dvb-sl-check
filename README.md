@@ -27,10 +27,11 @@ Checks performed:
   * DVB VideoConformancePointsCS
 * ServiceType according to DVB ServiceTypeCS-2019
 * TargetRegion is defined in the region table
-* Validation of <RelatedMaterial> for Service List, Service, Service Instance, Content Guide sources
-* Check that <ContentGuideServiceRef> refers to a different service in the service list
+* Validation of &lt;RelatedMaterial&gt; for Service List, Service, Service Instance, Content Guide sources
+* Check that &lt;ContentGuideServiceRef&gt; refers to a different service in the service list
+* &lt;SourceType&gt; is according to specification
 
-<server>/check gives a basic/primitive UI. Enter the URL to your service list and press "Submit" button. Await results!
+&lt;server&gt;/check gives a basic/primitive UI. Enter the URL to your service list and press "Submit" button. Await results!
 
 ##Installation
 1. Clone this repository `git clone https://github.com/paulhiggs/dvb-sl-check.git`
