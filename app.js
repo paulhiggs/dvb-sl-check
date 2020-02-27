@@ -112,19 +112,16 @@ class ErrorList {
 	}
 	incrementW(key) {
 		if (this.countsWarn[key]===undefined)
-			this.set(key,1); 
+			this.setW(key,1); 
 		else this.countsWarn[key]++;
 	}
 	setW(key,value) {
 		this.countsWarn[key]=value;
-	}
-	
+	}	
 	push(message) {
-//		console.log('-E->', message)
 		this.messages.push(message);
 	}
 	pushW(message) {
-//		console.log('-W->', message)
 		this.messagesWarn.push(message);
 	}}
 
@@ -586,7 +583,7 @@ function drawForm(res, lastURL, o) {
 						res.write('<table><tr><th>item</th><th>count</th></tr>');
 						tableHeader=true;
 					}
-					var t = i.startsWith('!') ? i.substr(1) : i;
+					var t=i.replace(/</g,'&lt;').replace(/>/g,'&gt;');					
 					res.write('<tr><td>'+t+'</td><td>'+o.errors.counts[i]+'</td></tr>');
 					resultsShown=true;
 				}
@@ -597,6 +594,7 @@ function drawForm(res, lastURL, o) {
 						res.write('<table><tr><th>item</th><th>count</th></tr>');
 						tableHeader=true;
 					}
+					var t=i.replace(/</g,'&lt;').replace(/>/g,'&gt;');					
 					res.write('<tr><td><i>'+t+'</i></td><td>'+o.errors.countsWarn[i]+'</td></tr>');
 					resultsShown=true;
 				}
@@ -961,8 +959,8 @@ function processQuery(req,res) {
 					if (CGSR) {
 						var uID=SL.get('//'+SCHEMA_PREFIX+':Service['+s+']/'+SCHEMA_PREFIX+':UniqueIdentifier', SL_SCHEMA);
 						if (!isIn(knownServices,CGSR.text())) {
-							errs.pushW('service \"'+uID.text()+'\" has <ContentGuideServiceRef> \"'+CGSR.text()+'\" - undefined service');
-							errs.incrementW('invalid <ContentGuideServiceRef>');
+							errs.push('service \"'+uID.text()+'\" has <ContentGuideServiceRef> \"'+CGSR.text()+'\" - undefined service');
+							errs.increment('invalid <ContentGuideServiceRef>');
 						}
 						if (CGSR.text() == uID.text()) {
 							errs.push('<ContentGuideServiceRef> is self');
