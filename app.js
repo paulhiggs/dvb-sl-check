@@ -845,7 +845,7 @@ function processQuery(req,res) {
 						var SourceType = SL.get('//'+SCHEMA_PREFIX+':Service['+s+']/'+SCHEMA_PREFIX+':ServiceInstance['+si+']/'+SCHEMA_PREFIX+':SourceType', SL_SCHEMA);
 						if (SourceType) {
 							if (!validSourceType(SourceType.text())) {
-								errs.push('SouurceType \"'+SourceType.text()+'\" is not valid in Service \"'+uID.text()+'\".');
+								errs.push('SourceType \"'+SourceType.text()+'\" is not valid in Service \"'+uID.text()+'\".');
 								errs.increment('invalid SourceType');
 							}
 							
