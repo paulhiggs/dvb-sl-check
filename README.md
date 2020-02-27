@@ -28,12 +28,15 @@ Checks performed:
 * ServiceType according to DVB ServiceTypeCS-2019
 * TargetRegion is defined in the region table
 * Validation of &lt;RelatedMaterial&gt; for Service List, Service, Service Instance, Content Guide sources
-* Check that &lt;ContentGuideServiceRef&gt; refers to a different service in the service list
+* Unique @CGSID values
+* &lt;ContentGuideServiceRef&gt; refers to a different service in the service list
 * &lt;SourceType&gt; is according to specification
-
+* For &lt;DASHDeliveryParameters&gt;
+  * valid @contentType in &lt;UriBasedLocation&gt;
+  
 &lt;server&gt;/check gives a basic/primitive UI. Enter the URL to your service list and press "Submit" button. Await results!
 
-##Installation
+## Installation
 1. Clone this repository `git clone https://github.com/paulhiggs/dvb-sl-check.git`
 1. Install necessary libraries (express, libxmljs, morgan)  `npm install`
 1. run it - `node app`

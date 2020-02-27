@@ -352,6 +352,12 @@ function validServiceApplication(HowRelated) {
 	    || val==APP_OUTSIDE_AVAILABILITY
 }
 
+function validDASHcontentType(contentType) {
+	// per A177 clause 5.2.7.2 
+	return contentType=="application/dash+xml"   // MPD of linear service
+	    || contentType=="application/xml"        // XML Playlist
+}
+
 function validOutScheduleHours(HowRelated) {
 	// return true if val is a valid CS value for Out of Service Banners (A177 5.2.5.3)
 	// urn:dvb:metadata:cs:HowRelatedCS:2019
@@ -848,13 +854,38 @@ function processQuery(req,res) {
 								errs.push('SourceType \"'+SourceType.text()+'\" is not valid in Service \"'+uID.text()+'\".');
 								errs.increment('invalid SourceType');
 							}
-							
 						}
 						else {
 							// this should not happen as SourceType is a mandatory element within ServiceInstance
 							errs.push('SourceTpe not specifcied in ServiceInstance of service \"'+uID.text()+'\".');
 							errs.increment('no SourceType');
 						}
+						
+						var DASHDeliveryParameters = SL.get('//'+SCHEMA_PREFIX+':Service['+s+']/'+SCHEMA_PREFIX+':ServiceInstance['+si+']/'+SCHEMA_PREFIX+':DASHDeliveryParameters', SL_SCHEMA);
+						if (DASHDeliveryParameters) {
+							var URILoc = SL.get('//'+SCHEMA_PREFIX+':Service['+s+']/'+SCHEMA_PREFIX+':ServiceInstance['+si+']/'+SCHEMA_PREFIX+':DASHDeliveryParameters/'+SCHEMA_PREFIX+':UriBasedLocation', SL_SCHEMA);
+							if (!URILoc) {
+								errs.push('UriBasedLocation not specified for DASHDeliveryParameters in service \"'+uID.text()+'\".');
+								errs.increment('no UriBasedLocation');
+							}
+							else {
+								if (URILoc.attr('contentType')) {
+									if (!validDASHcontentType(URILoc.attr('contentType').value())) {
+										errs.push('@contentType=\"'+URILoc.attr('contentType').value()+'\" in service \"'+uID.text()+'\" is not valid');
+										errs.increment('no @contentType for DASH');
+									}
+								}
+								else {
+									errs.push('@contentType not specified for URI in service \"'+uID.text()+'\".');
+									errs.increment('no @contentType');
+								}
+							}
+						}
+						
+						
+						
+						
+						
 						si++;  // next <ServiceInstance>
 					}
 					
