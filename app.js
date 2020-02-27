@@ -284,7 +284,7 @@ function isTAGURI(identifier){
 
 	var TAGregex=/tag:(([\dA-Za-z\-\._]+@)?[\dA-Za-z][\dA-Za-z\-]*[\dA-Za-z]*(\.[\dA-Za-z][\dA-Za-z\-]*[\dA-Za-z]*)*),\d{4}(\-\d{2}(\-\d{2})?)?:(['A-Za-z\d\-\._~!$&\(\)\*\+,;=:@\?/]|%[0-9A-Fa-f]{2})*(#(['A-Za-z0-9\-\._~!$&\(\)\*\+,;=:@\?/]|%[0-9A-Fa-f]{2})*)?/g;
 	var s=identifier.match(TAGregex);
-	return s[0] === identifier;
+	return s?s[0] === identifier:false;
 }
 function validServiceIdentifier(identifier){
 	return isTAGURI(identifier);
