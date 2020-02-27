@@ -407,7 +407,7 @@ function checkValidLogo(HowRelated,Format,MediaLocator,errs,Location,LocationTyp
 				}
 				if (child.attr('href')) {
 					if (child.attr('href').value() != JPEG_IMAGE_CS_VALUE && child.attr('href').value() != PNG_IMAGE_CS_VALUE) {
-						errs.push('invalid @href \"'+child.attr('href').value()+'\" specified for <RelatedMaterial><Format><StillPictureFormat> in '+Location);
+						errs.push('invalid @href=\"'+child.attr('href').value()+'\" specified for <RelatedMaterial><Format><StillPictureFormat> in '+Location);
 						errs.increment('invalid href');				
 					}
 					if (child.attr('href').value() == JPEG_IMAGE_CS_VALUE) isJPEG=true;
@@ -513,7 +513,7 @@ function validateRelatedMaterial(RelatedMaterial,errs,Location,LocationType,SCHE
 		if (HRhref) {
 			if (LocationType=="service list") {
 				if (!validServiceListLogo(HowRelated)) {
-					errs.push('invalid @href \"'+HRhref.value()+'\" for <RelatedMaterial> in '+Location);
+					errs.push('invalid @href=\"'+HRhref.value()+'\" for <RelatedMaterial> in '+Location);
 					errs.increment('invalid href');
 				}
 				else {
@@ -523,7 +523,7 @@ function validateRelatedMaterial(RelatedMaterial,errs,Location,LocationType,SCHE
 			}
 			if (LocationType=="service") {
 				if (!(validOutScheduleHours(HowRelated) || validServiceApplication(HowRelated) || validServiceLogo(HowRelated))) {
-					errs.push('invalid @href \"'+HRhref.value()+'\" for <RelatedMaterial> in '+Location);
+					errs.push('invalid @href=\"'+HRhref.value()+'\" for <RelatedMaterial> in '+Location);
 					errs.increment('invalid href');
 				}
 				else {
@@ -537,7 +537,7 @@ function validateRelatedMaterial(RelatedMaterial,errs,Location,LocationType,SCHE
 			}
 			if (LocationType=="content guide") {
 				if (!validContentGuideSourceLogo(HowRelated)) {
-					errs.push('invalid @href \"'+HRhref.value()+'\" for <RelatedMaterial> in '+Location);
+					errs.push('invalid @href=\"'+HRhref.value()+'\" for <RelatedMaterial> in '+Location);
 					errs.increment('invalid href');
 				}
 				else {
@@ -624,8 +624,8 @@ function drawForm(res, lastURL, o) {
 					res.write('<table><tr><th>warnings</th></tr>');
 					tableHeader=true;					
 				}
-				var t=value.replace(/</g,'&lt').replace(/>/g,'&gt');
-				res.write('<tr><td>'+t.substr(1)+'</td></tr>');
+				var t=value.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+				res.write('<tr><td>'+t+'</td></tr>');
 				resultsShown=true;
 			});
 			if (tableHeader) res.write('</table>');		
@@ -719,7 +719,6 @@ function processQuery(req,res) {
 					rm++;
 				}					
 				
-				
 				// check service list <ContentGuideSource>
 				var CGSource=SL.get('//'+SCHEMA_PREFIX+':ContentGuideSource', SL_SCHEMA);
 				if (CGSource) {
@@ -803,7 +802,7 @@ function processQuery(req,res) {
 						cp=1;
 						while (conf=SL.get('//'+SCHEMA_PREFIX+':Service['+s+']/'+SCHEMA_PREFIX+':ServiceInstance['+si+']/'+SCHEMA_PREFIX+':ContentAttributes/'+SCHEMA_PREFIX+':AudioAttributes['+cp+']/*', SL_SCHEMA)) {
 							if (conf.name()==='Coding' && conf.attr('href') && !isIn(allowedAudioSchemes,conf.attr('href').value())) {
-								errs.push('invalid value for <AudioAttributes> ('+conf.attr('href').value()+')');
+								errs.push('invalid @href value for <AudioAttributes> ('+conf.attr('href').value()+')');
 								errs.increment('audio codec');
 							}
 							cp++;
@@ -813,7 +812,7 @@ function processQuery(req,res) {
 						cp=1;
 						while (conf=SL.get('//'+SCHEMA_PREFIX+':Service['+s+']/'+SCHEMA_PREFIX+':ServiceInstance['+si+']/'+SCHEMA_PREFIX+':ContentAttributes/'+SCHEMA_PREFIX+':VideoConformancePoint['+cp+']', SL_SCHEMA)) {
 							if (conf.attr('href') && !isIn(allowedVideoConformancePoints,conf.attr('href').value())) {
-								errs.push('invalid value for <VideoConformancePoint> ('+conf.attr('href').value()+')');
+								errs.push('invalid @href value for <VideoConformancePoint> ('+conf.attr('href').value()+')');
 								errs.increment('video conf point');
 							}							
 							cp++;
@@ -824,7 +823,7 @@ function processQuery(req,res) {
 						while (conf=SL.get('//'+SCHEMA_PREFIX+':Service['+s+']/'+SCHEMA_PREFIX+':ServiceInstance['+si+']/'+SCHEMA_PREFIX+':ContentAttributes/'+SCHEMA_PREFIX+':VideoAttributes['+cp+']/*', SL_SCHEMA)) {
 							// console.log('found VideoAttributes/'+conf.namespace().prefix()+':'+conf.name());
 							if (conf.name()==='Coding' && conf.attr('href') && !isIn(allowedVideoSchemes,conf.attr('href').value())) {
-								errs.push('invalid value for <VideoAttributes> ('+conf.attr('href').value()+')');
+								errs.push('invalid @href value for <VideoAttributes> ('+conf.attr('href').value()+')');
 								errs.increment('video codec');
 							}
 							cp++;
