@@ -25,10 +25,12 @@ Checks performed:
   * DVB VideoCodecCS
   * MPEG7 VisualCodingFormatCS
   * DVB VideoConformancePointsCS
+* channel numbers are unique in an LCN Table
 * ServiceType according to DVB ServiceTypeCS-2019
-* TargetRegion is defined in the region table
+* TargetRegion for the Service List, LCN Table and Services are defined in the region table
 * Validation of &lt;RelatedMaterial&gt; for Service List, Service, Service Instance, Content Guide sources
 * Unique @CGSID values
+* &lt;ContentGuideSourceRef&gt; refers to a &lt;ContentGuideSource&gt; in the &lt;ContentGuideSourceList&gt;
 * &lt;ContentGuideServiceRef&gt; refers to a different service in the service list
 * &lt;SourceType&gt; is according to specification
 * For &lt;DASHDeliveryParameters&gt;
