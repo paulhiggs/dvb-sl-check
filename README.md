@@ -10,7 +10,7 @@ Checks performed:
 * service identifiers are 
   * unique
   * formatted according to the TAG URI scheme
-* country codes are valid against ISO3166 aplha 3
+* country codes are valid against ISO3166 aplha 3 for region tables and delivery parameters for DVB-T and DVB-C
 * regions are not excessively nested
 * @countryCodes attribute is not specified for sub-regions
 * ServiceGenre is selected from
@@ -28,11 +28,11 @@ Checks performed:
 * channel numbers are unique in an LCN Table
 * ServiceType according to DVB ServiceTypeCS-2019
 * TargetRegion for the Service List, LCN Table and Services are defined in the region table
-* Validation of &lt;RelatedMaterial&gt; for Service List, Service, Service Instance, Content Guide sources
+* Validation of &lt;RelatedMaterial&gt; for Service List, Service, Service Instance, Content Guide Source
 * Unique @CGSID values
 * &lt;ContentGuideSourceRef&gt; refers to a &lt;ContentGuideSource&gt; in the &lt;ContentGuideSourceList&gt;
 * &lt;ContentGuideServiceRef&gt; refers to a different service in the service list
-* &lt;SourceType&gt; is according to specification
+* &lt;SourceType&gt; is according to specification and appropriate DeliveryParameters are provided
 * For &lt;DASHDeliveryParameters&gt;
   * valid @contentType in &lt;UriBasedLocation&gt;
   

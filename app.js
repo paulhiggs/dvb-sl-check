@@ -72,6 +72,15 @@ const JPEG_MIME = 'image/jpg',
 	  PNG_MIME =  'image/png',
 	  DVB_AIT =   'application/vnd.dvb.ait+xml';
 
+// A177 table 15	  
+const DVBT_SOURCE_TYPE = "urn:dvb:metadata:source:dvb-t",
+      DVBS_SOURCE_TYPE = "urn:dvb:metadata:source:dvb-s",
+      DVBC_SOURCE_TYPE = "urn:dvb:metadata:source:dvb-c",
+      DVBIPTV_SOURCE_TYPE = "urn:dvb:metadata:source:dvb-iptv",
+      DVBDASH_SOURCE_TYPE = "urn:dvb:metadata:source:dvb-dash",
+      DVBAPPLICATION_SOURCE_TYPE = "urn:dvb:metadata:source:application";
+	  
+	  
 // A177 7.3.2	  
 const LINKED_APLICATION_CS = 'urn:dvb:metadata:cs:LinkedApplicationCS:2019'
       APP_IN_PARALLEL = LINKED_APLICATION_CS+':1.1',
@@ -123,7 +132,8 @@ class ErrorList {
 	}
 	pushW(message) {
 		this.messagesWarn.push(message);
-	}}
+	}
+}
 
 
 morgan.token('protocol', function getProtocol(req) {
@@ -287,15 +297,6 @@ function validServiceIdentifier(identifier){
 	return isTAGURI(identifier);
 }
 
-function validSourceType(sourceType) {
-	// validate against values in table 15 of A177
-	return sourceType=="urn:dvb:metadata:source:dvb-t"
-	    || sourceType=="urn:dvb:metadata:source:dvb-s"
-	    || sourceType=="urn:dvb:metadata:source:dvb-c"
-	    || sourceType=="urn:dvb:metadata:source:dvb-iptv"
-	    || sourceType=="urn:dvb:metadata:source:dvb-dash"
-	    || sourceType=="urn:dvb:metadata:source:application"
-}
 
 function uniqueServiceIdentifier(identifier,identifiers) {
 	return !isIn(identifiers,identifier);
@@ -320,7 +321,7 @@ function addRegion(Region, depth, knownRegionIDs, errs) {
 		countries.forEach(country => {
 			if (!isISO3166code(country)) {
 				errs.push('invalid country code ('+country+') for region \"'+regionID+'\"');
-				errs.increment('bad country code');	
+				errs.increment('invalid country code');	
 			}
 		});
 	}
@@ -847,14 +848,49 @@ function processQuery(req,res) {
 
 						var SourceType = SL.get('//'+SCHEMA_PREFIX+':Service['+s+']/'+SCHEMA_PREFIX+':ServiceInstance['+si+']/'+SCHEMA_PREFIX+':SourceType', SL_SCHEMA);
 						if (SourceType) {
-							if (!validSourceType(SourceType.text())) {
-								errs.push('SourceType \"'+SourceType.text()+'\" is not valid in Service \"'+uID.text()+'\".');
-								errs.increment('invalid SourceType');
+							switch (SourceType.text()) {
+								case DVBT_SOURCE_TYPE:
+									if (!SL.get('//'+SCHEMA_PREFIX+':Service['+s+']/'+SCHEMA_PREFIX+':ServiceInstance['+si+']/'+SCHEMA_PREFIX+':DVBTDeliveryParameters', SL_SCHEMA) ) {
+										errs.push('DVB-T delivery parameters not specified for service instance in service \"'+uID.text()+'\"');
+										errs.increment('no delivery params');
+									}
+									break;
+								case DVBS_SOURCE_TYPE:
+									if (!SL.get('//'+SCHEMA_PREFIX+':Service['+s+']/'+SCHEMA_PREFIX+':ServiceInstance['+si+']/'+SCHEMA_PREFIX+':DVBSDeliveryParameters', SL_SCHEMA) ) {
+										errs.push('DVB-S delivery parameters not specified for service instance in service \"'+uID.text()+'\"');
+										errs.increment('no delivery params');
+									}
+									break;
+								case DVBC_SOURCE_TYPE:
+									if (!SL.get('//'+SCHEMA_PREFIX+':Service['+s+']/'+SCHEMA_PREFIX+':ServiceInstance['+si+']/'+SCHEMA_PREFIX+':DVBCDeliveryParameters', SL_SCHEMA) ) {
+										errs.push('DVB-C delivery parameters not specified for service instance in service \"'+uID.text()+'\"');
+										errs.increment('no delivery params');
+									}
+									break;
+								case DVBDASH_SOURCE_TYPE:
+									if (!SL.get('//'+SCHEMA_PREFIX+':Service['+s+']/'+SCHEMA_PREFIX+':ServiceInstance['+si+']/'+SCHEMA_PREFIX+':DASHDeliveryParameters', SL_SCHEMA) ) {
+										errs.push('DVB-DASH delivery parameters not specified for service instance in service \"'+uID.text()+'\"');
+										errs.increment('no delivery params');
+									}
+									break;
+								case DVBIPTV_SOURCE_TYPE:
+									if (!SL.get('//'+SCHEMA_PREFIX+':Service['+s+']/'+SCHEMA_PREFIX+':ServiceInstance['+si+']/'+SCHEMA_PREFIX+':MulticastTSDeliveryParameters', SL_SCHEMA) && !SL.get('//'+SCHEMA_PREFIX+':Service['+s+']/'+SCHEMA_PREFIX+':ServiceInstance['+si+']/'+SCHEMA_PREFIX+':RTSPDeliveryParameters', SL_SCHEMA) ) {
+										errs.push('Multicast or RTSP delivery parameters not specified for service instance in service \"'+uID.text()+'\"');
+										errs.increment('no delivery params');
+									}
+									break;
+								case DVBAPPLICATION_SOURCE_TYPE:
+									// there should be either a Service.RelatedMaterial or Service.ServiceInstance.RelatedMaterial signalling a service related application
+									// TODO:
+									break;
+								default:
+									errs.push('SourceType \"'+SourceType.text()+'\" is not valid in Service \"'+uID.text()+'\".');
+									errs.increment('invalid SourceType');
 							}
 						}
 						else {
 							// this should not happen as SourceType is a mandatory element within ServiceInstance
-							errs.push('SourceTpe not specifcied in ServiceInstance of service \"'+uID.text()+'\".');
+							errs.push('SourceType not specifcied in ServiceInstance of service \"'+uID.text()+'\".');
 							errs.increment('no SourceType');
 						}
 						
@@ -879,9 +915,21 @@ function processQuery(req,res) {
 							}
 						}
 						
+						var DVBTtargetCountry = SL.get('//'+SCHEMA_PREFIX+':Service['+s+']/'+SCHEMA_PREFIX+':ServiceInstance['+si+']/'+SCHEMA_PREFIX+':DVBTDeliveryParameters/'+SCHEMA_PREFIX+':TargetCountry', SL_SCHEMA);
+						if (DVBTtargetCountry) {
+							if (!isISO3166code(DVBTtargetCountry.text())) {
+								errs.push('invalid country code ('+DVBTtargetCountry.text()+') for DVB-T parameters in service \"'+uID.text()+'\"');
+								errs.increment('invalid country code');	
+							}
+						}
 						
-						
-						
+						var DVBCtargetCountry = SL.get('//'+SCHEMA_PREFIX+':Service['+s+']/'+SCHEMA_PREFIX+':ServiceInstance['+si+']/'+SCHEMA_PREFIX+':DVBCDeliveryParameters/'+SCHEMA_PREFIX+':TargetCountry', SL_SCHEMA);
+						if (DVBCtargetCountry) {
+							if (!isISO3166code(DVBCtargetCountry.text())) {
+								errs.push('invalid country code ('+DVBCtargetCountry.text()+') for DVB-C parameters in service \"'+uID.text()+'\"');
+								errs.increment('invalid country code');	
+							}
+						}
 						
 						si++;  // next <ServiceInstance>
 					}
