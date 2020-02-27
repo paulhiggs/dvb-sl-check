@@ -1,6 +1,7 @@
 # dvb-sl-check
 DVB-I Service List validator
 
+## Description
 Validates the value space of the instance document, validation against the schema should be performed seperately (for now)
 
 Checks performed:
@@ -30,3 +31,10 @@ Checks performed:
 * Check that <ContentGuideServiceRef> refers to a different service in the service list
 
 <server>/check gives a basic/primitive UI. Enter the URL to your service list and press "Submit" button. Await results!
+
+##Installation
+1. Clone this repository `git clone https://github.com/paulhiggs/dvb-sl-check.git`
+1. Install necessary libraries (express, libxmljs, morgan)  `npm install`
+1. run it - `node app`
+
+If you want to start an HTTPS server, make sure you have `selfsigned.crt` and `selfsigned.key` files in the same directory. These can be generated (on Linux) with `sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout ./selfsigned.key -out selfsigned.crt`
