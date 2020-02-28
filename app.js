@@ -73,12 +73,13 @@ const JPEG_MIME = 'image/jpg',
 	  DVB_AIT =   'application/vnd.dvb.ait+xml';
 
 // A177 table 15	  
-const DVBT_SOURCE_TYPE = "urn:dvb:metadata:source:dvb-t",
-      DVBS_SOURCE_TYPE = "urn:dvb:metadata:source:dvb-s",
-      DVBC_SOURCE_TYPE = "urn:dvb:metadata:source:dvb-c",
-      DVBIPTV_SOURCE_TYPE = "urn:dvb:metadata:source:dvb-iptv",
-      DVBDASH_SOURCE_TYPE = "urn:dvb:metadata:source:dvb-dash",
-      DVBAPPLICATION_SOURCE_TYPE = "urn:dvb:metadata:source:application";
+const DVB_SOURCE_PREFIX = "urn:dvb:metadata:source:",
+	  DVBT_SOURCE_TYPE = DVB_SOURCE_PREFIX + "dvb-t",
+      DVBS_SOURCE_TYPE = DVB_SOURCE_PREFIX + "dvb-s",
+      DVBC_SOURCE_TYPE = DVB_SOURCE_PREFIX + "dvb-c",
+      DVBIPTV_SOURCE_TYPE = DVB_SOURCE_PREFIX + "dvb-iptv",
+      DVBDASH_SOURCE_TYPE = DVB_SOURCE_PREFIX + "dvb-dash",
+      DVBAPPLICATION_SOURCE_TYPE = DVB_SOURCE_PREFIX + "application";
 	  
 	  
 // A177 7.3.2	  
@@ -93,6 +94,12 @@ const DVB_RELATED_CS = 'urn:dvb:metadata:cs:HowRelatedCS:2019',
 	  LOGO_SERVICE_LIST = DVB_RELATED_CS+':1001.1',
 	  LOGO_SERVICE = DVB_RELATED_CS+':1001.2',
 	  LOGO_CG_PROVIDER = DVB_RELATED_CS+':1002.1';
+
+// A177 5.2.7.2
+const CONTENT_TYPE_DASH_MPD = "application/dash+xml",	// MPD of linear service
+      CONTENT_TYPE_DVB_PLAYLIST = "application/xml";	// XML Playlist
+	  
+
 	  
 var allowedGenres=[], allowedServiceTypes=[], allowedAudioSchemes=[], allowedVideoSchemes=[], allowedCountries=[], allowedAudioConformancePoints=[], allowedVideoConformancePoints=[], RecordingInfoCSvalules=[];
 
@@ -352,8 +359,8 @@ function validServiceApplication(HowRelated) {
 
 function validDASHcontentType(contentType) {
 	// per A177 clause 5.2.7.2 
-	return contentType=="application/dash+xml"   // MPD of linear service
-	    || contentType=="application/xml"        // XML Playlist
+	return contentType==CONTENT_TYPE_DASH_MPD   
+	    || contentType==CONTENT_TYPE_DVB_PLAYLIST   
 }
 
 function validOutScheduleHours(HowRelated) {
@@ -563,7 +570,7 @@ const FORM_TOP='<html><head><title>DVB-I Service List Validator</title></head><b
 const PAGE_HEADING='<h1>DVB-I Service List Validator</h1>';
 const ENTRY_FORM='<form method=\"post\"><p><i>URL:</i></p><input type=\"url\" name="SLurl\" value=\"%s"><input type=\"submit\" value=\"submit\"></form>';
 const RESULT_WITH_INSTRUCTION='<br><p><i>Results:</i></p>';
-
+const SUMMARY_FORM_HEADER = '<table><tr><th>item</th><th>count</th></tr>';
 const FORM_BOTTOM='</body></html>';
 
 function drawForm(res, lastURL, o) {
@@ -581,7 +588,7 @@ function drawForm(res, lastURL, o) {
 			for (var i in o.errors.counts) {
 				if (o.errors.counts[i] != 0) {
 					if (!tableHeader) {
-						res.write('<table><tr><th>item</th><th>count</th></tr>');
+						res.write(SUMMARY_FORM_HEADER);
 						tableHeader=true;
 					}
 					var t=i.replace(/</g,'&lt;').replace(/>/g,'&gt;');					
@@ -592,7 +599,7 @@ function drawForm(res, lastURL, o) {
 			for (var i in o.errors.countsWarn) {
 				if (o.errors.countsWarn[i] != 0) {
 					if (!tableHeader) {
-						res.write('<table><tr><th>item</th><th>count</th></tr>');
+						res.write(SUMMARY_FORM_HEADER);
 						tableHeader=true;
 					}
 					var t=i.replace(/</g,'&lt;').replace(/>/g,'&gt;');					
