@@ -560,14 +560,11 @@ function validateRelatedMaterial(RelatedMaterial,errs,Location,LocationType,SCHE
 
 function CheckUniqueLanguages(schema, prefix, elementName, elementLocation, node, errs) {
 	var languages=[], i=1;
-	console.log('-->looking for '+elementName+" at "+elementLocation);
 	while (elem=node.get(prefix+':'+elementName+'['+i+']', schema)) {
-		console.log('--->got '+elem.text());
 		var lang, langAttr=elem.attr('lang');
 		if (!langAttr)
 			lang="missing"
 		else lang=langAttr.value();
-		console.log('--->got @lang='+lang);
 		if (isIn(languages,lang)) {
 			errs.push('xml:lang='+lang+' already specifed for <'+elementName+'> for '+elementLocation);
 			errs.increment('duplicate @lang');
