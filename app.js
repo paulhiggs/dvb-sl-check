@@ -558,6 +558,26 @@ function validateRelatedMaterial(RelatedMaterial,errs,Location,LocationType,SCHE
 	}
 }
 
+function CheckUniqueLanguages(schema, prefix, elementName, elementLocation, node, errs) {
+	var languages=[], i=1;
+	console.log('-->looking for '+elementName+" at "+elementLocation);
+	while (elem=node.get(prefix+':'+elementName+'['+i+']', schema)) {
+		console.log('--->got '+elem.text());
+		var lang, langAttr=elem.attr('lang');
+		if (!langAttr)
+			lang="missing"
+		else lang=langAttr.value();
+		console.log('--->got @lang='+lang);
+		if (isIn(languages,lang)) {
+			errs.push('xml:lang='+lang+' already specifed for <'+elementName+'> for '+elementLocation);
+			errs.increment('duplicate @lang');
+		}
+		else languages.push(lang);
+		i++;
+	}
+}
+
+
 function isEmpty(obj) {
     for(var key in obj) {
         if(obj.hasOwnProperty(key))
@@ -565,6 +585,9 @@ function isEmpty(obj) {
     }
     return true;
 }
+
+
+
 const FORM_TOP='<html><head><title>DVB-I Service List Validator</title></head><body>';
 
 const PAGE_HEADING='<h1>DVB-I Service List Validator</h1>';
@@ -705,6 +728,39 @@ function processQuery(req,res) {
 				var SL_SCHEMA = {}, SCHEMA_PREFIX=SL.root().namespace().prefix();
 				SL_SCHEMA[SL.root().namespace().prefix()]=SL.root().namespace().href();
 				
+				// Check that the @xml:lang values for each <Name> element are unique and only one element 
+				// does not have any language specified
+				CheckUniqueLanguages(SL_SCHEMA, SCHEMA_PREFIX, "Name", "ServiceList", SL, errs);
+				
+				// Check that the @xml:lang values for each <ProviderName> element are unique and only one element 
+				// does not have any language specified
+				CheckUniqueLanguages(SL_SCHEMA, SCHEMA_PREFIX, "ProviderName", "ServiceList", SL, errs);
+
+				var slGCS=SL.get(SCHEMA_PREFIX+":ContentGuideSource", SL_SCHEMA);
+				if (slGCS) {
+					// Check that the @xml:lang values for each <ContentGuideSource><Name> element are unique and only one element 
+					// does not have any language specified
+					CheckUniqueLanguages(SL_SCHEMA, SCHEMA_PREFIX, "Name", "ServiceList.ContentGuideSource", slGCS, errs);
+					
+					// Check that the @xml:lang values for each <ContentGuideSource><ProviderName> element are unique and only one element 
+					// does not have any language specified
+					CheckUniqueLanguages(SL_SCHEMA, SCHEMA_PREFIX, "ProviderName", "ServiceList.ContentGuideSource", slGCS, errs);
+				}
+
+				var cgs=1, CGsource;
+				while (CGsource=SL.get(SCHEMA_PREFIX+':ContentGuideSourceList/'+SCHEMA_PREFIX+':ContentGuideSource['+cgs+']', SL_SCHEMA)) {
+					// Check that the @xml:lang values for each <ContentGuideSourceList><ContentGuideSource>[cgs]<Name> element are unique and only one element 
+					// does not have any language specified
+					CheckUniqueLanguages(SL_SCHEMA, SCHEMA_PREFIX, "Name", "ServiceList.ContentGuideSourceList.ContentGuideSource["+cgs+"]", CGsource, errs);
+					
+					// Check that the @xml:lang values for each <ContentGuideSourceList><ContentGuideSource>[cgs] element are unique and only one element 
+					// does not have any language specified
+					CheckUniqueLanguages(SL_SCHEMA, SCHEMA_PREFIX, "ProviderName", "ServiceList.ContentGuideSourceList.ContentGuideSource["+cgs+"]", CGsource, errs);				
+					
+					cgs++;
+				}
+
+								
 				errs.set('num services',0);
 	
 				// check <RegionList> and remember regionID values
@@ -720,7 +776,7 @@ function processQuery(req,res) {
 
 				//check <RelatedMaterial> for service list
 				var rm=1, RelatedMaterial;
-				while (RelatedMaterial=SL.get('//'+SCHEMA_PREFIX+':ServiceList/'+SCHEMA_PREFIX+':RelatedMaterial['+rm+']', SL_SCHEMA)) {
+				while (RelatedMaterial=SL.get('//'+SCHEMA_PREFIX+':RelatedMaterial['+rm+']', SL_SCHEMA)) {
 					validateRelatedMaterial(RelatedMaterial,errs,'service list', 'service list', SCHEMA_PREFIX, SL_SCHEMA);
 					rm++;
 				}					
@@ -752,8 +808,6 @@ function processQuery(req,res) {
 							validateRelatedMaterial(CGrm,errs,'<ServiceList><ContentGuideSourceList>', 'content guide', SCHEMA_PREFIX, SL_SCHEMA);
 							rm++;
 						}					
-						
-						
 						i++;
 					}
 				}
@@ -784,10 +838,22 @@ function processQuery(req,res) {
 						knownServices.push(thisServiceId);
 					}
 
+					// Check that the @xml:lang values for each <ServiceName> element are unique and only one element 
+					// does not have any language specified
+					CheckUniqueLanguages(SL_SCHEMA, SCHEMA_PREFIX, 'ServiceName', 'service=\"'+thisServiceId+'\"', service, errs);
+					
+					// Check that the @xml:lang values for each <ProviderName> element are unique and only one element 
+					// does not have any language specified
+					CheckUniqueLanguages(SL_SCHEMA, SCHEMA_PREFIX, 'ProviderName', 'service=\"'+thisServiceId+'\"', service, errs);
+
 					//check <Service><ServiceInstance>
 					var si=1, ServiceInstance;
 					while (ServiceInstance=service.get(SCHEMA_PREFIX+':ServiceInstance['+si+']', SL_SCHEMA)) {
 						//for each service instance
+
+						// Check that the @xml:lang values for each <DisplayName> element are unique and only one element 
+						// does not have any language specified
+						CheckUniqueLanguages(SL_SCHEMA, SCHEMA_PREFIX, 'DisplayName', 'service instance in service=\"'+thisServiceId+'\"', ServiceInstance, errs);
 						
 						// check @href of <RelatedMaterial><HowRelated>
 						var rm=1, RelatedMaterial;
@@ -864,7 +930,7 @@ function processQuery(req,res) {
 									}
 									break;
 								case DVBS_SOURCE_TYPE:
-									if (!ServiceInstance.get(+SCHEMA_PREFIX+':DVBSDeliveryParameters', SL_SCHEMA) ) {
+									if (!ServiceInstance.get(SCHEMA_PREFIX+':DVBSDeliveryParameters', SL_SCHEMA) ) {
 										errs.push('DVB-S delivery parameters not specified for service instance in service \"'+thisServiceId+'\"');
 										errs.increment('no delivery params');
 									}

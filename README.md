@@ -35,6 +35,7 @@ Checks performed:
 * &lt;SourceType&gt; is according to specification and appropriate DeliveryParameters are provided
 * For &lt;DASHDeliveryParameters&gt;
   * valid @contentType in &lt;UriBasedLocation&gt;
+* only one element for each @xml:lang is specified in any mpeg7:TextualType element
   
 &lt;server&gt;/check gives a basic/primitive UI. Enter the URL to your service list and press "Submit" button. Await results!
 
