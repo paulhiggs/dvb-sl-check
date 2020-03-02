@@ -5,6 +5,7 @@ var app = express();
 
 /* TODO
 
+ - also look for TODO in the code itself
 */
 
 
@@ -80,7 +81,6 @@ const DVB_SOURCE_PREFIX = "urn:dvb:metadata:source:",
       DVBIPTV_SOURCE_TYPE = DVB_SOURCE_PREFIX + "dvb-iptv",
       DVBDASH_SOURCE_TYPE = DVB_SOURCE_PREFIX + "dvb-dash",
       DVBAPPLICATION_SOURCE_TYPE = DVB_SOURCE_PREFIX + "application";
-	  
 	  
 // A177 7.3.2	  
 const LINKED_APLICATION_CS = 'urn:dvb:metadata:cs:LinkedApplicationCS:2019'
@@ -558,7 +558,7 @@ function validateRelatedMaterial(RelatedMaterial,errs,Location,LocationType,SCHE
 	}
 }
 
-function CheckUniqueLanguages(schema, prefix, elementName, elementLocation, node, errs) {
+function checkXMLLangs(schema, prefix, elementName, elementLocation, node, errs) {
 	var languages=[], i=1;
 	while (elem=node.get(prefix+':'+elementName+'['+i+']', schema)) {
 		var lang, langAttr=elem.attr('lang');
@@ -567,9 +567,11 @@ function CheckUniqueLanguages(schema, prefix, elementName, elementLocation, node
 		else lang=langAttr.value();
 		if (isIn(languages,lang)) {
 			errs.push('xml:lang='+lang+' already specifed for <'+elementName+'> for '+elementLocation);
-			errs.increment('duplicate @lang');
+			errs.increment('duplicate @xml:lang');
 		}
 		else languages.push(lang);
+
+		//TODO: if lang="missing" validate the format and value of the attribute against BCP47 (RFC 5646)
 		i++;
 	}
 }
@@ -725,42 +727,20 @@ function processQuery(req,res) {
 				var SL_SCHEMA = {}, SCHEMA_PREFIX=SL.root().namespace().prefix();
 				SL_SCHEMA[SL.root().namespace().prefix()]=SL.root().namespace().href();
 				
-				// Check that the @xml:lang values for each <Name> element are unique and only one element 
-				// does not have any language specified
-				CheckUniqueLanguages(SL_SCHEMA, SCHEMA_PREFIX, "Name", "ServiceList", SL, errs);
+				// Check that the @xml:lang values for each <Name> element are unique and only one element does not have any language specified
+				checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, "Name", "ServiceList", SL, errs);
 				
-				// Check that the @xml:lang values for each <ProviderName> element are unique and only one element 
-				// does not have any language specified
-				CheckUniqueLanguages(SL_SCHEMA, SCHEMA_PREFIX, "ProviderName", "ServiceList", SL, errs);
+				// Check that the @xml:lang values for each <ProviderName> element are unique and only one elementdoes not have any language specified
+				checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, "ProviderName", "ServiceList", SL, errs);
 
-				var slGCS=SL.get(SCHEMA_PREFIX+":ContentGuideSource", SL_SCHEMA);
-				if (slGCS) {
-					// Check that the @xml:lang values for each <ContentGuideSource><Name> element are unique and only one element 
-					// does not have any language specified
-					CheckUniqueLanguages(SL_SCHEMA, SCHEMA_PREFIX, "Name", "ServiceList.ContentGuideSource", slGCS, errs);
-					
-					// Check that the @xml:lang values for each <ContentGuideSource><ProviderName> element are unique and only one element 
-					// does not have any language specified
-					CheckUniqueLanguages(SL_SCHEMA, SCHEMA_PREFIX, "ProviderName", "ServiceList.ContentGuideSource", slGCS, errs);
-				}
-
-				var cgs=1, CGsource;
-				while (CGsource=SL.get(SCHEMA_PREFIX+':ContentGuideSourceList/'+SCHEMA_PREFIX+':ContentGuideSource['+cgs+']', SL_SCHEMA)) {
-					// Check that the @xml:lang values for each <ContentGuideSourceList><ContentGuideSource>[cgs]<Name> element are unique and only one element 
-					// does not have any language specified
-					CheckUniqueLanguages(SL_SCHEMA, SCHEMA_PREFIX, "Name", "ServiceList.ContentGuideSourceList.ContentGuideSource["+cgs+"]", CGsource, errs);
-					
-					// Check that the @xml:lang values for each <ContentGuideSourceList><ContentGuideSource>[cgs] element are unique and only one element 
-					// does not have any language specified
-					CheckUniqueLanguages(SL_SCHEMA, SCHEMA_PREFIX, "ProviderName", "ServiceList.ContentGuideSourceList.ContentGuideSource["+cgs+"]", CGsource, errs);				
-					
-					cgs++;
-				}
-
-								
-				errs.set('num services',0);
-	
-				// check <RegionList> and remember regionID values
+				//check <ServiceList><RelatedMaterial>
+				var rm=1, RelatedMaterial;
+				while (RelatedMaterial=SL.get('//'+SCHEMA_PREFIX+':RelatedMaterial['+rm+']', SL_SCHEMA)) {
+					validateRelatedMaterial(RelatedMaterial,errs,'service list', 'service list', SCHEMA_PREFIX, SL_SCHEMA);
+					rm++;
+				}					
+				
+				// check <ServiceList><RegionList> and remember regionID values
 				var knownRegionIDs=[], RegionList=SL.get('//'+SCHEMA_PREFIX+':RegionList', SL_SCHEMA);
 				if (RegionList) {
 					// recurse the regionlist - Regions can be nested in Regions
@@ -771,22 +751,32 @@ function processQuery(req,res) {
 					}
 				}				
 
-				//check <RelatedMaterial> for service list
-				var rm=1, RelatedMaterial;
-				while (RelatedMaterial=SL.get('//'+SCHEMA_PREFIX+':RelatedMaterial['+rm+']', SL_SCHEMA)) {
-					validateRelatedMaterial(RelatedMaterial,errs,'service list', 'service list', SCHEMA_PREFIX, SL_SCHEMA);
-					rm++;
-				}					
-				
-				// check service list <ContentGuideSource>
-				var CGSource=SL.get('//'+SCHEMA_PREFIX+':ContentGuideSource', SL_SCHEMA);
-				if (CGSource) {
-					var rm=1, CGrm;
-					while (CGrm=SL.get('//'+SCHEMA_PREFIX+':ContentGuideSource/'+SCHEMA_PREFIX+':RelatedMaterial['+rm+']', SL_SCHEMA)) {
-						validateRelatedMaterial(CGrm,errs,'<ServiceList><ContentGuideSource>', 'content guide', SCHEMA_PREFIX, SL_SCHEMA);
-						rm++;
+				//check <ServiceList><TargetRegion>
+				var tr=1, TargetRegion;
+				while (TargetRegion=SL.get('//'+SCHEMA_PREFIX+':TargetRegion['+tr+']', SL_SCHEMA)) {
+					if (!isIn(knownRegionIDs,TargetRegion.text())) {
+						errs.push('service list has an unspecified <TargetRegion>'+TargetRegion.text());
+						errs.increment('target region');
 					}
+					tr++;
 				}
+				
+				// <ServiceList><LCNTableList> is checked below, after the services are enumerated
+
+				// check mpeg7:TextualType elements in <ServiceList><ContentGuideSourceList>
+				var cgs=1, CGsource;
+				while (CGsource=SL.get(SCHEMA_PREFIX+':ContentGuideSourceList/'+SCHEMA_PREFIX+':ContentGuideSource['+cgs+']', SL_SCHEMA)) {
+					// Check that the @xml:lang values for each <ContentGuideSourceList><ContentGuideSource>[cgs]<Name> element are unique and only one element 
+					// does not have any language specified
+					checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, "Name", "ServiceList.ContentGuideSourceList.ContentGuideSource["+cgs+"]", CGsource, errs);
+					
+					// Check that the @xml:lang values for each <ContentGuideSourceList><ContentGuideSource>[cgs] element are unique and only one element 
+					// does not have any language specified
+					checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, "ProviderName", "ServiceList.ContentGuideSourceList.ContentGuideSource["+cgs+"]", CGsource, errs);				
+					
+					cgs++;
+				}
+
 				//check service list <ContentGuideSourceList>
 				var CGSourceList=SL.get('//'+SCHEMA_PREFIX+':ContentGuideSourceList', SL_SCHEMA);
 				var ContentGuideSourceIDs=[];
@@ -808,13 +798,35 @@ function processQuery(req,res) {
 						i++;
 					}
 				}
+
+				// check mpeg7:TextualType elements in <ServiceList><ContentGuideSource>
+				var slGCS=SL.get(SCHEMA_PREFIX+":ContentGuideSource", SL_SCHEMA);
+				if (slGCS) {
+					// Check that the @xml:lang values for each <ContentGuideSource><Name> element are unique and only one element does not have any language specified
+					checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, "Name", "ServiceList.ContentGuideSource", slGCS, errs);
+					
+					// Check that the @xml:lang values for each <ContentGuideSource><ProviderName> element are unique and only one element does not have any language specified
+					checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, "ProviderName", "ServiceList.ContentGuideSource", slGCS, errs);
+				}
+
+				// check <ServiceList><ContentGuideSource>
+				var CGSource=SL.get('//'+SCHEMA_PREFIX+':ContentGuideSource', SL_SCHEMA);
+				if (CGSource) {
+					var rm=1, CGrm;
+					while (CGrm=SL.get('//'+SCHEMA_PREFIX+':ContentGuideSource/'+SCHEMA_PREFIX+':RelatedMaterial['+rm+']', SL_SCHEMA)) {
+						validateRelatedMaterial(CGrm,errs,'<ServiceList><ContentGuideSource>', 'content guide', SCHEMA_PREFIX, SL_SCHEMA);
+						rm++;
+					}
+				}
 				
+				errs.set('num services',0);
+
 				// check <Service>
 				var s=1, service, knownServices=[], thisServiceId;
 				while (service=SL.get('//'+SCHEMA_PREFIX+':Service['+s+']', SL_SCHEMA)) {
 					// for each service
 					errs.set('num services',s);
-					thisServiceId="service-"+s;
+					thisServiceId="service-"+s;  // use a default value in case <UniqueIdentifier> is not specified
 					
 					// check <Service><UniqueIdentifier>
 					var uID=service.get(SCHEMA_PREFIX+':UniqueIdentifier', SL_SCHEMA);
@@ -835,22 +847,13 @@ function processQuery(req,res) {
 						knownServices.push(thisServiceId);
 					}
 
-					// Check that the @xml:lang values for each <ServiceName> element are unique and only one element 
-					// does not have any language specified
-					CheckUniqueLanguages(SL_SCHEMA, SCHEMA_PREFIX, 'ServiceName', 'service=\"'+thisServiceId+'\"', service, errs);
-					
-					// Check that the @xml:lang values for each <ProviderName> element are unique and only one element 
-					// does not have any language specified
-					CheckUniqueLanguages(SL_SCHEMA, SCHEMA_PREFIX, 'ProviderName', 'service=\"'+thisServiceId+'\"', service, errs);
-
 					//check <Service><ServiceInstance>
 					var si=1, ServiceInstance;
 					while (ServiceInstance=service.get(SCHEMA_PREFIX+':ServiceInstance['+si+']', SL_SCHEMA)) {
 						//for each service instance
 
-						// Check that the @xml:lang values for each <DisplayName> element are unique and only one element 
-						// does not have any language specified
-						CheckUniqueLanguages(SL_SCHEMA, SCHEMA_PREFIX, 'DisplayName', 'service instance in service=\"'+thisServiceId+'\"', ServiceInstance, errs);
+						// Check that the @xml:lang values for each <DisplayName> element are unique and only one element does not have any language specified
+						checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, 'DisplayName', 'service instance in service=\"'+thisServiceId+'\"', ServiceInstance, errs);
 						
 						// check @href of <RelatedMaterial><HowRelated>
 						var rm=1, RelatedMaterial;
@@ -1014,6 +1017,12 @@ function processQuery(req,res) {
 						}
 						tr++;
 					}
+
+					// Check that the @xml:lang values for each <ServiceName> element are unique and only one element does not have any language specified
+					checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, 'ServiceName', 'service=\"'+thisServiceId+'\"', service, errs);
+					
+					// Check that the @xml:lang values for each <ProviderName> element are unique and only one element does not have any language specified
+					checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, 'ProviderName', 'service=\"'+thisServiceId+'\"', service, errs);
 					
 					//check <Service><RelatedMaterial>
 					var rm=1, RelatedMaterial;
@@ -1068,6 +1077,14 @@ function processQuery(req,res) {
 						}
 					}
 					
+					// this should not happen if the XML document has passed schema validation
+					if (sCG && sCGref) {
+						errs.push('only <ContentGuideSource> or <CountentGuideSourceRef> to be specifed for a service \"'+thisServiceId+'\"');
+						errs.increment('source and ref');
+					}
+					
+					// <Service><ContentguideServiceRef> checked below
+					
 					s++;  // next <Service>
 				}		
 				
@@ -1078,6 +1095,7 @@ function processQuery(req,res) {
 					if (CGSR) {
 						var uniqueID=service.get(SCHEMA_PREFIX+':UniqueIdentifier', SL_SCHEMA);
 						if (uniqueID && !isIn(knownServices,CGSR.text())) {
+							//TODO: this could become a warning if a ContentGuideServiceRef could be any arbitrary value to be given to the Content Guide Server (at present we expect another services unique ID to be specified)
 							errs.push('service \"'+uniqueID.text()+'\" has <ContentGuideServiceRef> \"'+CGSR.text()+'\" - undefined service');
 							errs.increment('invalid <ContentGuideServiceRef>');
 						}
@@ -1089,18 +1107,7 @@ function processQuery(req,res) {
 					s++;
 				}
 
-				//check <TargetRegion> for the service list
-				var tr=1, TargetRegion;
-				while (TargetRegion=SL.get('//'+SCHEMA_PREFIX+':ServiceList/'+SCHEMA_PREFIX+':TargetRegion['+tr+']', SL_SCHEMA)) {
-					if (!isIn(knownRegionIDs,TargetRegion.text())) {
-						errs.push('service list has an invalid <TargetRegion>'+TargetRegion.text());
-						errs.increment('target region');
-					}
-					tr++;
-				}
-
-					
-				// check <LCNTableList>
+				// check <ServiceList><LCNTableList>
 				var LCNtableList=SL.get('//'+SCHEMA_PREFIX+':LCNTableList', SL_SCHEMA);
 				if (LCNtableList) {
 					var l=1, LCNTable;
