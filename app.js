@@ -1089,6 +1089,7 @@ function processQuery(req,res) {
 				}		
 				
 				// check <Service><ContentGuideServiceRef>
+				// issues a warning if this is not a reference to another service or is a reference to self
 				s=1;
 				while (service=SL.get('//'+SCHEMA_PREFIX+':Service['+s+']', SL_SCHEMA)) {
 					var CGSR=service.get(SCHEMA_PREFIX+':ContentGuideServiceRef', SL_SCHEMA);
@@ -1096,8 +1097,8 @@ function processQuery(req,res) {
 						var uniqueID=service.get(SCHEMA_PREFIX+':UniqueIdentifier', SL_SCHEMA);
 						if (uniqueID && !isIn(knownServices,CGSR.text())) {
 							//TODO: this could become a warning if a ContentGuideServiceRef could be any arbitrary value to be given to the Content Guide Server (at present we expect another services unique ID to be specified)
-							errs.push('service \"'+uniqueID.text()+'\" has <ContentGuideServiceRef> \"'+CGSR.text()+'\" - undefined service');
-							errs.increment('invalid <ContentGuideServiceRef>');
+							errs.pushw('<ContentGuideServiceRef> \"'+CGSR.text()+'\" in service \"'+uniqueID.text()+'\"- does not refer to another service');
+							errs.incrementw('invalid <ContentGuideServiceRef>');
 						}
 						if (uniqueID && (CGSR.text() == uniqueID.text())) {
 							errs.pushW('<ContentGuideServiceRef> is self');
