@@ -110,7 +110,7 @@ var allowedGenres=[], allowedServiceTypes=[], allowedAudioSchemes=[], allowedVid
 //const XML_SchemaFilename=path.join('schema','xml.xsd');
 //var SLschema, TVAschema, MPEG7schema, XMLschema;
 
-const allowed_arguments = ['serviceList', ];
+//const allowed_arguments = ['serviceList', ];
 
 const MAX_SUBREGION_LEVELS=3; // definied for <RegionElement> in Table 33 of A177
 
@@ -153,8 +153,11 @@ morgan.token('parseErr',function getParseErr(req) {
 morgan.token('agent',function getAgent(req) {
 	return "("+req.headers['user-agent']+")";
 });
+morgan.token('slURL',function getCheckedURL(req) {
+	return "["+req.query.SLurl+"]";
+});
 
-app.use(morgan(':remote-addr :protocol :method :url :status :res[content-length] - :response-time ms :agent :parseErr'));
+app.use(morgan(':remote-addr :protocol :method :url :status :res[content-length] - :response-time ms :agent :parseErr :slURL'));
 
 
 function isIn(args, value){
@@ -1097,8 +1100,8 @@ function processQuery(req,res) {
 						var uniqueID=service.get(SCHEMA_PREFIX+':UniqueIdentifier', SL_SCHEMA);
 						if (uniqueID && !isIn(knownServices,CGSR.text())) {
 							//TODO: this could become a warning if a ContentGuideServiceRef could be any arbitrary value to be given to the Content Guide Server (at present we expect another services unique ID to be specified)
-							errs.pushw('<ContentGuideServiceRef> \"'+CGSR.text()+'\" in service \"'+uniqueID.text()+'\"- does not refer to another service');
-							errs.incrementw('invalid <ContentGuideServiceRef>');
+							errs.pushW('<ContentGuideServiceRef> \"'+CGSR.text()+'\" in service \"'+uniqueID.text()+'\"- does not refer to another service');
+							errs.incrementW('invalid <ContentGuideServiceRef>');
 						}
 						if (uniqueID && (CGSR.text() == uniqueID.text())) {
 							errs.pushW('<ContentGuideServiceRef> is self');
