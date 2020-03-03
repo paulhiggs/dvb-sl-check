@@ -99,6 +99,9 @@ const DVB_RELATED_CS = 'urn:dvb:metadata:cs:HowRelatedCS:2019',
 const CONTENT_TYPE_DASH_MPD = "application/dash+xml",	// MPD of linear service
       CONTENT_TYPE_DVB_PLAYLIST = "application/xml";	// XML Playlist
 	  
+const SERVICE_LIST_RM = "service list",
+      SERVICE_RM = "service",
+	  CONTENT_GUIDE_RM = "content guide";
 
 	  
 var allowedGenres=[], allowedServiceTypes=[], allowedAudioSchemes=[], allowedVideoSchemes=[], allowedCountries=[], allowedAudioConformancePoints=[], allowedVideoConformancePoints=[], RecordingInfoCSvalules=[];
@@ -519,7 +522,7 @@ function validateRelatedMaterial(RelatedMaterial,errs,Location,LocationType,SCHE
 	else {
 		var HRhref=HowRelated.attr('href');
 		if (HRhref) {
-			if (LocationType=="service list") {
+			if (LocationType==SERVICE_LIST_RM) {
 				if (!validServiceListLogo(HowRelated)) {
 					errs.push('invalid @href=\"'+HRhref.value()+'\" for <RelatedMaterial> in '+Location);
 					errs.increment('invalid href');
@@ -529,7 +532,7 @@ function validateRelatedMaterial(RelatedMaterial,errs,Location,LocationType,SCHE
 						checkValidLogo(HowRelated,Format,locator,errs,Location,LocationType,SCHEMA_PREFIX,SL_SCHEMA));
 				}
 			}
-			if (LocationType=="service") {
+			if (LocationType==SERVICE_RM) {
 				if (!(validOutScheduleHours(HowRelated) || validServiceApplication(HowRelated) || validServiceLogo(HowRelated))) {
 					errs.push('invalid @href=\"'+HRhref.value()+'\" for <RelatedMaterial> in '+Location);
 					errs.increment('invalid href');
@@ -543,7 +546,7 @@ function validateRelatedMaterial(RelatedMaterial,errs,Location,LocationType,SCHE
 							checkSignalledApplication(HowRelated,Format,locator,errs,Location,LocationType,SCHEMA_PREFIX,SL_SCHEMA));
 				}
 			}
-			if (LocationType=="content guide") {
+			if (LocationType==CONTENT_GUIDE_RM) {
 				if (!validContentGuideSourceLogo(HowRelated)) {
 					errs.push('invalid @href=\"'+HRhref.value()+'\" for <RelatedMaterial> in '+Location);
 					errs.increment('invalid href');
@@ -739,7 +742,7 @@ function processQuery(req,res) {
 				//check <ServiceList><RelatedMaterial>
 				var rm=1, RelatedMaterial;
 				while (RelatedMaterial=SL.get('//'+SCHEMA_PREFIX+':RelatedMaterial['+rm+']', SL_SCHEMA)) {
-					validateRelatedMaterial(RelatedMaterial,errs,'service list', 'service list', SCHEMA_PREFIX, SL_SCHEMA);
+					validateRelatedMaterial(RelatedMaterial,errs,'service list', SERVICE_LIST_RM, SCHEMA_PREFIX, SL_SCHEMA);
 					rm++;
 				}					
 				
@@ -795,7 +798,7 @@ function processQuery(req,res) {
 						
 						var rm=1, CGrm;
 						while (CGrm=SL.get('//'+SCHEMA_PREFIX+':ContentGuideSourceList/'+SCHEMA_PREFIX+':ContentGuideSource['+i+']/'+SCHEMA_PREFIX+':RelatedMaterial['+rm+']', SL_SCHEMA)) {
-							validateRelatedMaterial(CGrm,errs,'<ServiceList><ContentGuideSourceList>', 'content guide', SCHEMA_PREFIX, SL_SCHEMA);
+							validateRelatedMaterial(CGrm,errs,'<ServiceList><ContentGuideSourceList>', CONTENT_GUIDE_RM, SCHEMA_PREFIX, SL_SCHEMA);
 							rm++;
 						}					
 						i++;
@@ -817,7 +820,7 @@ function processQuery(req,res) {
 				if (CGSource) {
 					var rm=1, CGrm;
 					while (CGrm=SL.get('//'+SCHEMA_PREFIX+':ContentGuideSource/'+SCHEMA_PREFIX+':RelatedMaterial['+rm+']', SL_SCHEMA)) {
-						validateRelatedMaterial(CGrm,errs,'<ServiceList><ContentGuideSource>', 'content guide', SCHEMA_PREFIX, SL_SCHEMA);
+						validateRelatedMaterial(CGrm,errs,'<ServiceList><ContentGuideSource>', CONTENT_GUIDE_RM, SCHEMA_PREFIX, SL_SCHEMA);
 						rm++;
 					}
 				}
@@ -861,7 +864,7 @@ function processQuery(req,res) {
 						// check @href of <RelatedMaterial><HowRelated>
 						var rm=1, RelatedMaterial;
 						while (RelatedMaterial=ServiceInstance.get(SCHEMA_PREFIX+':RelatedMaterial['+rm+']', SL_SCHEMA)) {
-							validateRelatedMaterial(RelatedMaterial,errs,'service instance of \"'+thisServiceId+'\"', 'service', SCHEMA_PREFIX, SL_SCHEMA);
+							validateRelatedMaterial(RelatedMaterial,errs,'service instance of \"'+thisServiceId+'\"', SERVICE_RM, SCHEMA_PREFIX, SL_SCHEMA);
 							rm++;
 						}
 						
@@ -1030,7 +1033,7 @@ function processQuery(req,res) {
 					//check <Service><RelatedMaterial>
 					var rm=1, RelatedMaterial;
 					while (RelatedMaterial=service.get(SCHEMA_PREFIX+':RelatedMaterial['+rm+']', SL_SCHEMA)) {
-						validateRelatedMaterial(RelatedMaterial,errs,'service \"'+thisServiceId+'\"', 'service', SCHEMA_PREFIX, SL_SCHEMA);
+						validateRelatedMaterial(RelatedMaterial,errs,'service \"'+thisServiceId+'\"', SERVICE_RM, SCHEMA_PREFIX, SL_SCHEMA);
 						rm++;
 					}					
 
@@ -1066,7 +1069,7 @@ function processQuery(req,res) {
 					if (sCG) {
 						var rm=1, CGrm;
 						while (CGrm=sCG.get(SCHEMA_PREFIX+':RelatedMaterial['+rm+']', SL_SCHEMA)) {
-							validateRelatedMaterial(CGrm,errs,'<ContentGuideSource> in service '+thisServiceId, 'content guide', SCHEMA_PREFIX, SL_SCHEMA);
+							validateRelatedMaterial(CGrm,errs,'<ContentGuideSource> in service '+thisServiceId, CONTENT_GUIDE_RM, SCHEMA_PREFIX, SL_SCHEMA);
 							rm++
 						}
 					}
