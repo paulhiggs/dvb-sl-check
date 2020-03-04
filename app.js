@@ -741,13 +741,13 @@ function processQuery(req,res) {
 
 				//check <ServiceList><RelatedMaterial>
 				var rm=1, RelatedMaterial;
-				while (RelatedMaterial=SL.get('//'+SCHEMA_PREFIX+':RelatedMaterial['+rm+']', SL_SCHEMA)) {
+				while (RelatedMaterial=SL.get(SCHEMA_PREFIX+':RelatedMaterial['+rm+']', SL_SCHEMA)) {
 					validateRelatedMaterial(RelatedMaterial,errs,'service list', SERVICE_LIST_RM, SCHEMA_PREFIX, SL_SCHEMA);
 					rm++;
 				}					
 				
 				// check <ServiceList><RegionList> and remember regionID values
-				var knownRegionIDs=[], RegionList=SL.get('//'+SCHEMA_PREFIX+':RegionList', SL_SCHEMA);
+				var knownRegionIDs=[], RegionList=SL.get(SCHEMA_PREFIX+':RegionList', SL_SCHEMA);
 				if (RegionList) {
 					// recurse the regionlist - Regions can be nested in Regions
 					var r=1, Region;
@@ -759,7 +759,7 @@ function processQuery(req,res) {
 
 				//check <ServiceList><TargetRegion>
 				var tr=1, TargetRegion;
-				while (TargetRegion=SL.get('//'+SCHEMA_PREFIX+':TargetRegion['+tr+']', SL_SCHEMA)) {
+				while (TargetRegion=SL.get(SCHEMA_PREFIX+':TargetRegion['+tr+']', SL_SCHEMA)) {
 					if (!isIn(knownRegionIDs,TargetRegion.text())) {
 						errs.push('service list has an unspecified <TargetRegion>'+TargetRegion.text());
 						errs.increment('target region');
