@@ -331,7 +331,7 @@ function addRegion(Region, depth, knownRegionIDs, errs) {
 	
 	if (countryCodeSpecified) {
 		var countries=countryCodeSpecified.value().split(",");
-		countries.forEach(country => {
+		if (countries) countries.forEach(country => {
 			if (!isISO3166code(country)) {
 				errs.push('invalid country code ('+country+') for region \"'+regionID+'\"');
 				errs.increment('invalid country code');	
@@ -405,7 +405,7 @@ function checkValidLogo(HowRelated,Format,MediaLocator,errs,Location,LocationTyp
 	// if <Format> is specified, then it must be per A177 5.2.6.1, 5.2.6.2 or 5.2.6.3 -- which are all the same
 	if (Format) {
 		var subElems=Format.childNodes(), hasStillPictureFormat=false;
-		subElems.forEach(child => {
+		if (subElems) subElems.forEach(child => {
 			if (child.name() == 'StillPictureFormat') {
 				hasStillPictureFormat=true;
 				if (!child.attr('horizontalSize')) {
@@ -438,7 +438,7 @@ function checkValidLogo(HowRelated,Format,MediaLocator,errs,Location,LocationTyp
 	
 	if (MediaLocator) {
 		var subElems=MediaLocator.childNodes(), hasMediaURI=false;
-		subElems.forEach(child => {
+		if (subElems) subElems.forEach(child => {
 			if (child.name()=='MediaUri') {
 				hasMediaURI=true;
 				if (!child.attr('contentType')) {
@@ -477,7 +477,7 @@ function checkSignalledApplication(HowRelated,Format,MediaLocator,errs,Location,
 	}
 	else {
 		var subElems=MediaLocator.childNodes(), hasMediaURI=false;
-		subElems.forEach(child => {
+		if (subElems) subElems.forEach(child => {
 			if (child.name()=='MediaUri') {
 				hasMediaURI=true;
 				if (!child.attr('contentType')) {
@@ -784,8 +784,8 @@ function processQuery(req,res) {
 				}
 
 				//check service list <ContentGuideSourceList>
-				var CGSourceList=SL.get('//'+SCHEMA_PREFIX+':ContentGuideSourceList', SL_SCHEMA);
-				var ContentGuideSourceIDs=[];
+				var ContentGuideSourceIDs=[], CGSourceList=SL.get('//'+SCHEMA_PREFIX+':ContentGuideSourceList', SL_SCHEMA);
+				if (CGSourceList) {
 				if (CGSourceList) {
 					var i=1, CGSource;
 					while (CGSource=SL.get('//'+SCHEMA_PREFIX+':ContentGuideSourceList/'+SCHEMA_PREFIX+':ContentGuideSource['+i+']', SL_SCHEMA)) {
