@@ -968,6 +968,7 @@ function processQuery(req,res) {
                         }
                         else {
                             // this should not happen as SourceType is a mandatory element within ServiceInstance
+							// TODO: SourceType becomes optional in A177v2
                             errs.push("SourceType not specifcied in ServiceInstance of service \""+thisServiceId+"\".");
                             errs.increment("no SourceType");
                         }
