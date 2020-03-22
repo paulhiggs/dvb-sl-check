@@ -66,21 +66,22 @@ const REPO_RAW = "https://raw.githubusercontent.com/paulhiggs/dvb-sl-check/maste
 	  ISO3166_URL=REPO_RAW + 'iso3166-countries.json',
 	  DVBI_RecordingInfoCSURL=REPO_RAW + 'cs/' + 'DVBRecordingInfoCS-2019.xml';
 */
-const JPEG_IMAGE_CS_VALUE = 'urn:mpeg:mpeg7:cs:FileFormatCS:2001:1',
-	  PNG_IMAGE_CS_VALUE =  'urn:mpeg:mpeg7:cs:FileFormatCS:2001:15';
+const FILE_FORMAT_CS = 'urn:mpeg:mpeg7:cs:FileFormatCS:2001',
+      JPEG_IMAGE_CS_VALUE = FILE_FORMAT_CS + ':1',
+	  PNG_IMAGE_CS_VALUE =  FILE_FORMAT_CS + 'urn:mpeg:mpeg7:cs:FileFormatCS:2001:15';
 
 const JPEG_MIME = 'image/jpg',
 	  PNG_MIME =  'image/png',
 	  DVB_AIT =   'application/vnd.dvb.ait+xml';
 
 // A177 table 15	  
-const DVB_SOURCE_PREFIX = "urn:dvb:metadata:source:",
-	  DVBT_SOURCE_TYPE = DVB_SOURCE_PREFIX + "dvb-t",
-      DVBS_SOURCE_TYPE = DVB_SOURCE_PREFIX + "dvb-s",
-      DVBC_SOURCE_TYPE = DVB_SOURCE_PREFIX + "dvb-c",
-      DVBIPTV_SOURCE_TYPE = DVB_SOURCE_PREFIX + "dvb-iptv",
-      DVBDASH_SOURCE_TYPE = DVB_SOURCE_PREFIX + "dvb-dash",
-      DVBAPPLICATION_SOURCE_TYPE = DVB_SOURCE_PREFIX + "application";
+const DVB_SOURCE_PREFIX = "urn:dvb:metadata:source",
+	  DVBT_SOURCE_TYPE = DVB_SOURCE_PREFIX + ":dvb-t",
+      DVBS_SOURCE_TYPE = DVB_SOURCE_PREFIX + ":dvb-s",
+      DVBC_SOURCE_TYPE = DVB_SOURCE_PREFIX + ":dvb-c",
+      DVBIPTV_SOURCE_TYPE = DVB_SOURCE_PREFIX + ":dvb-iptv",
+      DVBDASH_SOURCE_TYPE = DVB_SOURCE_PREFIX + ":dvb-dash",
+      DVBAPPLICATION_SOURCE_TYPE = DVB_SOURCE_PREFIX + ":application";
 	  
 // A177 7.3.2	  
 const LINKED_APLICATION_CS = 'urn:dvb:metadata:cs:LinkedApplicationCS:2019'
