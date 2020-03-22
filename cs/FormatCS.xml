@@ -12,7 +12,7 @@
 	<Term termID="2.1">
 		<Name xml:lang="en">STRUCTURED</Name>
 		<Definition xml:lang="en">All programmes dealing with facts, situations, opinions, theories and forecasts</Definition>
-		<Term termID="2.1.1 ">
+		<Term termID="2.1.1">
 			<Name xml:lang="en">Bulletin</Name>
 			<Definition xml:lang="en">Programme with formal desk presentation, usually interspersed with visual material.Example: news bulletin, weather forecast</Definition>
 		</Term>
