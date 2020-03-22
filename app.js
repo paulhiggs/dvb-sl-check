@@ -163,13 +163,13 @@ morgan.token('slURL',function getCheckedURL(req) {
 app.use(morgan(':remote-addr :protocol :method :url :status :res[content-length] - :response-time ms :agent :parseErr :slURL'));
 
 
-function isIn(args, value){
-	if (typeof(args) == "string")
-		return args==value;
+function isIn(values, value){
+	if (typeof(values) == "string")
+		return values==value;
 	
-	if (typeof(args) == "object") {
-		for (var x=0; x<args.length; x++) 
-			if (args[x] == value)
+	if (typeof(values) == "object") {
+		for (var x=0; x<values.length; x++) 
+			if (values[x] == value)
 				return true;
 	}
 	return false;
@@ -417,12 +417,13 @@ function checkValidLogo(HowRelated,Format,MediaLocator,errs,Location,LocationTyp
 					errs.increment('no @verticalSize');
 				}
 				if (child.attr('href')) {
-					if (child.attr('href').value() != JPEG_IMAGE_CS_VALUE && child.attr('href').value() != PNG_IMAGE_CS_VALUE) {
-						errs.push('invalid @href=\"'+child.attr('href').value()+'\" specified for <RelatedMaterial><Format><StillPictureFormat> in '+Location);
+					var href=child.attr('href').value();
+					if (href != JPEG_IMAGE_CS_VALUE && href != PNG_IMAGE_CS_VALUE) {
+						errs.push('invalid @href=\"'+href+'\" specified for <RelatedMaterial><Format><StillPictureFormat> in '+Location);
 						errs.increment('invalid href');				
 					}
-					if (child.attr('href').value() == JPEG_IMAGE_CS_VALUE) isJPEG=true;
-					if (child.attr('href').value() == PNG_IMAGE_CS_VALUE) isPNG=true;
+					if (href == JPEG_IMAGE_CS_VALUE) isJPEG=true;
+					if (href == PNG_IMAGE_CS_VALUE) isPNG=true;
 				}
 				else {
 					errs.push('no @href specified for <RelatedMaterial><Format> in '+Location);
@@ -446,12 +447,12 @@ function checkValidLogo(HowRelated,Format,MediaLocator,errs,Location,LocationTyp
 					errs.increment('unspecified MediaUri@contentType');
 				}
 				else {
-					if (child.attr('contentType').value()!=JPEG_MIME && child.attr('contentType').value()!=PNG_MIME) {
-						errs.push('invalid @contentType \"'+child.attr('contentType').value()+'\" specified for <RelatedMaterial><MediaLocator> in '+Location);
+					var contentType=child.attr('contentType').value();
+					if (contentType!=JPEG_MIME && contentType!=PNG_MIME) {
+						errs.push('invalid @contentType \"'+contentType+'\" specified for <RelatedMaterial><MediaLocator> in '+Location);
 						errs.increment('invalid MediaUri@contentType');
 					}
-					if (Format && ((child.attr('contentType').value()==JPEG_MIME && !isJPEG) ||
-						           (child.attr('contentType').value()==PNG_MIME && !isPNG))){
+					if (Format && ((contentType==JPEG_MIME && !isJPEG) || (contentType==PNG_MIME && !isPNG))){
 						errs.push('conflicting media types in <Format> and <MediaUri> for '+Location);
 						errs.increment('conflicting mime types');
 					}	
