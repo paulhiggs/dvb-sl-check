@@ -1130,16 +1130,22 @@ function processQuery(req,res) {
                         
                         var LCNNumbers=[],e=1,LCN;
                         while (LCN=LCNTable.get(SCHEMA_PREFIX+":LCN["+e+"]", SL_SCHEMA)) {
-                            if (isIn(LCNNumbers,LCN.attr("channelNumber").value())) {
-                                errs.push("duplicated channel number "+LCN.attr("channelNumber").value()+" for <TargetRegion>"+lastTargetRegion);
-                                errs.increment("duplicate channel number");
-                            } 
-                            else LCNNumbers.push(LCN.attr("channelNumber").value());
+							if (LCN.attr("channelNumber")) {
+								var chanNum=LCN.attr("channelNumber").value();
+								if (isIn(LCNNumbers,chanNum)) {
+									errs.push("duplicated channel number "+chanNum+" for <TargetRegion>"+lastTargetRegion);
+									errs.increment("duplicate channel number");
+								} 
+								else LCNNumbers.push(chanNum);
+							}
 
-                            if (!isIn(knownServices,LCN.attr("serviceRef").value())) {
-                                errs.push("LCN reference to unknown service "+LCN.attr("serviceRef").value());
-                                errs.increment("LCN unknown services");
-                            }
+                            if (LCN.attr("serviceRef")) {
+								var servRef=LCN.attr("serviceRef").value();
+								if (!isIn(knownServices,servRef)) {
+									errs.push("LCN reference to unknown service "+servRef);
+									errs.increment("LCN unknown services");
+								}
+							}
                             e++;
                         }
                         l++;
