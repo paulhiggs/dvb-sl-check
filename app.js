@@ -190,9 +190,9 @@ function loadCS(values, classificationScheme) {
     fs.readFile(classificationScheme, {encoding: "utf-8"}, function(err,data){
         if (!err) {
             var xmlCS = libxml.parseXmlString(data.replace(/(\r\n|\n|\r|\t)/gm,""));
-			if (!xmlCS) return;
+            if (!xmlCS) return;
             var CSnamespace = xmlCS.root().attr("uri");
-			if (!CSnamespace) return;
+            if (!CSnamespace) return;
             var t=0, term;
             while (term=xmlCS.root().child(t)) {
                 addCSTerm(values,CSnamespace.value(),term);
@@ -892,7 +892,7 @@ function processQuery(req,res) {
                             if (conf.attr("href") && !isIn(allowedVideoConformancePoints,conf.attr("href").value())) {
                                 errs.push("invalid @href value for <VideoConformancePoint> ("+conf.attr("href").value()+")");
                                 errs.increment("video conf point");
-                            }                            
+                            }
                             cp++;
                         }
 
@@ -909,7 +909,7 @@ function processQuery(req,res) {
                         var Availability=ServiceInstance.get(SCHEMA_PREFIX+":Availability", SL_SCHEMA);
                         if (Availability) {
                             var Period, p=1;
-                            while (Period=SL.get("//"+SCHEMA_PREFIX+":Service["+s+"]/"+SCHEMA_PREFIX+":ServiceInstance["+si+"]/"+SCHEMA_PREFIX+":Availability/"+SCHEMA_PREFIX+":Period["+p+"]", SL_SCHEMA)) {
+                            while (Period=Availability.get(SCHEMA_PREFIX+":Period["+p+"]", SL_SCHEMA)) {
                                 if (Period.attr("validFrom") && Period.attr("validTo")) {
                                     // validTo should be >= validFrom
                                     var fr=new Date(Period.attr("validFrom").value()), 
@@ -968,7 +968,7 @@ function processQuery(req,res) {
                         }
                         else {
                             // this should not happen as SourceType is a mandatory element within ServiceInstance
-							// TODO: SourceType becomes optional in A177v2
+                            // TODO: SourceType becomes optional in A177v2
                             errs.push("SourceType not specifcied in ServiceInstance of service \""+thisServiceId+"\".");
                             errs.increment("no SourceType");
                         }
@@ -1130,22 +1130,22 @@ function processQuery(req,res) {
                         
                         var LCNNumbers=[],e=1,LCN;
                         while (LCN=LCNTable.get(SCHEMA_PREFIX+":LCN["+e+"]", SL_SCHEMA)) {
-							if (LCN.attr("channelNumber")) {
-								var chanNum=LCN.attr("channelNumber").value();
-								if (isIn(LCNNumbers,chanNum)) {
-									errs.push("duplicated channel number "+chanNum+" for <TargetRegion>"+lastTargetRegion);
-									errs.increment("duplicate channel number");
-								} 
-								else LCNNumbers.push(chanNum);
-							}
+                            if (LCN.attr("channelNumber")) {
+                                var chanNum=LCN.attr("channelNumber").value();
+                                if (isIn(LCNNumbers,chanNum)) {
+                                    errs.push("duplicated channel number "+chanNum+" for <TargetRegion>"+lastTargetRegion);
+                                    errs.increment("duplicate channel number");
+                                } 
+                                else LCNNumbers.push(chanNum);
+                            }
 
                             if (LCN.attr("serviceRef")) {
-								var servRef=LCN.attr("serviceRef").value();
-								if (!isIn(knownServices,servRef)) {
-									errs.push("LCN reference to unknown service "+servRef);
-									errs.increment("LCN unknown services");
-								}
-							}
+                                var servRef=LCN.attr("serviceRef").value();
+                                if (!isIn(knownServices,servRef)) {
+                                    errs.push("LCN reference to unknown service "+servRef);
+                                    errs.increment("LCN unknown services");
+                                }
+                            }
                             e++;
                         }
                         l++;
