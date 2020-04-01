@@ -50,6 +50,10 @@ const TVA_ContentCSFilename=path.join("cs","ContentCS.xml"),
       DVB_VideoConformanceCSFilename=path.join("cs","VideoConformancePointsCS.xml"),
       ISO3166_Filename=path.join(".","iso3166-countries.json"),
       DVBI_RecordingInfoCSFilename=path.join("cs","DVBRecordingInfoCS-2019.xml");
+
+// curl from https://www.iana.org/assignments/language-subtag-registry/language-subtag-registry
+const IANA_Subtag_Registry_Filename=path.join(".","language-subtag-registry");
+
 /*
 const REPO_RAW = "https://raw.githubusercontent.com/paulhiggs/dvb-sl-check/master/",
       DVB_METADATA = "https://dvb.org/metadata/",
@@ -64,13 +68,14 @@ const REPO_RAW = "https://raw.githubusercontent.com/paulhiggs/dvb-sl-check/maste
       DVB_AudioConformanceCSURL=DVB_METADATA + "cs/2017/" + "AudioConformancePointsCS.xml",
       DVB_VideoConformanceCSURL=DVB_METADATA + "cs/2017/" + "VideoConformancePointsCS.xml",
       ISO3166_URL=REPO_RAW + "iso3166-countries.json",
+	  IANA_Subtag_Registry_URL="https://www.iana.org/assignments/language-subtag-registry/language-subtag-registry",
       DVBI_RecordingInfoCSURL=REPO_RAW + "cs/" + "DVBRecordingInfoCS-2019.xml";
 */
 const FILE_FORMAT_CS = "urn:mpeg:mpeg7:cs:FileFormatCS:2001",
       JPEG_IMAGE_CS_VALUE = FILE_FORMAT_CS + ":1",
-      PNG_IMAGE_CS_VALUE =  FILE_FORMAT_CS + "urn:mpeg:mpeg7:cs:FileFormatCS:2001:15";
+      PNG_IMAGE_CS_VALUE =  FILE_FORMAT_CS + ":15";
 
-const JPEG_MIME = "image/jpg",
+const JPEG_MIME = "image/jpeg", JPG_MIME = "image/jpg",  // image/jpg is temporary
       PNG_MIME =  "image/png",
       DVB_AIT =   "application/vnd.dvb.ait+xml";
 
@@ -105,7 +110,9 @@ const SERVICE_LIST_RM = "service list",
       SERVICE_RM = "service",
       CONTENT_GUIDE_RM = "content guide";
 
-var allowedGenres=[], allowedServiceTypes=[], allowedAudioSchemes=[], allowedVideoSchemes=[], allowedCountries=[], allowedAudioConformancePoints=[], allowedVideoConformancePoints=[], RecordingInfoCSvalules=[];
+var allowedGenres=[], allowedServiceTypes=[], allowedAudioSchemes=[], allowedVideoSchemes=[], 
+    allowedCountries=[], knownLanguages=[],
+	allowedAudioConformancePoints=[], allowedVideoConformancePoints=[], RecordingInfoCSvalules=[];
 
 //TODO: validation against schema
 //const DVBI_ServiceListSchemaFilename=path.join("schema","dvbi_v1.0.xsd");
@@ -216,7 +223,6 @@ function isISO3166code(countryCode) {
     return found;
 }
 
-
 function loadCountries(countriesFile) {
     fs.readFile(countriesFile, {encoding: "utf-8"}, function(err,data){
         if (!err) {
@@ -238,7 +244,29 @@ function loadCountries(countriesFile) {
     });
 }
 
+function loadLanguages(languagesFile) {
+	knownLanguages=[];
+    fs.readFile(languagesFile, {encoding: "utf-8"}, function(err,data){
+        if (!err) {
+			var entries = data.split("%%");
+			entries.forEach(entry => {
+				var i=0, items=entry.split("\n");
+				if (isIn(items,"Type: language")) {
+					//found one
+					for (i=0; i<items.length; i++) {
+						if (items[i].startsWith("Subtag:")) {
+							knownLanguages.push(items[i].split(":")[1].trim());
+						}
+					}
+				}
+			});
+		}
+	});
+}
+
 function loadDataFiles() {
+	
+	console.log("loading classification schemes...");
     allowedGenres=[];
     loadCS(allowedGenres,TVA_ContentCSFilename);
     loadCS(allowedGenres,TVA_FormatCSFilename);
@@ -257,9 +285,14 @@ function loadDataFiles() {
     loadCS(allowedVideoSchemes, MPEG7_VisualCodingFormatCSFilename);
     loadCS(allowedVideoConformancePoints, DVB_VideoConformanceCSFilename);
 
-    loadCountries(ISO3166_Filename);
-
+	RecordingInfoCSvalules=[];
     loadCS(RecordingInfoCSvalules, DVBI_RecordingInfoCSFilename);
+
+	console.log("loading countries...");
+    loadCountries(ISO3166_Filename);
+	
+	console.log("loading languages...");
+	loadLanguages(IANA_Subtag_Registry_Filename);
 
 //TODO: validation against schema
 //    SLschema=fs.readFileSync(DVBI_ServiceListSchemaFilename);
@@ -301,6 +334,14 @@ function loadDataFilesWeb() {
 */
 
 
+function isJPEGmime(val) {
+	return val==JPEG_MIME || val==JPG_MIME
+}
+function isPNGmime(val) {
+	return val==PNG_MIME 
+}
+
+
 function isTAGURI(identifier){
     // RFC 4151 compliant - https://tools.ietf.org/html/rfc4151
     // tagURI = "tag:" taggingEntity ":" specific [ "#" fragment ]
@@ -312,7 +353,6 @@ function isTAGURI(identifier){
 function validServiceIdentifier(identifier){
     return isTAGURI(identifier);
 }
-
 
 function uniqueServiceIdentifier(identifier,identifiers) {
     return !isIn(identifiers,identifier);
@@ -457,11 +497,11 @@ function checkValidLogo(HowRelated,Format,MediaLocator,errs,Location,LocationTyp
                 }
                 else {
                     var contentType=child.attr("contentType").value();
-                    if (contentType!=JPEG_MIME && contentType!=PNG_MIME) {
+                    if (!isJPEGmime(contentType) && !isPNGmime(contentType)) {
                         errs.push("invalid @contentType \""+contentType+"\" specified for <RelatedMaterial><MediaLocator> in "+Location);
                         errs.increment("invalid MediaUri@contentType");
                     }
-                    if (Format && ((contentType==JPEG_MIME && !isJPEG) || (contentType==PNG_MIME && !isPNG))){
+                    if (Format && ((isJPEGmime(contentType) && !isJPEG) || (isPNGmime(contentType) && !isPNG))) {
                         errs.push("conflicting media types in <Format> and <MediaUri> for "+Location);
                         errs.increment("conflicting mime types");
                     }
@@ -572,12 +612,13 @@ function validateRelatedMaterial(RelatedMaterial,errs,Location,LocationType,SCHE
 }
 
 const LANG_OK=0,
-      LANG_UNDEFINED,
-	  LANG_USE_2DIGIT;
+      LANG_UNDEFINED=1,
+	  LANG_USE_2DIGIT=2;
 
 function checkBCP47lang(lang) {
 	//TODO: check the lang against BCP47 (https://tools.ietf.org/html/bcp47)
-	
+	if (!isIn(knownLanguages, lang))
+		return LANG_UNDEFINED;
 	
 	return LANG_OK;
 }
@@ -595,7 +636,7 @@ function checkXMLLangs(schema, prefix, elementName, elementLocation, node, errs)
         }
         else languages.push(lang);
 
-        //if lang!="missing" validate the format and value of the attribute against BCP47 (RFC 5646)
+        //if lang is specified, validate the format and value of the attribute against BCP47 (RFC 5646)
 		if (lang != "missing") {
 			switch(checkBCP47lang(lang)) {
 				case LANG_UNDEFINED:
