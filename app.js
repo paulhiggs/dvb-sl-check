@@ -1035,15 +1035,16 @@ function processQuery(req,res) {
                                     // TODO:
                                     break;
                                 default:
-                                    errs.push("SourceType \""+SourceType.text()+"\" is not valid in Service \""+thisServiceId+"\".");
-                                    errs.increment("invalid SourceType");
+                                //    errs.push("SourceType \""+SourceType.text()+"\" is not valid in Service \""+thisServiceId+"\".");
+                                //    errs.increment("invalid SourceType");
+                                    errs.pushW("Service \""+thisServiceId+"\" has a user defined SourceType \""+SourceType.text()+"\"");
+                                    errs.incrementW("user SourceType");
                             }
                         }
                         else {
                             // this should not happen as SourceType is a mandatory element within ServiceInstance
-                            // TODO: SourceType becomes optional in A177v2
-                            errs.push("SourceType not specifcied in ServiceInstance of service \""+thisServiceId+"\".");
-                            errs.increment("no SourceType");
+                            errs.pushW("SourceType not specifcied in ServiceInstance of service \""+thisServiceId+"\".");
+                            errs.incrementW("no SourceType");
                         }
                         
                         var DASHDeliveryParameters = ServiceInstance.get(SCHEMA_PREFIX+":DASHDeliveryParameters", SL_SCHEMA);
