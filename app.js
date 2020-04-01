@@ -91,7 +91,8 @@ const LINKED_APLICATION_CS = "urn:dvb:metadata:cs:LinkedApplicationCS:2019",
 
 // A177 7.3.1
 const DVB_RELATED_CS = "urn:dvb:metadata:cs:HowRelatedCS:2019",
-      LOGO_OUTSIDE_AVAILABILITY = DVB_RELATED_CS+":1000.1",
+      BANNER_OUTSIDE_AVAILABILITY = DVB_RELATED_CS+":1000.1",
+	  BANNER_CONTENT_FINISHED = DVB_RELATED_CS+":1000.2",	// added in A177v2
       LOGO_SERVICE_LIST = DVB_RELATED_CS+":1001.1",
       LOGO_SERVICE = DVB_RELATED_CS+":1001.2",
       LOGO_CG_PROVIDER = DVB_RELATED_CS+":1002.1";
@@ -375,7 +376,14 @@ function validOutScheduleHours(HowRelated) {
     // return true if val is a valid CS value for Out of Service Banners (A177 5.2.5.3)
     // urn:dvb:metadata:cs:HowRelatedCS:2019
     var val= HowRelated.attr("href") ? HowRelated.attr("href").value() : null;
-    return val==LOGO_OUTSIDE_AVAILABILITY;
+    return val==BANNER_OUTSIDE_AVAILABILITY;
+}
+
+function validContentFinishedBanner(HowRelated) {
+    // return true if val is a valid CS value for Content Finished Banner (A177 5.2.7.3)
+    // urn:dvb:metadata:cs:HowRelatedCS:2019
+    var val= HowRelated.attr("href") ? HowRelated.attr("href").value() : null;
+    return val==BANNER_CONTENT_FINISHED;
 }
 
 function validServiceListLogo(HowRelated) {
@@ -532,7 +540,7 @@ function validateRelatedMaterial(RelatedMaterial,errs,Location,LocationType,SCHE
                 }
             }
             if (LocationType==SERVICE_RM) {
-                if (!(validOutScheduleHours(HowRelated) || validServiceApplication(HowRelated) || validServiceLogo(HowRelated))) {
+                if (!(validOutScheduleHours(HowRelated) || validContentFinishedBanner(HowRelated) ||validServiceApplication(HowRelated) || validServiceLogo(HowRelated))) {
                     errs.push("invalid @href=\""+HRhref.value()+"\" for <RelatedMaterial> in "+Location);
                     errs.increment("invalid href");
                 }
@@ -563,6 +571,17 @@ function validateRelatedMaterial(RelatedMaterial,errs,Location,LocationType,SCHE
     }
 }
 
+const LANG_OK=0,
+      LANG_UNDEFINED,
+	  LANG_USE_2DIGIT;
+
+function checkBCP47lang(lang) {
+	//TODO: check the lang against BCP47 (https://tools.ietf.org/html/bcp47)
+	
+	
+	return LANG_OK;
+}
+
 function checkXMLLangs(schema, prefix, elementName, elementLocation, node, errs) {
     var languages=[], i=1;
     while (elem=node.get(prefix+":"+elementName+"["+i+"]", schema)) {
@@ -576,7 +595,20 @@ function checkXMLLangs(schema, prefix, elementName, elementLocation, node, errs)
         }
         else languages.push(lang);
 
-        //TODO: if lang="missing" validate the format and value of the attribute against BCP47 (RFC 5646)
+        //if lang!="missing" validate the format and value of the attribute against BCP47 (RFC 5646)
+		if (lang != "missing") {
+			switch(checkBCP47lang(lang)) {
+				case LANG_UNDEFINED:
+				    errs.push("xml:lang value \""+lang+"\" is invalid");
+                    errs.increment("invalid @xml:lang");
+					break;
+				case LANG_USE_2DIGIT:
+				    errs.push("use 2DIGIT value for xml:lang instead of \""+lang+"\"");
+                    errs.increment("invalid @xml:lang");
+					break;
+			}
+		}
+		
         i++;
     }
 }
@@ -859,7 +891,7 @@ function processQuery(req,res) {
                         // Check that the @xml:lang values for each <DisplayName> element are unique and only one element does not have any language specified
                         checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, "DisplayName", "service instance in service=\""+thisServiceId+"\"", ServiceInstance, errs);
                         
-                        // check @href of <RelatedMaterial><HowRelated>
+                        // check @href of <ServiceInstance><RelatedMaterial>
                         var rm=1, RelatedMaterial;
                         while (RelatedMaterial=ServiceInstance.get(SCHEMA_PREFIX+":RelatedMaterial["+rm+"]", SL_SCHEMA)) {
                             validateRelatedMaterial(RelatedMaterial,errs,"service instance of \""+thisServiceId+"\"", SERVICE_RM, SCHEMA_PREFIX, SL_SCHEMA);
