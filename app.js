@@ -127,6 +127,11 @@ const MAX_SUBREGION_LEVELS=3; // definied for <RegionElement> in Table 33 of A17
 
 
 class ErrorList {
+/**
+ * Manages errors and warnings for the application
+ * 
+ */
+
     counts=[]; messages=[]; countsWarn=[]; messagesWarn=[];
     
     increment(key) {
@@ -170,7 +175,13 @@ morgan.token("slURL",function getCheckedURL(req) {
 
 app.use(morgan(":remote-addr :protocol :method :url :status :res[content-length] - :response-time ms :agent :parseErr :slURL"));
 
-
+/**
+ * determines if a value is in a set of values - simular to 
+ *
+ * @param {String or Array} values The set of values to check existance in
+ * @param {String} value The value to check for existance
+ * @return {boolean} if value is in the set of values
+ */
 function isIn(values, value){
     if (typeof(values) == "string")
         return values==value;
@@ -183,6 +194,13 @@ function isIn(values, value){
     return false;
 }
 
+/**
+ * Constructs a linear list of terms from a heirarical clssification schemes which are read from an XML document and parsed by libxmljs
+ *
+ * @param {Array} values The array to push classification scheme values into
+ * @param {String} CSuri The classification scheme domian
+ * @param {Object} term The classification scheme term that may include nested subterms
+ */
 function addCSTerm(values,CSuri,term){
     if (term.name()==="Term") {
         values.push(CSuri+":"+term.attr("termID").value())
@@ -194,6 +212,12 @@ function addCSTerm(values,CSuri,term){
     }
 }
 
+/**
+ * read a classification scheme and load its hierarical values into a linear list 
+ *
+ * @param {Array} values The linear list of values within the classification scheme
+ * @param {String] the filename of the classification scheme
+ */
 function loadCS(values, classificationScheme) {
     fs.readFile(classificationScheme, {encoding: "utf-8"}, function(err,data){
         if (!err) {
@@ -212,6 +236,12 @@ function loadCS(values, classificationScheme) {
     });
 }
 
+/**
+ * determine if the argument contains a valid ISO 3166 country code
+ *
+ * @param {String} countryCode the country code to be checked for validity
+ * @return {boolean} true if countryCode is known else false
+ */
 function isISO3166code(countryCode) {
     if (countryCode.length!=3) {
         return false;
@@ -223,6 +253,11 @@ function isISO3166code(countryCode) {
     return found;
 }
 
+/**
+ * load the countries list into the allowedCountries global array from the specified JSON file
+ *
+ * @param {String} countriesFile the file name to load
+ */
 function loadCountries(countriesFile) {
     fs.readFile(countriesFile, {encoding: "utf-8"}, function(err,data){
         if (!err) {
@@ -244,6 +279,12 @@ function loadCountries(countriesFile) {
     });
 }
 
+/**
+ * load the languages list into the knownLanguages global array from the specified file
+ * file is formatted according to www.iana.org/assignments/language-subtag-registry/language-subtag-registry
+ *
+ * @param {String} languagesFile the file name to load
+ */
 function loadLanguages(languagesFile) {
 	knownLanguages=[];
     fs.readFile(languagesFile, {encoding: "utf-8"}, function(err,data){
@@ -334,14 +375,31 @@ function loadDataFilesWeb() {
 */
 
 
+/**
+ * determines if the value is a valid JPEG MIME type
+ *
+ * @param {String} val the MIME type
+ * @return {boolean} true is the MIME type represents a JPEG image, otherwise false
+ */
 function isJPEGmime(val) {
 	return val==JPEG_MIME
 }
+/**
+ * determines if the value is a valid PNG MIME type
+ *
+ * @param {String} val the MIME type
+ * @return {boolean} true is the MIME type represents a PNG image, otherwise false
+ */
 function isPNGmime(val) {
 	return val==PNG_MIME 
 }
 
-
+/**
+ * determine if the passed value conforms to am IETF RFC4151 TAG URI
+ *
+ * @param {string} identifier The service identifier to be checked
+ * @return {boolean} true of the service identifier is in RFC4151 TAG URI format
+ */
 function isTAGURI(identifier){
     // RFC 4151 compliant - https://tools.ietf.org/html/rfc4151
     // tagURI = "tag:" taggingEntity ":" specific [ "#" fragment ]
@@ -350,10 +408,25 @@ function isTAGURI(identifier){
     var s=identifier.match(TAGregex);
     return s?s[0] === identifier:false;
 }
+
+/** 
+ * determines if the identifer provided complies with the requirements for a service identifier
+ * at this stage only IETF RFC 4151 TAG URIs are permitted
+ *
+ * @param {String} identifier The service identifier
+ * @return {boolean} true if the service identifier complies with the specification otherwise false
+ */ 
 function validServiceIdentifier(identifier){
     return isTAGURI(identifier);
 }
 
+/** 
+ * determines if the identifer provided is unique against a list of known identifiers
+ *
+ * @param {String} identifier The service identifier
+ * @param (Array} identifiers The list of known service identifiers
+ * @return {boolean} true if the service identifier is unique otherwise false
+ */
 function uniqueServiceIdentifier(identifier,identifiers) {
     return !isIn(identifiers,identifier);
 }
@@ -444,6 +517,19 @@ function validContentGuideSourceLogo(HowRelated) {
     return val==LOGO_CG_PROVIDER;
 }
 
+
+/**
+ * verifies if the specified logo is valid according to specification
+ *
+ * @param {Object} HowRelated the <HowRelated> subelement (a libxmls ojbect tree) of the <RelatedMaterial> element
+ * @param {Object} Format the <Format> subelement (a libxmls ojbect tree) of the <RelatedMaterial> element
+ * @param {Object} MediaLocator the <MediaLocator> subelement (a libxmls ojbect tree) of the <RelatedMaterial> element
+ * @param {Object} errs The class where errors and warnings relating to the serivce list processing are strored 
+ * @param {string} Location The printable name used to indicate the location of the <RelatedMaterial> element being checked. used for error reporting
+ * @param [string] LocationType The type of element containing the <RelatedMaterial> element. Different vallidation rules apply to different location types
+ * @param [string] SCHEMA_PREFIX Used when constructing Xpath queries -- not used in this function
+ * @param [string] SL_SCHEMA Used when constructing Xpath queries -- not used in this function
+ */
 function checkValidLogo(HowRelated,Format,MediaLocator,errs,Location,LocationType,SCHEMA_PREFIX,SL_SCHEMA) {
     // irrespective of the HowRelated@href, all logos have specific requirements
     var isJPEG=false, isPNG=false;
@@ -519,6 +605,18 @@ function checkValidLogo(HowRelated,Format,MediaLocator,errs,Location,LocationTyp
     }
 }
 
+/**
+ * verifies if the specified application is valid according to specification
+ *
+ * @param {Object} HowRelated the <HowRelated> subelement (a libxmls ojbect tree) of the <RelatedMaterial> element
+ * @param {Object} Format the <Format> subelement (a libxmls ojbect tree) of the <RelatedMaterial> element
+ * @param {Object} MediaLocator the <MediaLocator> subelement (a libxmls ojbect tree) of the <RelatedMaterial> element
+ * @param {Object} errs The class where errors and warnings relating to the serivce list processing are strored 
+ * @param {string} Location The printable name used to indicate the location of the <RelatedMaterial> element being checked. used for error reporting
+ * @param [string] LocationType The type of element containing the <RelatedMaterial> element. Different vallidation rules apply to different location types
+ * @param [string] SCHEMA_PREFIX Used when constructing Xpath queries -- not used in this function
+ * @param [string] SL_SCHEMA Used when constructing Xpath queries -- not used in this function
+ */
 function checkSignalledApplication(HowRelated,Format,MediaLocator,errs,Location,LocationType,SCHEMA_PREFIX,SL_SCHEMA) {
     if (!MediaLocator) {
         errs.push("application <MediaLocator><MediaUri> not defined for application in "+Location);
@@ -547,7 +645,16 @@ function checkSignalledApplication(HowRelated,Format,MediaLocator,errs,Location,
         }
     }
 }
-
+/**
+ * verifies if the specified RelatedMaterial element is valid according to specification (contents and location)
+ *
+ * @param {Object} RelatedMaterial the <RelatedMaterial> element (a libxmls ojbect tree) to be checked
+ * @param {Object} errs The class where errors and warnings relating to the serivce list processing are strored 
+ * @param {string} Location The printable name used to indicate the location of the <RelatedMaterial> element being checked. used for error reporting
+ * @param [string] LocationType The type of element containing the <RelatedMaterial> element. Different vallidation rules apply to different location types
+ * @param [string] SCHEMA_PREFIX Used when constructing Xpath queries -- not used in this function
+ * @param [string] SL_SCHEMA Used when constructing Xpath queries -- not used in this function
+ */
 function validateRelatedMaterial(RelatedMaterial,errs,Location,LocationType,SCHEMA_PREFIX,SL_SCHEMA) {
     var HowRelated=null, Format=null, MediaLocator=[];
     var elem=RelatedMaterial.child(0);
@@ -672,7 +779,13 @@ const ENTRY_FORM="<form method=\"post\"><p><i>URL:</i></p><input type=\"url\" na
 const RESULT_WITH_INSTRUCTION="<br><p><i>Results:</i></p>";
 const SUMMARY_FORM_HEADER = "<table><tr><th>item</th><th>count</th></tr>";
 const FORM_BOTTOM="</body></html>";
-
+/**
+ * constructs HTML output of the errors found in the service list analysis
+ *
+ * @param {Object} res the Express result 
+ * @param {string} lastURL the url of the service list - used to keep the form intact
+ * @param {Object} o the errors and warnings found during the service list validation
+ */
 function drawForm(res, lastURL, o) {
     res.write(FORM_TOP);    
     res.write(PAGE_HEADING);    
@@ -741,20 +854,31 @@ function drawForm(res, lastURL, o) {
     res.write(FORM_BOTTOM);        
 }
 
+// initialize Express
 app.use(express.urlencoded({ extended: true }));
 
+// handle HTTP POST requests to /check
 app.post("/check", function(req,res) {
     req.query.SLurl=req.body.SLurl;
     processQuery(req,res);
 });
 
+// handle HTTP GET requests to /check
 app.get("/check", function(req,res){
     processQuery(req,res);
 });
 
+// dont handle any other requests
+app.get("*", function(req,res) {
+    res.status(404).end();
+});
 
-
-    
+/**
+ * Process the service list specificed for errors and display them
+ *
+ * @param {Object} req The request from Express
+ * @param {Object} res The HTTP response to be sent to the client
+ */ 
 function processQuery(req,res) {
     if (isEmpty(req.query)) {
         drawForm(res);    
@@ -1245,9 +1369,7 @@ function checkQuery(req) {
 }
 
 
-app.get("*", function(req,res) {
-    res.status(404).end();
-});
+
 
 
 loadDataFiles();
