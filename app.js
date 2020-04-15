@@ -75,7 +75,7 @@ const FILE_FORMAT_CS = "urn:mpeg:mpeg7:cs:FileFormatCS:2001",
       JPEG_IMAGE_CS_VALUE = FILE_FORMAT_CS + ":1",
       PNG_IMAGE_CS_VALUE =  FILE_FORMAT_CS + ":15";
 
-const JPEG_MIME = "image/jpeg", JPG_MIME = "image/jpg",  // image/jpg is temporary
+const JPEG_MIME = "image/jpeg", 
       PNG_MIME =  "image/png",
       DVB_AIT =   "application/vnd.dvb.ait+xml";
 
@@ -251,7 +251,7 @@ function loadLanguages(languagesFile) {
 			var entries = data.split("%%");
 			entries.forEach(entry => {
 				var i=0, items=entry.split("\n");
-				if (isIn(items,"Type: language")) {
+				if (isIn(items,"Type: language") || isIn(items,"Type: extlang")) {
 					//found one
 					for (i=0; i<items.length; i++) {
 						if (items[i].startsWith("Subtag:")) {
@@ -335,7 +335,7 @@ function loadDataFilesWeb() {
 
 
 function isJPEGmime(val) {
-	return val==JPEG_MIME || val==JPG_MIME
+	return val==JPEG_MIME
 }
 function isPNGmime(val) {
 	return val==PNG_MIME 
