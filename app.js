@@ -1121,6 +1121,8 @@ function processQuery(req,res) {
                             }
                         }
 
+						// note that the <SourceType> element becomes optional in A177v2, but if specified then the relevant
+                        // delivery parameters also need to be specified
                         var SourceType = ServiceInstance.get(SCHEMA_PREFIX+":SourceType", SL_SCHEMA);
                         if (SourceType) {
                             switch (SourceType.text()) {
@@ -1166,6 +1168,7 @@ function processQuery(req,res) {
                             }
                         }
                         else {
+							//TODO: device if we want such a message
                             // this should not happen as SourceType is a mandatory element within ServiceInstance
                             errs.pushW("SourceType not specifcied in ServiceInstance of service \""+thisServiceId+"\".");
                             errs.incrementW("no SourceType");
@@ -1179,9 +1182,10 @@ function processQuery(req,res) {
                                 errs.increment("no UriBasedLocation");
                             }
                             else {
-                                if (URILoc.attr("contentType")) {
-                                    if (!validDASHcontentType(URILoc.attr("contentType").value())) {
-                                        errs.push("@contentType=\""+URILoc.attr("contentType").value()+"\" in service \""+thisServiceId+"\" is not valid");
+								var uriContentType=URILoc.attr("contentType");
+                                if (uriContentType) {
+                                    if (!validDASHcontentType(uriContentType.value())) {
+                                        errs.push("@contentType=\""+uriContentType.value()+"\" in service \""+thisServiceId+"\" is not valid");
                                         errs.increment("no @contentType for DASH");
                                     }
                                 }
