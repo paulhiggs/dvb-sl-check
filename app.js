@@ -102,6 +102,9 @@ const DVB_RELATED_CS = "urn:dvb:metadata:cs:HowRelatedCS:2019",
       LOGO_SERVICE = DVB_RELATED_CS+":1001.2",
       LOGO_CG_PROVIDER = DVB_RELATED_CS+":1002.1";
 
+var A177v1_HOW_RELATED = [BANNER_OUTSIDE_AVAILABILITY, LOGO_SERVICE_LIST, LOGO_SERVICE, LOGO_CG_PROVIDER];
+var A177v2_HOW_RELATED = [BANNER_OUTSIDE_AVAILABILITY, BANNER_CONTENT_FINISHED, LOGO_SERVICE_LIST, LOGO_SERVICE, LOGO_CG_PROVIDER];
+
 // A177 5.2.7.2
 const CONTENT_TYPE_DASH_MPD = "application/dash+xml",    // MPD of linear service
       CONTENT_TYPE_DVB_PLAYLIST = "application/xml";    // XML Playlist
@@ -125,6 +128,24 @@ var allowedGenres=[], allowedServiceTypes=[], allowedAudioSchemes=[], allowedVid
 
 const MAX_SUBREGION_LEVELS=3; // definied for <RegionElement> in Table 33 of A177
 
+const SCHEMA_v1 = 1,
+      SCHEMA_v2 = 2,
+	  SCHEMA_unknown = -1;
+	  
+/**
+ * determine the schema version (and hence the specificaion version) in use 
+ *
+ * @param {String] namespace the namespace used in defining the schema
+ * @return {Integer} representation of the schema version or error code if unknown 
+ */
+function SchemaVersion(namespace) {
+	if (namespace == 'urn:dvb:dvbi:servicelistdiscovery:2019')
+		return SCHEMA_v1;
+	else if (namespace == 'urn:dvb:dvbi:servicelistdiscovery:2020')
+		return SCHEMA_v2;
+
+	return SCHEMA_unknown;
+}
 
 class ErrorList {
 /**
@@ -216,7 +237,7 @@ function addCSTerm(values,CSuri,term){
  * read a classification scheme and load its hierarical values into a linear list 
  *
  * @param {Array} values The linear list of values within the classification scheme
- * @param {String] the filename of the classification scheme
+ * @param {String] classificationScheme the filename of the classification scheme
  */
 function loadCS(values, classificationScheme) {
     fs.readFile(classificationScheme, {encoding: "utf-8"}, function(err,data){
@@ -470,6 +491,12 @@ function addRegion(Region, depth, knownRegionIDs, errs) {
     }
 }
 
+/** 
+ * determines if the identifer provided refers to a valid application launching method
+ *
+ * @param {String} HowRelated The service identifier
+ * @return {boolean} true if this is a valid application launching method else false
+ */
 function validServiceApplication(HowRelated) {
     // return true if val is a valid CS value for Service Related Applications (A177 5.2.3)
     // urn:dvb:metadata:cs:LinkedApplicationCS:2019
@@ -485,6 +512,12 @@ function validDASHcontentType(contentType) {
         || contentType==CONTENT_TYPE_DVB_PLAYLIST;
 }
 
+/** 
+ * determines if the identifer provided refers to a valid banner for out-of-servce-hours presentation
+ *
+ * @param {String} HowRelated The banner identifier
+ * @return {boolean} true if this is a valid banner for out-of-servce-hours presentation else false
+ */
 function validOutScheduleHours(HowRelated) {
     // return true if val is a valid CS value for Out of Service Banners (A177 5.2.5.3)
     // urn:dvb:metadata:cs:HowRelatedCS:2019
@@ -492,6 +525,13 @@ function validOutScheduleHours(HowRelated) {
     return val==BANNER_OUTSIDE_AVAILABILITY;
 }
 
+/** 
+ * determines if the identifer provided refers to a valid banner for content-finished presentation
+ *
+ * @since DVB A177v2
+ * @param {String} HowRelated The banner identifier
+ * @return {boolean} true if this is a valid banner for content-finished presentation else false
+ */
 function validContentFinishedBanner(HowRelated) {
     // return true if val is a valid CS value for Content Finished Banner (A177 5.2.7.3)
     // urn:dvb:metadata:cs:HowRelatedCS:2019
@@ -499,18 +539,36 @@ function validContentFinishedBanner(HowRelated) {
     return val==BANNER_CONTENT_FINISHED;
 }
 
+/** 
+ * determines if the identifer provided refers to a valid service list logo
+ *
+ * @param {String} HowRelated The logo identifier
+ * @return {boolean} true if this is a valid logo for a service list else false
+ */
 function validServiceListLogo(HowRelated) {
     // return true if val is a valid CS value Service List Logo (A177 5.2.6.1)
     var val= HowRelated.attr("href") ? HowRelated.attr("href").value() : null;
     return val==LOGO_SERVICE_LIST;
 }
 
+/** 
+ * determines if the identifer provided refers to a valid service  logo
+ *
+ * @param {String} HowRelated The logo identifier
+ * @return {boolean} true if this is a valid logo for a service  else false
+ */
 function validServiceLogo(HowRelated) {
     // return true if val is a valid CS value Service Logo (A177 5.2.6.2)
     var val= HowRelated.attr("href") ? HowRelated.attr("href").value() : null;
     return val==LOGO_SERVICE;
 }
 
+/** 
+ * determines if the identifer provided refers to a valid content guide source logo
+ *
+ * @param {String} HowRelated The logo identifier
+ * @return {boolean} true if this is a valid logo for a content guide source else false
+ */
 function validContentGuideSourceLogo(HowRelated) {
     // return true if val is a valid CS value Service Logo (A177 5.2.6.3)
     var val= HowRelated.attr("href") ? HowRelated.attr("href").value() : null;
@@ -653,9 +711,10 @@ function checkSignalledApplication(HowRelated,Format,MediaLocator,errs,Location,
  * @param {string} Location The printable name used to indicate the location of the <RelatedMaterial> element being checked. used for error reporting
  * @param [string] LocationType The type of element containing the <RelatedMaterial> element. Different vallidation rules apply to different location types
  * @param [string] SCHEMA_PREFIX Used when constructing Xpath queries -- not used in this function
+ * @param [string] SCHEMA_NAMESPACE The namespace of XML document
  * @param [string] SL_SCHEMA Used when constructing Xpath queries -- not used in this function
  */
-function validateRelatedMaterial(RelatedMaterial,errs,Location,LocationType,SCHEMA_PREFIX,SL_SCHEMA) {
+function validateRelatedMaterial(RelatedMaterial,errs,Location,LocationType,SCHEMA_PREFIX,SCHEMA_NAMESPACE,SL_SCHEMA) {
     var HowRelated=null, Format=null, MediaLocator=[];
     var elem=RelatedMaterial.child(0);
     while (elem) {
@@ -687,6 +746,10 @@ function validateRelatedMaterial(RelatedMaterial,errs,Location,LocationType,SCHE
                 }
             }
             if (LocationType==SERVICE_RM) {
+				if (validContentFinishedBanner(HowRelated) && SchemaVersion() == SCHEMA_v1) {
+					
+				}
+				
                 if (!(validOutScheduleHours(HowRelated) || validContentFinishedBanner(HowRelated) ||validServiceApplication(HowRelated) || validServiceLogo(HowRelated))) {
                     errs.push("invalid @href=\""+HRhref.value()+"\" for <RelatedMaterial> in "+Location);
                     errs.increment("invalid href");
@@ -926,9 +989,11 @@ function processQuery(req,res) {
                 errs.push("Root element is not <ServiceList>.");
             }
             else {
-                var SL_SCHEMA = {}, SCHEMA_PREFIX=SL.root().namespace().prefix();
-                SL_SCHEMA[SL.root().namespace().prefix()]=SL.root().namespace().href();
-                
+                var SL_SCHEMA = {}, 
+					SCHEMA_PREFIX=SL.root().namespace().prefix(), 
+					SCHEMA_NAMESPACE=SL.root().namespace().href();
+                SL_SCHEMA[SCHEMA_PREFIX]=SCHEMA_NAMESPACE;
+
                 // Check that the @xml:lang values for each <Name> element are unique and only one element does not have any language specified
                 checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, "Name", "ServiceList", SL, errs);
                 
@@ -938,7 +1003,7 @@ function processQuery(req,res) {
                 //check <ServiceList><RelatedMaterial>
                 var rm=1, RelatedMaterial;
                 while (RelatedMaterial=SL.get(SCHEMA_PREFIX+":RelatedMaterial["+rm+"]", SL_SCHEMA)) {
-                    validateRelatedMaterial(RelatedMaterial,errs,"service list", SERVICE_LIST_RM, SCHEMA_PREFIX, SL_SCHEMA);
+                    validateRelatedMaterial(RelatedMaterial,errs,"service list", SERVICE_LIST_RM, SCHEMA_PREFIX, SCHEMA_NAMESPACE, SL_SCHEMA);
                     rm++;
                 }                    
                 
@@ -993,7 +1058,7 @@ function processQuery(req,res) {
                         
                         var rm=1, CGrm;
                         while (CGrm=SL.get("//"+SCHEMA_PREFIX+":ContentGuideSourceList/"+SCHEMA_PREFIX+":ContentGuideSource["+i+"]/"+SCHEMA_PREFIX+":RelatedMaterial["+rm+"]", SL_SCHEMA)) {
-                            validateRelatedMaterial(CGrm,errs,"<ServiceList><ContentGuideSourceList>", CONTENT_GUIDE_RM, SCHEMA_PREFIX, SL_SCHEMA);
+                            validateRelatedMaterial(CGrm,errs,"<ServiceList><ContentGuideSourceList>", CONTENT_GUIDE_RM, SCHEMA_PREFIX, SCHEMA_NAMESPACE, SL_SCHEMA);
                             rm++;
                         }                    
                         i++;
@@ -1015,7 +1080,7 @@ function processQuery(req,res) {
                 if (CGSource) {
                     var rm=1, CGrm;
                     while (CGrm=SL.get("//"+SCHEMA_PREFIX+":ContentGuideSource/"+SCHEMA_PREFIX+":RelatedMaterial["+rm+"]", SL_SCHEMA)) {
-                        validateRelatedMaterial(CGrm,errs,"<ServiceList><ContentGuideSource>", CONTENT_GUIDE_RM, SCHEMA_PREFIX, SL_SCHEMA);
+                        validateRelatedMaterial(CGrm,errs,"<ServiceList><ContentGuideSource>", CONTENT_GUIDE_RM, SCHEMA_PREFIX, SCHEMA_NAMESPACE, SL_SCHEMA);
                         rm++;
                     }
                 }
@@ -1059,7 +1124,7 @@ function processQuery(req,res) {
                         // check @href of <ServiceInstance><RelatedMaterial>
                         var rm=1, RelatedMaterial;
                         while (RelatedMaterial=ServiceInstance.get(SCHEMA_PREFIX+":RelatedMaterial["+rm+"]", SL_SCHEMA)) {
-                            validateRelatedMaterial(RelatedMaterial,errs,"service instance of \""+thisServiceId+"\"", SERVICE_RM, SCHEMA_PREFIX, SL_SCHEMA);
+                            validateRelatedMaterial(RelatedMaterial,errs,"service instance of \""+thisServiceId+"\"", SERVICE_RM, SCHEMA_PREFIX, SCHEMA_NAMESPACE, SL_SCHEMA);
                             rm++;
                         }
                         
@@ -1161,17 +1226,22 @@ function processQuery(req,res) {
                                     // TODO:
                                     break;
                                 default:
-                                //    errs.push("SourceType \""+SourceType.text()+"\" is not valid in Service \""+thisServiceId+"\".");
-                                //    errs.increment("invalid SourceType");
-                                    errs.pushW("Service \""+thisServiceId+"\" has a user defined SourceType \""+SourceType.text()+"\"");
-                                    errs.incrementW("user SourceType");
+									if (SchemaVersion(SCHEMA_NAMESPACE)==SCHEMA_v1) {
+										errs.push("SourceType \""+SourceType.text()+"\" is not valid in Service \""+thisServiceId+"\".");
+										errs.increment("invalid SourceType");
+									}
+									else {
+										errs.pushW("Service \""+thisServiceId+"\" has a user defined SourceType \""+SourceType.text()+"\"");
+										errs.incrementW("user SourceType");
+									}
                             }
                         }
                         else {
-							//TODO: device if we want such a message
                             // this should not happen as SourceType is a mandatory element within ServiceInstance
-                            errs.pushW("SourceType not specifcied in ServiceInstance of service \""+thisServiceId+"\".");
-                            errs.incrementW("no SourceType");
+							if (SchemaVersion(SCHEMA_NAMESPACE)==SCHEMA_v1) {
+								errs.push("SourceType not specifcied in ServiceInstance of service \""+thisServiceId+"\".");
+								errs.increment("no SourceType");
+							}
                         }
                         
                         var DASHDeliveryParameters = ServiceInstance.get(SCHEMA_PREFIX+":DASHDeliveryParameters", SL_SCHEMA);
@@ -1234,7 +1304,7 @@ function processQuery(req,res) {
                     //check <Service><RelatedMaterial>
                     var rm=1, RelatedMaterial;
                     while (RelatedMaterial=service.get(SCHEMA_PREFIX+":RelatedMaterial["+rm+"]", SL_SCHEMA)) {
-                        validateRelatedMaterial(RelatedMaterial,errs,"service \""+thisServiceId+"\"", SERVICE_RM, SCHEMA_PREFIX, SL_SCHEMA);
+                        validateRelatedMaterial(RelatedMaterial,errs,"service \""+thisServiceId+"\"", SERVICE_RM, SCHEMA_PREFIX, SCHEMA_NAMESPACE, SL_SCHEMA);
                         rm++;
                     }                    
 
@@ -1270,7 +1340,7 @@ function processQuery(req,res) {
                     if (sCG) {
                         var rm=1, CGrm;
                         while (CGrm=sCG.get(SCHEMA_PREFIX+":RelatedMaterial["+rm+"]", SL_SCHEMA)) {
-                            validateRelatedMaterial(CGrm,errs,"<ContentGuideSource> in service "+thisServiceId, CONTENT_GUIDE_RM, SCHEMA_PREFIX, SL_SCHEMA);
+                            validateRelatedMaterial(CGrm,errs,"<ContentGuideSource> in service "+thisServiceId, CONTENT_GUIDE_RM, SCHEMA_PREFIX, SCHEMA_NAMESPACE, SL_SCHEMA);
                             rm++;
                         }
                     }
