@@ -703,6 +703,7 @@ function checkSignalledApplication(HowRelated,Format,MediaLocator,errs,Location,
         }
     }
 }
+
 /**
  * verifies if the specified RelatedMaterial element is valid according to specification (contents and location)
  *
@@ -746,8 +747,9 @@ function validateRelatedMaterial(RelatedMaterial,errs,Location,LocationType,SCHE
                 }
             }
             if (LocationType==SERVICE_RM) {
-				if (validContentFinishedBanner(HowRelated) && SchemaVersion() == SCHEMA_v1) {
-					
+				if (validContentFinishedBanner(HowRelated) && (SchemaVersion(SCHEMA_NAMESPACE) == SCHEMA_v1)) {
+                    errs.push("\""+BANNER_CONTENT_FINISHED +"\" not permitted for \""+SCHEMA_NAMESPACE+"\" in "+Location);
+                    errs.increment("invalid CS value");					
 				}
 				
                 if (!(validOutScheduleHours(HowRelated) || validContentFinishedBanner(HowRelated) ||validServiceApplication(HowRelated) || validServiceLogo(HowRelated))) {
@@ -950,6 +952,26 @@ function NoDeliveryParams(errs, source, serviceId) {
 }
 
 /**
+ * check if the node provided contains an RelatedMaterial element for a signalled application
+ *
+ * @param {Object} node The XML tree node (either a <Service> or a <ServiceInstance>) to be checked
+ * @param [string] SCHEMA_PREFIX Used when constructing Xpath queries
+ * @param [string] SL_SCHEMA Used when constructing Xpath queries
+ * @returns {boolean}  true if the node contains a <RelatedMaterial> element which signals an application else false
+ */
+function hasSignalledApplication(node, SCHEMA_PREFIX, SL_SCHEMA) {
+	var i=1, elem;
+    while (elem=node.get(SCHEMA_PREFIX+":RelatedMaterial["+i+"]", SL_SCHEMA)) {
+        var hr=elem.get(SCHEMA_PREFIX+":HowRelated", SL_SCHEMA);
+		if (hr && validServiceApplication(hr)) 
+			return true;			
+        i++;
+    }
+
+    return false;
+}
+
+/**
  * Process the service list specificed for errors and display them
  *
  * @param {Object} req The request from Express
@@ -1018,7 +1040,7 @@ function processQuery(req,res) {
                 while (RelatedMaterial=SL.get(SCHEMA_PREFIX+":RelatedMaterial["+rm+"]", SL_SCHEMA)) {
                     validateRelatedMaterial(RelatedMaterial,errs,"service list", SERVICE_LIST_RM, SCHEMA_PREFIX, SCHEMA_NAMESPACE, SL_SCHEMA);
                     rm++;
-                }                    
+                }
                 
                 // check <ServiceList><RegionList> and remember regionID values
                 var knownRegionIDs=[], RegionList=SL.get(SCHEMA_PREFIX+":RegionList", SL_SCHEMA);
@@ -1112,8 +1134,8 @@ function processQuery(req,res) {
                     if (!uID) {
                         // this should not happen as UniqueIdentifier is a mandatory element within Service
                         errs.push("<UniqueIdentifier> not present for service "+s);
-                        errs.increment("no <UniqueIdentifier>")
-                    } else{
+                        errs.increment("no <UniqueIdentifier>");
+                    } else {
                         thisServiceId=uID.text();
                         if (!validServiceIdentifier(thisServiceId)) {
                             errs.push("\""+thisServiceId+"\" is not a valid identifier");
@@ -1230,8 +1252,25 @@ function processQuery(req,res) {
                                     }
                                     break;
                                 case DVBAPPLICATION_SOURCE_TYPE:
-                                    // there should be either a Service.RelatedMaterial or Service.ServiceInstance.RelatedMaterial signalling a service related application
-                                    // TODO:
+                                    // there should not be any <xxxxDeliveryParameters> elements and there should be either a Service.RelatedMaterial or Service.ServiceInstance.RelatedMaterial signalling a service related application
+									if (ServiceInstance.get(SCHEMA_PREFIX+":DVBTDeliveryParameters", SL_SCHEMA)
+										|| ServiceInstance.get(SCHEMA_PREFIX+":DVBSDeliveryParameters", SL_SCHEMA)
+										|| ServiceInstance.get(SCHEMA_PREFIX+":DVBCDeliveryParameters", SL_SCHEMA)
+										|| ServiceInstance.get(SCHEMA_PREFIX+":DASHDeliveryParameters", SL_SCHEMA)
+										|| ServiceInstance.get(SCHEMA_PREFIX+":MulticastTSDeliveryParameters", SL_SCHEMA)
+										|| ServiceInstance.get(SCHEMA_PREFIX+":RTSPDeliveryParameters", SL_SCHEMA) ) {
+											errs.push("Delivery parameters are not permitted for Application service instance in Service \""+thisServiceId+"\".");
+											errs.increment("invalid application");
+										}
+										else {
+											// no xxxxDeliveryParameters is signalled
+											// check for appropriate Service.RelatedMaterial or Service.ServiceInstance.RelatedMaterial
+											if (!hasSignalledApplication(service, SCHEMA_PREFIX, SL_SCHEMA) 
+												&& !hasSignalledApplication(ServiceInstance, SCHEMA_PREFIX, SL_SCHEMA)) {
+												errs.push("No Application is signalled for SourceType=\""+DVBAPPLICATION_SOURCE_TYPE+"\" in Service \""+thisServiceId+"\".");
+												errs.increment("no application");
+											}
+										}
                                     break;
                                 default:
 									if (SchemaVersion(SCHEMA_NAMESPACE)==SCHEMA_v1) {
