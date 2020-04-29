@@ -936,6 +936,19 @@ app.get("*", function(req,res) {
     res.status(404).end();
 });
 
+
+/**
+ * Add an error message for missing <xxxDeliveryParameters>
+ *
+ * @param {Object} errs Errors buffer
+ * @param {String} source The missing source type
+ * @param {String} serviceId The serviceId whose instance is missing delivery parameters
+ */
+function NoDeliveryParams(errs, source, serviceId) {
+    errs.push(source+" delivery parameters not specified for service instance in service \""+serviceId+"\"");
+    errs.increment("no delivery params");
+}
+
 /**
  * Process the service list specificed for errors and display them
  *
@@ -1193,32 +1206,27 @@ function processQuery(req,res) {
                             switch (SourceType.text()) {
                                 case DVBT_SOURCE_TYPE:
                                     if (!ServiceInstance.get(SCHEMA_PREFIX+":DVBTDeliveryParameters", SL_SCHEMA) ) {
-                                        errs.push("DVB-T delivery parameters not specified for service instance in service \""+thisServiceId+"\"");
-                                        errs.increment("no delivery params");
+										NoDeliveryParams(errs, "DVB-T", thisServiceId);
                                     }
                                     break;
                                 case DVBS_SOURCE_TYPE:
                                     if (!ServiceInstance.get(SCHEMA_PREFIX+":DVBSDeliveryParameters", SL_SCHEMA) ) {
-                                        errs.push("DVB-S delivery parameters not specified for service instance in service \""+thisServiceId+"\"");
-                                        errs.increment("no delivery params");
+ 										NoDeliveryParams(errs, "DVB-S", thisServiceId);
                                     }
                                     break;
                                 case DVBC_SOURCE_TYPE:
                                     if (!ServiceInstance.get(SCHEMA_PREFIX+":DVBCDeliveryParameters", SL_SCHEMA) ) {
-                                        errs.push("DVB-C delivery parameters not specified for service instance in service \""+thisServiceId+"\"");
-                                        errs.increment("no delivery params");
+										NoDeliveryParams(errs, "DVB-C", thisServiceId);
                                     }
                                     break;
                                 case DVBDASH_SOURCE_TYPE:
                                     if (!ServiceInstance.get(SCHEMA_PREFIX+":DASHDeliveryParameters", SL_SCHEMA) ) {
-                                        errs.push("DVB-DASH delivery parameters not specified for service instance in service \""+thisServiceId+"\"");
-                                        errs.increment("no delivery params");
+										NoDeliveryParams(errs, "DVB-DASH", thisServiceId);
                                     }
                                     break;
                                 case DVBIPTV_SOURCE_TYPE:
                                     if (!ServiceInstance.get(SCHEMA_PREFIX+":MulticastTSDeliveryParameters", SL_SCHEMA) && !ServiceInstance.get(SCHEMA_PREFIX+":RTSPDeliveryParameters", SL_SCHEMA) ) {
-                                        errs.push("Multicast or RTSP delivery parameters not specified for service instance in service \""+thisServiceId+"\"");
-                                        errs.increment("no delivery params");
+										NoDeliveryParams(errs, "Multicast or RTSP", thisServiceId);
                                     }
                                     break;
                                 case DVBAPPLICATION_SOURCE_TYPE:
