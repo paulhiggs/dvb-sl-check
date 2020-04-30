@@ -3,6 +3,7 @@ DVB-I Service List validator
 
 ## Description
 Validates the value space of the instance document, validation against the schema should be performed seperately (for now)
+Supports both the published :2019 schema and the upcoming :2020 schema and classification scheme updates
 
 Checks performed:
 * channel numbers are not duplictaed in LCN tables
@@ -45,3 +46,5 @@ Checks performed:
 1. run it - `node app`
 
 If you want to start an HTTPS server, make sure you have `selfsigned.crt` and `selfsigned.key` files in the same directory. These can be generated (on Linux) with `sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout ./selfsigned.key -out selfsigned.crt`
+
+Occassionally, the language-subtag-registry file can be updated from https://www.iana.org/assignments/language-subtag-registry/language-subtag-registry
