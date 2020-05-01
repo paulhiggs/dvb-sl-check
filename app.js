@@ -635,8 +635,7 @@ function checkValidLogo(HowRelated,Format,MediaLocator,errs,Location,LocationTyp
                 if (child.attr("href")) {
                     var href=child.attr("href").value();
                     if (href != JPEG_IMAGE_CS_VALUE && href != PNG_IMAGE_CS_VALUE) {
-                        errs.push("invalid @href=\""+href+"\" specified for <RelatedMaterial><Format><StillPictureFormat> in "+Location);
-                        errs.increment("invalid href");
+						InvalidHrefValue(errs, href, "<RelatedMaterial><Format><StillPictureFormat>", Location)
                     }
                     if (href == JPEG_IMAGE_CS_VALUE) isJPEG=true;
                     if (href == PNG_IMAGE_CS_VALUE) isPNG=true;
@@ -675,8 +674,7 @@ function checkValidLogo(HowRelated,Format,MediaLocator,errs,Location,LocationTyp
             }
         });
         if (!hasMediaURI) {
-            errs.push("<MediaUri> not specified for logo <MediaLocator> in "+Location);
-            errs.increment("no MediaUri");
+			NoMediaLocator(errs, "logo", Location);
         }
     }
     else {
@@ -699,8 +697,7 @@ function checkValidLogo(HowRelated,Format,MediaLocator,errs,Location,LocationTyp
  */
 function checkSignalledApplication(HowRelated,Format,MediaLocator,errs,Location,LocationType,SCHEMA_PREFIX,SL_SCHEMA) {
     if (!MediaLocator) {
-        errs.push("application <MediaLocator><MediaUri> not defined for application in "+Location);
-        errs.increment("no MediaUri");
+		NoMediaLocator(errs, "application", Location);
     }
     else {
         var subElems=MediaLocator.childNodes(), hasMediaURI=false;
@@ -720,8 +717,7 @@ function checkSignalledApplication(HowRelated,Format,MediaLocator,errs,Location,
             }
         });
         if (!hasMediaURI) {
-            errs.push("<MediaUri> not specified for application <MediaLocator> in "+Location);
-            errs.increment("no MediaUri");
+			NoMediaLocator(errs, "application", Location);
         }
     }
 }
@@ -760,8 +756,7 @@ function validateRelatedMaterial(RelatedMaterial,errs,Location,LocationType,SCHE
         if (HRhref) {
             if (LocationType==SERVICE_LIST_RM) {
                 if (!validServiceListLogo(HowRelated,SCHEMA_NAMESPACE)) {
-                    errs.push("invalid @href=\""+HRhref.value()+"\" for <RelatedMaterial> in "+Location);
-                    errs.increment("invalid href");
+					InvalidHrefValue(errs, HRhref.value(), "<RelatedMaterial>", Location )
                 }
                 else {
                     MediaLocator.forEach(locator => 
@@ -775,8 +770,7 @@ function validateRelatedMaterial(RelatedMaterial,errs,Location,LocationType,SCHE
 				}
 				
                 if (!(validOutScheduleHours(HowRelated, SCHEMA_NAMESPACE) || validContentFinishedBanner(HowRelated, SCHEMA_NAMESPACE) ||validServiceApplication(HowRelated) || validServiceLogo(HowRelated,SCHEMA_NAMESPACE))) {
-                    errs.push("invalid @href=\""+HRhref.value()+"\" for <RelatedMaterial> in "+Location);
-                    errs.increment("invalid href");
+					InvalidHrefValue(errs, HRhref.value(), "<RelatedMaterial>", Location );
                 }
                 else {
                     if (validServiceLogo(HowRelated, SCHEMA_NAMESPACE)||validOutScheduleHours(HowRelated, SCHEMA_NAMESPACE))
@@ -789,8 +783,7 @@ function validateRelatedMaterial(RelatedMaterial,errs,Location,LocationType,SCHE
             }
             if (LocationType==CONTENT_GUIDE_RM) {
                 if (!validContentGuideSourceLogo(HowRelated, SCHEMA_NAMESPACE)) {
-                    errs.push("invalid @href=\""+HRhref.value()+"\" for <RelatedMaterial> in "+Location);
-                    errs.increment("invalid href");
+					InvalidHrefValue(errs, HRhref.value(), "<RelatedMaterial>", Location)
                 }
                 else {
                     MediaLocator.forEach(locator =>
@@ -974,6 +967,57 @@ function NoHrefAttribute(errs, src, loc) {
 }
 
 /**
+ * Add an error message when the @href contains an invalid value
+ *
+ * @param {Object} errs Errors buffer
+ * @param {String} value The invalid value for the href attribute
+ * @param {String} src The element missing the @href
+ * @param {String} loc The location of the element
+ */
+function InvalidHrefValue(errs, value, src, loc) {
+	errs.push("invalid @href=\""+value+"\" specified for "+src+" in "+loc);
+	errs.increment("invalid href");
+}
+
+/**
+ * Add an error message an incorrect country code is specified in transmission parameters
+ *
+ * @param {Object} errs Errors buffer
+ * @param {String} value The invalid country code
+ * @param {String} src The transmission mechanism
+ * @param {String} loc The location of the element
+ */
+function InvalidCountryCode(errs, value, src, loc) {
+	errs.push("invalid country code ("+value+") for "+src+" parameters in "+loc);
+	errs.increment("invalid country code"); 
+}
+
+/**
+ * Add an error message an unspecifed target region is used
+ *
+ * @param {Object} errs Errors buffer
+ * @param {String} region The unspecified target region
+ * @param {String} loc The location of the element
+ */
+function UnspecifiedTargetRegion(errs, region, loc) {
+	errs.push(loc+" has an unspecified <TargetRegion>"+region);
+	errs.increment("target region");	
+}
+
+
+/**
+ * Add an error message when the MediaLocator does not contain a MediaUri sub-element
+ *
+ * @param {Object} errs Errors buffer
+ * @param {String} src The type of element with the <MediaLocator>
+ * @param {String} loc The location of the element
+ */
+function NoMediaLocator(errs, src, loc) {
+	errs.push("<MediaUri> not specified for "+src+" <MediaLocator> in "+loc);
+    errs.increment("no MediaUri");
+}
+
+/**
  * check if the node provided contains an RelatedMaterial element for a signalled application
  *
  * @param {Object} node The XML tree node (either a <Service> or a <ServiceInstance>) to be checked
@@ -1066,8 +1110,7 @@ function validateServiceList(SLtext, errs) {
 		var tr=1, TargetRegion;
 		while (TargetRegion=SL.get(SCHEMA_PREFIX+":TargetRegion["+tr+"]", SL_SCHEMA)) {
 			if (!isIn(knownRegionIDs,TargetRegion.text())) {
-				errs.push("service list has an unspecified <TargetRegion>"+TargetRegion.text());
-				errs.increment("target region");
+				UnspecifiedTargetRegion(errs, TargetRegion.text(), "service list");
 			}
 			tr++;
 		}
@@ -1325,16 +1368,14 @@ function validateServiceList(SLtext, errs) {
 				var DVBTtargetCountry = ServiceInstance.get(SCHEMA_PREFIX+":DVBTDeliveryParameters/"+SCHEMA_PREFIX+":TargetCountry", SL_SCHEMA);
 				if (DVBTtargetCountry) {
 					if (!isISO3166code(DVBTtargetCountry.text())) {
-						errs.push("invalid country code ("+DVBTtargetCountry.text()+") for DVB-T parameters in service \""+thisServiceId+"\"");
-						errs.increment("invalid country code");    
+						InvalidCountryCode(errs, DVBTtargetCountry.text(), "DVB-T", "service \""+thisServiceId+"\"");
 					}
 				}
 
 				var DVBCtargetCountry = ServiceInstance.get(SCHEMA_PREFIX+":DVBCDeliveryParameters/"+SCHEMA_PREFIX+":TargetCountry", SL_SCHEMA);
 				if (DVBCtargetCountry) {
-					if (!isISO3166code(DVBCtargetCountry.text())) {
-						errs.push("invalid country code ("+DVBCtargetCountry.text()+") for DVB-C parameters in service \""+thisServiceId+"\"");
-						errs.increment("invalid country code");    
+					if (!isISO3166code(DVBCtargetCountry.text())) { 
+						InvalidCountryCode(errs, DVBCtargetCountry.text(), "DVB-C", "service \""+thisServiceId+"\"");
 					}
 				}
 
@@ -1345,8 +1386,7 @@ function validateServiceList(SLtext, errs) {
 			var tr=1, TargetRegion;
 			while (TargetRegion=service.get(SCHEMA_PREFIX+":TargetRegion["+tr+"]", SL_SCHEMA)) {
 				if (!isIn(knownRegionIDs,TargetRegion.text())) {
-					errs.push("service \""+thisServiceId+"\" has an invalid <TargetRegion>"+TargetRegion.text());
-					errs.increment("target region");
+					UnspecifiedTargetRegion(errs, TargetRegion.text(), "service \""+thisServiceId+"\"");
 				}
 				tr++;
 			}
