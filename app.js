@@ -98,15 +98,20 @@ const LINKED_APLICATION_CS = "urn:dvb:metadata:cs:LinkedApplicationCS:2019",
       APP_OUTSIDE_AVAILABILITY = LINKED_APLICATION_CS+":2";
 
 // A177 7.3.1
-const DVB_RELATED_CS = "urn:dvb:metadata:cs:HowRelatedCS:2019",
-      BANNER_OUTSIDE_AVAILABILITY = DVB_RELATED_CS+":1000.1",
-	  BANNER_CONTENT_FINISHED = DVB_RELATED_CS+":1000.2",	// added in A177v2
-      LOGO_SERVICE_LIST = DVB_RELATED_CS+":1001.1",
-      LOGO_SERVICE = DVB_RELATED_CS+":1001.2",
-      LOGO_CG_PROVIDER = DVB_RELATED_CS+":1002.1";
+const DVB_RELATED_CS_v1 = "urn:dvb:metadata:cs:HowRelatedCS:2019",
+      BANNER_OUTSIDE_AVAILABILITY_v1 = DVB_RELATED_CS_v1+":1000.1",
+      LOGO_SERVICE_LIST_v1 = DVB_RELATED_CS_v1+":1001.1",
+      LOGO_SERVICE_v1 = DVB_RELATED_CS_v1+":1001.2",
+      LOGO_CG_PROVIDER_v1 = DVB_RELATED_CS_v1+":1002.1";
 
-var A177v1_HOW_RELATED = [BANNER_OUTSIDE_AVAILABILITY, LOGO_SERVICE_LIST, LOGO_SERVICE, LOGO_CG_PROVIDER];
-var A177v2_HOW_RELATED = [BANNER_OUTSIDE_AVAILABILITY, BANNER_CONTENT_FINISHED, LOGO_SERVICE_LIST, LOGO_SERVICE, LOGO_CG_PROVIDER];
+// A177 7.3.1
+const DVB_RELATED_CS_v2 = "urn:dvb:metadata:cs:HowRelatedCS:2020",
+      BANNER_OUTSIDE_AVAILABILITY_v2 = DVB_RELATED_CS_v2+":1000.1",
+	  BANNER_CONTENT_FINISHED_v2 = DVB_RELATED_CS_v2+":1000.2",	// added in A177v2
+      LOGO_SERVICE_LIST_v2 = DVB_RELATED_CS_v2+":1001.1",
+      LOGO_SERVICE_v2 = DVB_RELATED_CS_v2+":1001.2",
+      LOGO_CG_PROVIDER_v2 = DVB_RELATED_CS_v2+":1002.1";
+
 
 // A177 5.2.7.2
 const CONTENT_TYPE_DASH_MPD = "application/dash+xml",    // MPD of linear service
@@ -142,9 +147,9 @@ const SCHEMA_v1 = 1,
  * @return {Integer} representation of the schema version or error code if unknown 
  */
 function SchemaVersion(namespace) {
-	if (namespace == 'urn:dvb:dvbi:servicelistdiscovery:2019')
+	if (namespace == 'urn:dvb:metadata:servicediscovery:2019')
 		return SCHEMA_v1;
-	else if (namespace == 'urn:dvb:dvbi:servicelistdiscovery:2020')
+	else if (namespace == 'urn:dvb:metadata:servicediscovery:2020')
 		return SCHEMA_v2;
 
 	return SCHEMA_unknown;
@@ -155,7 +160,6 @@ class ErrorList {
  * Manages errors and warnings for the application
  * 
  */
-
     counts=[]; messages=[]; countsWarn=[]; messagesWarn=[];
     
     increment(key) {
@@ -193,11 +197,14 @@ morgan.token("parseErr",function getParseErr(req) {
 morgan.token("agent",function getAgent(req) {
     return "("+req.headers["user-agent"]+")";
 });
-morgan.token("slURL",function getCheckedURL(req) {
-    return "["+req.query.SLurl+"]";
+morgan.token("slLoc",function getCheckedLocation(req) {
+	if (req.files && req.files.SLfile) return "["+req.files.SLfile.name+"]";
+    if (req.query.SLurl) return "["+req.query.SLurl+"]";
+	return "[*]";
 });
 
-app.use(morgan(":remote-addr :protocol :method :url :status :res[content-length] - :response-time ms :agent :parseErr :slURL"));
+
+app.use(morgan(":remote-addr :protocol :method :url :status :res[content-length] - :response-time ms :agent :parseErr :slLoc"));
 
 /**
  * determines if a value is in a set of values - simular to 
@@ -525,13 +532,14 @@ function validDASHcontentType(contentType) {
  * determines if the identifer provided refers to a valid banner for out-of-servce-hours presentation
  *
  * @param {String} HowRelated The banner identifier
+ * @param {String} namespace The namespace being used in the XML document
  * @return {boolean} true if this is a valid banner for out-of-servce-hours presentation else false
  */
-function validOutScheduleHours(HowRelated) {
+function validOutScheduleHours(HowRelated, namespace) {
     // return true if val is a valid CS value for Out of Service Banners (A177 5.2.5.3)
-    // urn:dvb:metadata:cs:HowRelatedCS:2019
     var val= HowRelated.attr("href") ? HowRelated.attr("href").value() : null;
-    return val==BANNER_OUTSIDE_AVAILABILITY;
+    return (SchemaVersion(namespace)==SCHEMA_v1 && val==BANNER_OUTSIDE_AVAILABILITY_v1)
+		|| (SchemaVersion(namespace)==SCHEMA_v2 && val==BANNER_OUTSIDE_AVAILABILITY_v2);
 }
 
 /** 
@@ -539,49 +547,55 @@ function validOutScheduleHours(HowRelated) {
  *
  * @since DVB A177v2
  * @param {String} HowRelated The banner identifier
+ * @param {String} namespace The namespace being used in the XML document
  * @return {boolean} true if this is a valid banner for content-finished presentation else false
  */
-function validContentFinishedBanner(HowRelated) {
+function validContentFinishedBanner(HowRelated, namespace) {
     // return true if val is a valid CS value for Content Finished Banner (A177 5.2.7.3)
-    // urn:dvb:metadata:cs:HowRelatedCS:2019
     var val= HowRelated.attr("href") ? HowRelated.attr("href").value() : null;
-    return val==BANNER_CONTENT_FINISHED;
+    return (SchemaVersion(namespace)==SCHEMA_v2 && val==BANNER_CONTENT_FINISHED_v2);
 }
 
 /** 
  * determines if the identifer provided refers to a valid service list logo
  *
  * @param {String} HowRelated The logo identifier
+ * @param {String} namespace The namespace being used in the XML document
  * @return {boolean} true if this is a valid logo for a service list else false
  */
-function validServiceListLogo(HowRelated) {
+function validServiceListLogo(HowRelated, namespace) {
     // return true if val is a valid CS value Service List Logo (A177 5.2.6.1)
     var val= HowRelated.attr("href") ? HowRelated.attr("href").value() : null;
-    return val==LOGO_SERVICE_LIST;
+	return (SchemaVersion(namespace)==SCHEMA_v1 && val==LOGO_SERVICE_LIST_v1)
+		|| (SchemaVersion(namespace)==SCHEMA_v2 && val==LOGO_SERVICE_LIST_v2);
 }
 
 /** 
  * determines if the identifer provided refers to a valid service  logo
  *
  * @param {String} HowRelated The logo identifier
+ * @param {String} namespace The namespace being used in the XML document
  * @return {boolean} true if this is a valid logo for a service  else false
  */
-function validServiceLogo(HowRelated) {
+function validServiceLogo(HowRelated, namespace) {
     // return true if val is a valid CS value Service Logo (A177 5.2.6.2)
-    var val= HowRelated.attr("href") ? HowRelated.attr("href").value() : null;
-    return val==LOGO_SERVICE;
+	var val= HowRelated.attr("href") ? HowRelated.attr("href").value() : null;
+    return (SchemaVersion(namespace)==SCHEMA_v1 && val==LOGO_SERVICE_v1)
+		|| (SchemaVersion(namespace)==SCHEMA_v2 && val==LOGO_SERVICE_v2);
 }
 
 /** 
  * determines if the identifer provided refers to a valid content guide source logo
  *
  * @param {String} HowRelated The logo identifier
+ * @param {String} namespace The namespace being used in the XML document
  * @return {boolean} true if this is a valid logo for a content guide source else false
  */
-function validContentGuideSourceLogo(HowRelated) {
+function validContentGuideSourceLogo(HowRelated, namespace) {
     // return true if val is a valid CS value Service Logo (A177 5.2.6.3)
     var val= HowRelated.attr("href") ? HowRelated.attr("href").value() : null;
-    return val==LOGO_CG_PROVIDER;
+    return (SchemaVersion(namespace)==SCHEMA_v1 && val==LOGO_CG_PROVIDER_v1)
+		|| (SchemaVersion(namespace)==SCHEMA_v2 && val==LOGO_CG_PROVIDER_v2);
 }
 
 
@@ -593,9 +607,9 @@ function validContentGuideSourceLogo(HowRelated) {
  * @param {Object} MediaLocator the <MediaLocator> subelement (a libxmls ojbect tree) of the <RelatedMaterial> element
  * @param {Object} errs The class where errors and warnings relating to the serivce list processing are strored 
  * @param {string} Location The printable name used to indicate the location of the <RelatedMaterial> element being checked. used for error reporting
- * @param [string] LocationType The type of element containing the <RelatedMaterial> element. Different vallidation rules apply to different location types
- * @param [string] SCHEMA_PREFIX Used when constructing Xpath queries -- not used in this function
- * @param [string] SL_SCHEMA Used when constructing Xpath queries -- not used in this function
+ * @param {string} LocationType The type of element containing the <RelatedMaterial> element. Different vallidation rules apply to different location types
+ * @param {string} SCHEMA_PREFIX Used when constructing Xpath queries -- not used in this function
+ * @param {string} SL_SCHEMA Used when constructing Xpath queries -- not used in this function
  */
 function checkValidLogo(HowRelated,Format,MediaLocator,errs,Location,LocationType,SCHEMA_PREFIX,SL_SCHEMA) {
     // irrespective of the HowRelated@href, all logos have specific requirements
@@ -628,8 +642,7 @@ function checkValidLogo(HowRelated,Format,MediaLocator,errs,Location,LocationTyp
                     if (href == PNG_IMAGE_CS_VALUE) isPNG=true;
                 }
                 else {
-                    errs.push("no @href specified for <RelatedMaterial><Format> in "+Location);
-                    errs.increment("no href");
+					NoHrefAttribute(errs, "<RelatedMaterial><Format>", Location);
                 }
             }
         });
@@ -680,9 +693,9 @@ function checkValidLogo(HowRelated,Format,MediaLocator,errs,Location,LocationTyp
  * @param {Object} MediaLocator the <MediaLocator> subelement (a libxmls ojbect tree) of the <RelatedMaterial> element
  * @param {Object} errs The class where errors and warnings relating to the serivce list processing are strored 
  * @param {string} Location The printable name used to indicate the location of the <RelatedMaterial> element being checked. used for error reporting
- * @param [string] LocationType The type of element containing the <RelatedMaterial> element. Different vallidation rules apply to different location types
- * @param [string] SCHEMA_PREFIX Used when constructing Xpath queries -- not used in this function
- * @param [string] SL_SCHEMA Used when constructing Xpath queries -- not used in this function
+ * @param {string} LocationType The type of element containing the <RelatedMaterial> element. Different vallidation rules apply to different location types
+ * @param {string} SCHEMA_PREFIX Used when constructing Xpath queries -- not used in this function
+ * @param {string} SL_SCHEMA Used when constructing Xpath queries -- not used in this function
  */
 function checkSignalledApplication(HowRelated,Format,MediaLocator,errs,Location,LocationType,SCHEMA_PREFIX,SL_SCHEMA) {
     if (!MediaLocator) {
@@ -719,10 +732,10 @@ function checkSignalledApplication(HowRelated,Format,MediaLocator,errs,Location,
  * @param {Object} RelatedMaterial the <RelatedMaterial> element (a libxmls ojbect tree) to be checked
  * @param {Object} errs The class where errors and warnings relating to the serivce list processing are strored 
  * @param {string} Location The printable name used to indicate the location of the <RelatedMaterial> element being checked. used for error reporting
- * @param [string] LocationType The type of element containing the <RelatedMaterial> element. Different vallidation rules apply to different location types
- * @param [string] SCHEMA_PREFIX Used when constructing Xpath queries -- not used in this function
- * @param [string] SCHEMA_NAMESPACE The namespace of XML document
- * @param [string] SL_SCHEMA Used when constructing Xpath queries -- not used in this function
+ * @param {string} LocationType The type of element containing the <RelatedMaterial> element. Different vallidation rules apply to different location types
+ * @param {string} SCHEMA_PREFIX Used when constructing Xpath queries -- not used in this function
+ * @param {string} SCHEMA_NAMESPACE The namespace of XML document
+ * @param {string} SL_SCHEMA Used when constructing Xpath queries -- not used in this function
  */
 function validateRelatedMaterial(RelatedMaterial,errs,Location,LocationType,SCHEMA_PREFIX,SCHEMA_NAMESPACE,SL_SCHEMA) {
     var HowRelated=null, Format=null, MediaLocator=[];
@@ -746,7 +759,7 @@ function validateRelatedMaterial(RelatedMaterial,errs,Location,LocationType,SCHE
         var HRhref=HowRelated.attr("href");
         if (HRhref) {
             if (LocationType==SERVICE_LIST_RM) {
-                if (!validServiceListLogo(HowRelated)) {
+                if (!validServiceListLogo(HowRelated,SCHEMA_NAMESPACE)) {
                     errs.push("invalid @href=\""+HRhref.value()+"\" for <RelatedMaterial> in "+Location);
                     errs.increment("invalid href");
                 }
@@ -756,17 +769,17 @@ function validateRelatedMaterial(RelatedMaterial,errs,Location,LocationType,SCHE
                 }
             }
             if (LocationType==SERVICE_RM) {
-				if (validContentFinishedBanner(HowRelated) && (SchemaVersion(SCHEMA_NAMESPACE) == SCHEMA_v1)) {
-                    errs.push("\""+BANNER_CONTENT_FINISHED +"\" not permitted for \""+SCHEMA_NAMESPACE+"\" in "+Location);
+				if (validContentFinishedBanner(HowRelated, SCHEMA_NAMESPACE) && (SchemaVersion(SCHEMA_NAMESPACE) == SCHEMA_v1)) {
+                    errs.push("\""+BANNER_CONTENT_FINISHED_v2 +"\" not permitted for \""+SCHEMA_NAMESPACE+"\" in "+Location);
                     errs.increment("invalid CS value");					
 				}
 				
-                if (!(validOutScheduleHours(HowRelated) || validContentFinishedBanner(HowRelated) ||validServiceApplication(HowRelated) || validServiceLogo(HowRelated))) {
+                if (!(validOutScheduleHours(HowRelated, SCHEMA_NAMESPACE) || validContentFinishedBanner(HowRelated, SCHEMA_NAMESPACE) ||validServiceApplication(HowRelated) || validServiceLogo(HowRelated,SCHEMA_NAMESPACE))) {
                     errs.push("invalid @href=\""+HRhref.value()+"\" for <RelatedMaterial> in "+Location);
                     errs.increment("invalid href");
                 }
                 else {
-                    if (validServiceLogo(HowRelated)||validOutScheduleHours(HowRelated))
+                    if (validServiceLogo(HowRelated, SCHEMA_NAMESPACE)||validOutScheduleHours(HowRelated, SCHEMA_NAMESPACE))
                         MediaLocator.forEach(locator =>
                             checkValidLogo(HowRelated,Format,locator,errs,Location,LocationType,SCHEMA_PREFIX,SL_SCHEMA));
                     if (validServiceApplication(HowRelated))
@@ -775,7 +788,7 @@ function validateRelatedMaterial(RelatedMaterial,errs,Location,LocationType,SCHE
                 }
             }
             if (LocationType==CONTENT_GUIDE_RM) {
-                if (!validContentGuideSourceLogo(HowRelated)) {
+                if (!validContentGuideSourceLogo(HowRelated, SCHEMA_NAMESPACE)) {
                     errs.push("invalid @href=\""+HRhref.value()+"\" for <RelatedMaterial> in "+Location);
                     errs.increment("invalid href");
                 }
@@ -786,8 +799,7 @@ function validateRelatedMaterial(RelatedMaterial,errs,Location,LocationType,SCHE
             }
         }
         else {
-            errs.push("no @href specified for <RelatedMaterial><HowRelated> in "+Location);
-            errs.increment("no href");
+			NoHrefAttribute(errs, "<RelatedMaterial><HowRelated>", Location);
         }
     }
 }
@@ -849,7 +861,10 @@ function isEmpty(obj) {
 const FORM_TOP="<html><head><title>DVB-I Service List Validator</title></head><body>";
 
 const PAGE_HEADING="<h1>DVB-I Service List Validator</h1>";
-const ENTRY_FORM="<form method=\"post\"><p><i>URL:</i></p><input type=\"url\" name=\"SLurl\" value=\"%s\"><input type=\"submit\" value=\"submit\"></form>";
+const ENTRY_FORM_URL="<form method=\"post\"><p><i>URL:</i></p><input type=\"url\" name=\"SLurl\" value=\"%s\"><input type=\"submit\" value=\"submit\"></form>";
+
+const ENTRY_FORM_FILE="<form method=\"post\" encType=\"multipart/form-data\"><p><i>FILE:</i></p><input type=\"file\" name=\"SLfile\" value=\"%s\"><input type=\"submit\" value=\"submit\"></form>";
+
 const RESULT_WITH_INSTRUCTION="<br><p><i>Results:</i></p>";
 const SUMMARY_FORM_HEADER = "<table><tr><th>item</th><th>count</th></tr>";
 const FORM_BOTTOM="</body></html>";
@@ -857,14 +872,17 @@ const FORM_BOTTOM="</body></html>";
 /**
  * constructs HTML output of the errors found in the service list analysis
  *
+ * @param {boolean} URLmode if true ask for a URL to a service list, if false ask for a file
  * @param {Object} res the Express result 
  * @param {string} lastURL the url of the service list - used to keep the form intact
  * @param {Object} o the errors and warnings found during the service list validation
  */
-function drawForm(res, lastURL, o) {
+function drawForm(URLmode, res, lastInput, o) {
     res.write(FORM_TOP);    
     res.write(PAGE_HEADING);    
-    res.write(sprintf(ENTRY_FORM, lastURL ? lastURL : ""));
+    if (URLmode) 
+		res.write(sprintf(ENTRY_FORM_URL, lastInput ? lastInput : ""));
+	else res.write(sprintf(ENTRY_FORM_FILE, lastInput ? lastInput : ""));
     res.write(RESULT_WITH_INSTRUCTION);
     if (o) {
         if (o.error) {
@@ -944,6 +962,18 @@ function NoDeliveryParams(errs, source, serviceId) {
 }
 
 /**
+ * Add an error message when the @href is not specified for an element
+ *
+ * @param {Object} errs Errors buffer
+ * @param {String} src The element missing the @href
+ * @param {String} loc The location of the element
+ */
+function NoHrefAttribute(errs, src, loc) {
+	errs.push("no @href specified for "+src+" in "+loc);
+	errs.increment("no href");
+}
+
+/**
  * check if the node provided contains an RelatedMaterial element for a signalled application
  *
  * @param {Object} node The XML tree node (either a <Service> or a <ServiceInstance>) to be checked
@@ -962,6 +992,8 @@ function hasSignalledApplication(node, SCHEMA_PREFIX, SL_SCHEMA) {
 
     return false;
 }
+
+
 
 /**
  * validate the service list and record any errors
@@ -1335,27 +1367,42 @@ function validateServiceList(SLtext, errs) {
 			//check <Service><ServiceGenre>
 			var ServiceGenre=service.get(SCHEMA_PREFIX+":ServiceGenre", SL_SCHEMA);
 			if (ServiceGenre) {
-				if (!isIn(allowedGenres,ServiceGenre.text())) {
-					errs.push("service \""+thisServiceId+"\" has an invalid <ServiceGenre>"+ServiceGenre.text());
-					errs.increment("invalid ServiceGenre");
+				if (ServiceGenre.attr("href")) {
+					if (!isIn(allowedGenres,ServiceGenre.attr("href").value())) {
+						errs.push("service \""+thisServiceId+"\" has an invalid <ServiceGenre>"+ServiceGenre.attr("href").value());
+						errs.increment("invalid ServiceGenre");
+					}
 				}
+				else {
+					NoHrefAttribute(errs, "<ServiceGenre>", "service \""+thisServiceId+"\"");
+				}				
 			}
 
 			//check <Service><ServiceType>                    
 			var ServiceType=service.get(SCHEMA_PREFIX+":ServiceType", SL_SCHEMA);
 			if (ServiceType) {
-				if (!isIn(allowedServiceTypes,ServiceType.attr("href").value())) {
-					errs.push("service \""+thisServiceId+"\" has an invalid <ServiceType>"+ServiceType.attr("href").value());
-					errs.increment("invalid ServiceType");
+				if (ServiceType.attr("href")) {
+					if (!isIn(allowedServiceTypes,ServiceType.attr("href").value())) {
+						errs.push("service \""+thisServiceId+"\" has an invalid <ServiceType>"+ServiceType.attr("href").value());
+						errs.increment("invalid ServiceType");
+					}
+				}
+				else {
+					NoHrefAttribute(errs, "<ServiceType>", "service \""+thisServiceId+"\"");
 				}
 			}
 
 			// check <Service><RecordingInfo>
 			var RecordingInfo=service.get(SCHEMA_PREFIX+":RecordingInfo", SL_SCHEMA);
 			if (RecordingInfo) {
-				if (!isIn(RecordingInfoCSvalules,RecordingInfo.attr("href").value())) {
-					errs.push("invalid <RecordingInfo> value \""+RecordingInfo.attr("href").value()+"\"for service "+thisServiceId);
-					errs.increment("invalid RecordingInfo");
+				if (RecordingInfo.attr("href")) {
+					if (!isIn(RecordingInfoCSvalules,RecordingInfo.attr("href").value())) {
+						errs.push("invalid <RecordingInfo> value \""+RecordingInfo.attr("href").value()+"\"for service "+thisServiceId);
+						errs.increment("invalid RecordingInfo");
+					}
+				}
+				else {
+					NoHrefAttribute(errs, "<RecordingInfo>", "service \""+thisServiceId+"\"");
 				}
 			}
 
@@ -1450,6 +1497,15 @@ function validateServiceList(SLtext, errs) {
 	}	
 }
 
+function checkQuery(req) {
+    if (req.query) {
+        if (req.query.SLurl)
+            return true;
+        
+        return false;
+    }
+    return true;
+}
 
 /**
  * Process the service list specificed for errors and display them
@@ -1459,9 +1515,9 @@ function validateServiceList(SLtext, errs) {
  */ 
 function processQuery(req,res) {
     if (isEmpty(req.query)) {
-        drawForm(res);    
+        drawForm(true, res);    
     } else if (!checkQuery(req)) {
-        drawForm(res, req.query.Slurl, {error:"URL not specified"});
+        drawForm(true, res, req.query.SLurl, {error:"URL not specified"});
         res.status(400);
     }
     else {
@@ -1477,23 +1533,58 @@ function processQuery(req,res) {
 			validateServiceList(SLxml.getBody().toString().replace(/(\r\n|\n|\r|\t)/gm,""), errs);
 		}
 
-        drawForm(res, req.query.SLurl, {errors:errs});
+        drawForm(true, res, req.query.SLurl, {errors:errs});
     }
     res.end();
 }
 
 
-function checkQuery(req) {
-    if (req.query) {
-        if (req.query.SLurl)
+const fileUpload = require('express-fileupload');
+//middleware
+app.use(express.static(__dirname));
+app.set('view engine', 'ejs');
+app.use(fileUpload());
+
+
+function checkFile(req) {
+    if (req.files) {
+        if (req.files.SLfile)
             return true;
         
         return false;
     }
     return true;
 }
+/**
+ * Process the service list specificed by a file name for errors and display them
+ *
+ * @param {Object} req The request from Express
+ * @param {Object} res The HTTP response to be sent to the client
+ */ 
+function processFile(req,res) {
+    if (isEmpty(req.query)) {
+        drawForm(false, res);    
+    } else if (!checkFile(req)) {
+        drawForm(false, res, req.query.SLfile, {error:"File not specified"});
+        res.status(400);
+    }
+    else {
+        var SLxml=null;
+        var errs=new ErrorList();
+        try {
+            SLxml = req.files.SLfile.data;
+        }
+        catch (err) {
+            errs.push("retrieval of FILE ("+req.query.SLfile+") failed");
+        }
+		if (SLxml) {
+			validateServiceList(SLxml.toString().replace(/(\r\n|\n|\r|\t)/gm,""), errs);
+		}
 
-
+        drawForm(false, res, req.query.SLfile, {errors:errs});
+    }
+    res.end();
+}
 
 
 // read in the validation data
@@ -1511,6 +1602,17 @@ app.post("/check", function(req,res) {
 // handle HTTP GET requests to /check
 app.get("/check", function(req,res){
     processQuery(req,res);
+});
+
+// handle HTTP POST requests to /checkFile
+app.post("/checkFile", function(req,res) {
+    req.query.SLfile=req.body.SLfile;
+    processFile(req,res);
+});
+
+// handle HTTP GET requests to /checkFile
+app.get("/checkFile", function(req,res){
+    processFile(req,res);
 });
 
 // dont handle any other requests

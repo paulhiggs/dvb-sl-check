@@ -38,7 +38,11 @@ Checks performed:
   * valid @contentType in &lt;UriBasedLocation&gt;
 * only one element for each @xml:lang is specified in any mpeg7:TextualType element
   
+## Use
+### URL based validation  
 &lt;server&gt;/check gives a basic/primitive UI. Enter the URL to your service list and press "Submit" button. Await results!
+### File based validation
+&lt;server&gt;/checkFile gives a basic/primitive UI. Select the service list file and press "Submit" button. Await results!
 
 ## Installation
 1. Clone this repository `git clone https://github.com/paulhiggs/dvb-sl-check.git`

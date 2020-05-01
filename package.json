@@ -1,10 +1,11 @@
 {
 	"name": "DVB-ServiceList-Check",
 	"description": "DVB Service List validator",
-	"version": "0.0.4",
+	"version": "0.0.5",
 	"private": true,
 	"dependencies": {
 		"express": "4.x",
+		"express-fileupload": "",
 		"libxmljs": "^0.19.7",
 		"morgan": "^1.9.1",
 		"sync-request": "6.1.0",
