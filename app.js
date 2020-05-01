@@ -53,6 +53,9 @@ const TVA_ContentCSFilename=path.join("cs","ContentCS.xml"),
 
 // curl from https://www.iana.org/assignments/language-subtag-registry/language-subtag-registry
 const IANA_Subtag_Registry_Filename=path.join(".","language-subtag-registry");
+const IANA_Subtag_Registry_URL="https://www.iana.org/assignments/language-subtag-registry/language-subtag-registry";
+
+
 
 /*
 const REPO_RAW = "https://raw.githubusercontent.com/paulhiggs/dvb-sl-check/master/",
@@ -277,12 +280,13 @@ function isISO3166code(countryCode) {
 /**
  * load the countries list into the allowedCountries global array from the specified JSON file
  *
+ * @param {Object} dest object to receive the country information
  * @param {String} countriesFile the file name to load
  */
-function loadCountries(countriesFile) {
+function loadCountries(dest, countriesFile) {
     fs.readFile(countriesFile, {encoding: "utf-8"}, function(err,data){
         if (!err) {
-            allowedCountries = JSON.parse(data, function (key, value) {
+            dest = JSON.parse(data, function (key, value) {
                 if (key == "numeric") {
                     return new Number(value);
                 } else if (key == "alpha2") {
@@ -304,9 +308,10 @@ function loadCountries(countriesFile) {
  * load the languages list into the knownLanguages global array from the specified file
  * file is formatted according to www.iana.org/assignments/language-subtag-registry/language-subtag-registry
  *
+ * @param {Array} dest array of languages read in
  * @param {String} languagesFile the file name to load
  */
-function loadLanguages(languagesFile) {
+function loadLanguages(dest, languagesFile) {
 	knownLanguages=[];
     fs.readFile(languagesFile, {encoding: "utf-8"}, function(err,data){
         if (!err) {
@@ -317,7 +322,7 @@ function loadLanguages(languagesFile) {
 					//found one
 					for (i=0; i<items.length; i++) {
 						if (items[i].startsWith("Subtag:")) {
-							knownLanguages.push(items[i].split(":")[1].trim());
+							dest.push(items[i].split(":")[1].trim());
 						}
 					}
 				}
@@ -327,7 +332,6 @@ function loadLanguages(languagesFile) {
 }
 
 function loadDataFiles() {
-	
 	console.log("loading classification schemes...");
     allowedGenres=[];
     loadCS(allowedGenres,TVA_ContentCSFilename);
@@ -351,10 +355,12 @@ function loadDataFiles() {
     loadCS(RecordingInfoCSvalules, DVBI_RecordingInfoCSFilename);
 
 	console.log("loading countries...");
-    loadCountries(ISO3166_Filename);
+	allowedCountries=[];
+    loadCountries(allowedCountries, ISO3166_Filename);
 	
 	console.log("loading languages...");
-	loadLanguages(IANA_Subtag_Registry_Filename);
+	knownLanguages=[];
+	loadLanguages(knownLanguages, IANA_Subtag_Registry_Filename);
 
 //TODO: validation against schema
 //    SLschema=fs.readFileSync(DVBI_ServiceListSchemaFilename);
@@ -383,9 +389,15 @@ function loadDataFilesWeb() {
     loadCS(allowedVideoSchemes, MPEG7_VisualCodingFormatCSURL);
     loadCS(allowedVideoConformancePoints, DVB_VideoConformanceCSURL);
 
-    loadCountries(ISO3166_URL);
+	RecordingInfoCSvalules=[];
+	loadCS(RecordingInfoCSvalules, DVBI_RecordingInfoCSURL);
+
+	allowedCountries=[];
+    loadCountries(allowedCountries, ISO3166_URL);
     
-    loadCS(RecordingInfoCSvalules, DVBI_RecordingInfoCSURL);
+	knownLanguages=[];
+	loadLanguages(knownLanguages, IANA_Subtag_Registry_URL);
+    
 
 //TODO: validation against schema
 //    SLschema=fs.readFileSync(DVBI_ServiceListSchemaFilename);
@@ -788,7 +800,7 @@ const LANG_OK=0,
 	  LANG_USE_2DIGIT=2;
 
 function checkBCP47lang(lang) {
-	//TODO: check the lang against BCP47 (https://tools.ietf.org/html/bcp47)
+	//check the lang against BCP47 (https://tools.ietf.org/html/bcp47)
 	if (!isIn(knownLanguages, lang))
 		return LANG_UNDEFINED;
 	
@@ -844,6 +856,7 @@ const ENTRY_FORM="<form method=\"post\"><p><i>URL:</i></p><input type=\"url\" na
 const RESULT_WITH_INSTRUCTION="<br><p><i>Results:</i></p>";
 const SUMMARY_FORM_HEADER = "<table><tr><th>item</th><th>count</th></tr>";
 const FORM_BOTTOM="</body></html>";
+
 /**
  * constructs HTML output of the errors found in the service list analysis
  *
@@ -869,7 +882,7 @@ function drawForm(res, lastURL, o) {
                         res.write(SUMMARY_FORM_HEADER);
                         tableHeader=true;
                     }
-                    var t=i.replace(/</g,"&lt;").replace(/>/g,"&gt;");                    
+                    var t=i.replace(/</g,"&lt;").replace(/>/g,"&gt;");
                     res.write("<tr><td>"+t+"</td><td>"+o.errors.counts[i]+"</td></tr>");
                     resultsShown=true;
                 }
@@ -880,7 +893,7 @@ function drawForm(res, lastURL, o) {
                         res.write(SUMMARY_FORM_HEADER);
                         tableHeader=true;
                     }
-                    var t=i.replace(/</g,"&lt;").replace(/>/g,"&gt;");                    
+                    var t=i.replace(/</g,"&lt;").replace(/>/g,"&gt;");
                     res.write("<tr><td><i>"+t+"</i></td><td>"+o.errors.countsWarn[i]+"</td></tr>");
                     resultsShown=true;
                 }
@@ -919,24 +932,6 @@ function drawForm(res, lastURL, o) {
     res.write(FORM_BOTTOM);        
 }
 
-// initialize Express
-app.use(express.urlencoded({ extended: true }));
-
-// handle HTTP POST requests to /check
-app.post("/check", function(req,res) {
-    req.query.SLurl=req.body.SLurl;
-    processQuery(req,res);
-});
-
-// handle HTTP GET requests to /check
-app.get("/check", function(req,res){
-    processQuery(req,res);
-});
-
-// dont handle any other requests
-app.get("*", function(req,res) {
-    res.status(404).end();
-});
 
 
 /**
@@ -985,21 +980,19 @@ function processQuery(req,res) {
         res.status(400);
     }
     else {
-        var SL, SLxml;
+        var SL=null, SLxml=null;
         var errs=new ErrorList();
         try {
             SLxml = syncRequest("GET", req.query.SLurl);
         }
         catch (err) {
             errs.push("retrieval of URL ("+req.query.SLurl+") failed");
-            SLxml = null;
         }
         if (SLxml) try {
             SL = libxml.parseXmlString(SLxml.getBody().toString().replace(/(\r\n|\n|\r|\t)/gm,""));
         } catch (err) {
             errs.push("XML parsing failed: "+err.message);
             errs.increment("malformed XML");
-            SL = null;
         }
         if (SL) {
             // check the retrieved service list against the schema
@@ -1031,7 +1024,7 @@ function processQuery(req,res) {
 
                 // Check that the @xml:lang values for each <Name> element are unique and only one element does not have any language specified
                 checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, "Name", "ServiceList", SL, errs);
-                
+
                 // Check that the @xml:lang values for each <ProviderName> element are unique and only one elementdoes not have any language specified
                 checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, "ProviderName", "ServiceList", SL, errs);
 
@@ -1041,7 +1034,7 @@ function processQuery(req,res) {
                     validateRelatedMaterial(RelatedMaterial,errs,"service list", SERVICE_LIST_RM, SCHEMA_PREFIX, SCHEMA_NAMESPACE, SL_SCHEMA);
                     rm++;
                 }
-                
+
                 // check <ServiceList><RegionList> and remember regionID values
                 var knownRegionIDs=[], RegionList=SL.get(SCHEMA_PREFIX+":RegionList", SL_SCHEMA);
                 if (RegionList) {
@@ -1051,7 +1044,7 @@ function processQuery(req,res) {
                         addRegion(Region, 0, knownRegionIDs, errs);
                         r++;
                     }
-                }                
+                }
 
                 //check <ServiceList><TargetRegion>
                 var tr=1, TargetRegion;
@@ -1062,7 +1055,7 @@ function processQuery(req,res) {
                     }
                     tr++;
                 }
-                
+
                 // <ServiceList><LCNTableList> is checked below, after the services are enumerated
 
                 // check mpeg7:TextualType elements in <ServiceList><ContentGuideSourceList>
@@ -1071,11 +1064,11 @@ function processQuery(req,res) {
                     // Check that the @xml:lang values for each <ContentGuideSourceList><ContentGuideSource>[cgs]<Name> element are unique and only one element 
                     // does not have any language specified
                     checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, "Name", "ServiceList.ContentGuideSourceList.ContentGuideSource["+cgs+"]", CGsource, errs);
-                    
+
                     // Check that the @xml:lang values for each <ContentGuideSourceList><ContentGuideSource>[cgs] element are unique and only one element 
                     // does not have any language specified
                     checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, "ProviderName", "ServiceList.ContentGuideSourceList.ContentGuideSource["+cgs+"]", CGsource, errs);
-                    
+
                     cgs++;
                 }
 
@@ -1084,18 +1077,18 @@ function processQuery(req,res) {
                 if (CGSourceList) {
                     var i=1, CGSource;
                     while (CGSource=SL.get("//"+SCHEMA_PREFIX+":ContentGuideSourceList/"+SCHEMA_PREFIX+":ContentGuideSource["+i+"]", SL_SCHEMA)) {
-                        
+
                         if (isIn(ContentGuideSourceIDs,CGSource.attr("CGSID").value())) {
                             errs.push("duplicate @CGSID in service list");
                             errs.increment("duplicate CGSID");
                         }
                         else ContentGuideSourceIDs.push(CGSource.attr("CGSID").value());
-                        
+
                         var rm=1, CGrm;
                         while (CGrm=SL.get("//"+SCHEMA_PREFIX+":ContentGuideSourceList/"+SCHEMA_PREFIX+":ContentGuideSource["+i+"]/"+SCHEMA_PREFIX+":RelatedMaterial["+rm+"]", SL_SCHEMA)) {
                             validateRelatedMaterial(CGrm,errs,"<ServiceList><ContentGuideSourceList>", CONTENT_GUIDE_RM, SCHEMA_PREFIX, SCHEMA_NAMESPACE, SL_SCHEMA);
                             rm++;
-                        }                    
+                        }
                         i++;
                     }
                 }
@@ -1105,7 +1098,7 @@ function processQuery(req,res) {
                 if (slGCS) {
                     // Check that the @xml:lang values for each <ContentGuideSource><Name> element are unique and only one element does not have any language specified
                     checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, "Name", "ServiceList.ContentGuideSource", slGCS, errs);
-                    
+
                     // Check that the @xml:lang values for each <ContentGuideSource><ProviderName> element are unique and only one element does not have any language specified
                     checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, "ProviderName", "ServiceList.ContentGuideSource", slGCS, errs);
                 }
@@ -1119,7 +1112,7 @@ function processQuery(req,res) {
                         rm++;
                     }
                 }
-                
+
                 errs.set("num services",0);
 
                 // check <Service>
@@ -1128,7 +1121,7 @@ function processQuery(req,res) {
                     // for each service
                     errs.set("num services",s);
                     thisServiceId="service-"+s;  // use a default value in case <UniqueIdentifier> is not specified
-                    
+
                     // check <Service><UniqueIdentifier>
                     var uID=service.get(SCHEMA_PREFIX+":UniqueIdentifier", SL_SCHEMA);
                     if (!uID) {
@@ -1155,14 +1148,14 @@ function processQuery(req,res) {
 
                         // Check that the @xml:lang values for each <DisplayName> element are unique and only one element does not have any language specified
                         checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, "DisplayName", "service instance in service=\""+thisServiceId+"\"", ServiceInstance, errs);
-                        
+
                         // check @href of <ServiceInstance><RelatedMaterial>
                         var rm=1, RelatedMaterial;
                         while (RelatedMaterial=ServiceInstance.get(SCHEMA_PREFIX+":RelatedMaterial["+rm+"]", SL_SCHEMA)) {
                             validateRelatedMaterial(RelatedMaterial,errs,"service instance of \""+thisServiceId+"\"", SERVICE_RM, SCHEMA_PREFIX, SCHEMA_NAMESPACE, SL_SCHEMA);
                             rm++;
                         }
-                        
+
                         // Check @href of ContentAttributes/AudioConformancePoints
                         var cp=1, conf;
                         while (conf=ServiceInstance.get(SCHEMA_PREFIX+":ContentAttributes/"+SCHEMA_PREFIX+":AudioConformancePoint["+cp+"]", SL_SCHEMA)) {
@@ -1182,7 +1175,7 @@ function processQuery(req,res) {
                             }
                             cp++;
                         }
-                        
+
                         // Check @href of ContentAttributes/VideoConformancePoints
                         cp=1;
                         while (conf=ServiceInstance.get(SCHEMA_PREFIX+":ContentAttributes/"+SCHEMA_PREFIX+":VideoConformancePoint["+cp+"]", SL_SCHEMA)) {
@@ -1290,7 +1283,7 @@ function processQuery(req,res) {
 								errs.increment("no SourceType");
 							}
                         }
-                        
+
                         var DASHDeliveryParameters = ServiceInstance.get(SCHEMA_PREFIX+":DASHDeliveryParameters", SL_SCHEMA);
                         if (DASHDeliveryParameters) {
                             var URILoc = DASHDeliveryParameters.get(SCHEMA_PREFIX+":UriBasedLocation", SL_SCHEMA);
@@ -1312,7 +1305,7 @@ function processQuery(req,res) {
                                 }
                             }
                         }
-                        
+
                         var DVBTtargetCountry = ServiceInstance.get(SCHEMA_PREFIX+":DVBTDeliveryParameters/"+SCHEMA_PREFIX+":TargetCountry", SL_SCHEMA);
                         if (DVBTtargetCountry) {
                             if (!isISO3166code(DVBTtargetCountry.text())) {
@@ -1320,7 +1313,7 @@ function processQuery(req,res) {
                                 errs.increment("invalid country code");    
                             }
                         }
-                        
+
                         var DVBCtargetCountry = ServiceInstance.get(SCHEMA_PREFIX+":DVBCDeliveryParameters/"+SCHEMA_PREFIX+":TargetCountry", SL_SCHEMA);
                         if (DVBCtargetCountry) {
                             if (!isISO3166code(DVBCtargetCountry.text())) {
@@ -1328,10 +1321,10 @@ function processQuery(req,res) {
                                 errs.increment("invalid country code");    
                             }
                         }
-                        
+
                         si++;  // next <ServiceInstance>
                     }
-                    
+
                     //check <Service><TargetRegion>
                     var tr=1, TargetRegion;
                     while (TargetRegion=service.get(SCHEMA_PREFIX+":TargetRegion["+tr+"]", SL_SCHEMA)) {
@@ -1344,16 +1337,16 @@ function processQuery(req,res) {
 
                     // Check that the @xml:lang values for each <ServiceName> element are unique and only one element does not have any language specified
                     checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, "ServiceName", "service=\""+thisServiceId+"\"", service, errs);
-                    
+
                     // Check that the @xml:lang values for each <ProviderName> element are unique and only one element does not have any language specified
                     checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, "ProviderName", "service=\""+thisServiceId+"\"", service, errs);
-                    
+
                     //check <Service><RelatedMaterial>
                     var rm=1, RelatedMaterial;
                     while (RelatedMaterial=service.get(SCHEMA_PREFIX+":RelatedMaterial["+rm+"]", SL_SCHEMA)) {
                         validateRelatedMaterial(RelatedMaterial,errs,"service \""+thisServiceId+"\"", SERVICE_RM, SCHEMA_PREFIX, SCHEMA_NAMESPACE, SL_SCHEMA);
                         rm++;
-                    }                    
+                    }
 
                     //check <Service><ServiceGenre>
                     var ServiceGenre=service.get(SCHEMA_PREFIX+":ServiceGenre", SL_SCHEMA);
@@ -1363,7 +1356,7 @@ function processQuery(req,res) {
                             errs.increment("invalid ServiceGenre");
                         }
                     }
-                    
+
                     //check <Service><ServiceType>                    
                     var ServiceType=service.get(SCHEMA_PREFIX+":ServiceType", SL_SCHEMA);
                     if (ServiceType) {
@@ -1372,7 +1365,7 @@ function processQuery(req,res) {
                             errs.increment("invalid ServiceType");
                         }
                     }
-                    
+
                     // check <Service><RecordingInfo>
                     var RecordingInfo=service.get(SCHEMA_PREFIX+":RecordingInfo", SL_SCHEMA);
                     if (RecordingInfo) {
@@ -1400,7 +1393,7 @@ function processQuery(req,res) {
                             errs.increment("unspecified content guide source");
                         }
                     }
-                    
+
                     // this should not happen if the XML document has passed schema validation
                     if (sCG && sCGref) {
                         errs.push("only <ContentGuideSource> or <CountentGuideSourceRef> to be specifed for a service \""+thisServiceId+"\"");
@@ -1411,7 +1404,7 @@ function processQuery(req,res) {
                     
                     s++;  // next <Service>
                 }        
-                
+
                 // check <Service><ContentGuideServiceRef>
                 // issues a warning if this is not a reference to another service or is a reference to self
                 s=1;
@@ -1425,7 +1418,7 @@ function processQuery(req,res) {
                         }
                         if (uniqueID && (CGSR.text() == uniqueID.text())) {
                             errs.pushW("<ContentGuideServiceRef> is self");
-                            errs.incrementW("self <ContentGuideServiceRef>");            
+                            errs.incrementW("self <ContentGuideServiceRef>");
                         }
                     }
                     s++;
@@ -1492,8 +1485,28 @@ function checkQuery(req) {
 
 
 
-
+// read in the validation data
 loadDataFiles();
+
+// initialize Express
+app.use(express.urlencoded({ extended: true }));
+
+// handle HTTP POST requests to /check
+app.post("/check", function(req,res) {
+    req.query.SLurl=req.body.SLurl;
+    processQuery(req,res);
+});
+
+// handle HTTP GET requests to /check
+app.get("/check", function(req,res){
+    processQuery(req,res);
+});
+
+// dont handle any other requests
+app.get("*", function(req,res) {
+    res.status(404).end();
+});
+
 
 // start the HTTP server
 
