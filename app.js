@@ -280,13 +280,12 @@ function isISO3166code(countryCode) {
 /**
  * load the countries list into the allowedCountries global array from the specified JSON file
  *
- * @param {Object} dest object to receive the country information
  * @param {String} countriesFile the file name to load
  */
-function loadCountries(dest, countriesFile) {
+function loadCountries(countriesFile) {
     fs.readFile(countriesFile, {encoding: "utf-8"}, function(err,data){
         if (!err) {
-            dest = JSON.parse(data, function (key, value) {
+            allowedCountries = JSON.parse(data, function (key, value) {
                 if (key == "numeric") {
                     return new Number(value);
                 } else if (key == "alpha2") {
@@ -308,11 +307,9 @@ function loadCountries(dest, countriesFile) {
  * load the languages list into the knownLanguages global array from the specified file
  * file is formatted according to www.iana.org/assignments/language-subtag-registry/language-subtag-registry
  *
- * @param {Array} dest array of languages read in
  * @param {String} languagesFile the file name to load
  */
-function loadLanguages(dest, languagesFile) {
-	knownLanguages=[];
+function loadLanguages(languagesFile) {
     fs.readFile(languagesFile, {encoding: "utf-8"}, function(err,data){
         if (!err) {
 			var entries = data.split("%%");
@@ -322,7 +319,7 @@ function loadLanguages(dest, languagesFile) {
 					//found one
 					for (i=0; i<items.length; i++) {
 						if (items[i].startsWith("Subtag:")) {
-							dest.push(items[i].split(":")[1].trim());
+							knownLanguages.push(items[i].split(":")[1].trim());
 						}
 					}
 				}
@@ -356,11 +353,11 @@ function loadDataFiles() {
 
 	console.log("loading countries...");
 	allowedCountries=[];
-    loadCountries(allowedCountries, ISO3166_Filename);
+    loadCountries(ISO3166_Filename);
 	
 	console.log("loading languages...");
 	knownLanguages=[];
-	loadLanguages(knownLanguages, IANA_Subtag_Registry_Filename);
+	loadLanguages(IANA_Subtag_Registry_Filename);
 
 //TODO: validation against schema
 //    SLschema=fs.readFileSync(DVBI_ServiceListSchemaFilename);
@@ -393,10 +390,10 @@ function loadDataFilesWeb() {
 	loadCS(RecordingInfoCSvalules, DVBI_RecordingInfoCSURL);
 
 	allowedCountries=[];
-    loadCountries(allowedCountries, ISO3166_URL);
+    loadCountries(ISO3166_URL);
     
 	knownLanguages=[];
-	loadLanguages(knownLanguages, IANA_Subtag_Registry_URL);
+	loadLanguages(IANA_Subtag_Registry_URL);
     
 
 //TODO: validation against schema
@@ -950,8 +947,8 @@ function NoDeliveryParams(errs, source, serviceId) {
  * check if the node provided contains an RelatedMaterial element for a signalled application
  *
  * @param {Object} node The XML tree node (either a <Service> or a <ServiceInstance>) to be checked
- * @param [string] SCHEMA_PREFIX Used when constructing Xpath queries
- * @param [string] SL_SCHEMA Used when constructing Xpath queries
+ * @param {string} SCHEMA_PREFIX Used when constructing Xpath queries
+ * @param {string} SL_SCHEMA Used when constructing Xpath queries
  * @returns {boolean}  true if the node contains a <RelatedMaterial> element which signals an application else false
  */
 function hasSignalledApplication(node, SCHEMA_PREFIX, SL_SCHEMA) {
@@ -967,6 +964,494 @@ function hasSignalledApplication(node, SCHEMA_PREFIX, SL_SCHEMA) {
 }
 
 /**
+ * validate the service list and record any errors
+ *
+ * @param {String} SLtext the service list text to be validated
+ * @param {Class} errs errors found in validaton
+ */
+function validateServiceList(SLtext, errs) {
+	var SL=null;
+	if (SLtext) try {
+		SL = libxml.parseXmlString(SLtext);
+	} catch (err) {
+		errs.push("XML parsing failed: "+err.message);
+		errs.increment("malformed XML");
+	}
+	if (!SL) return;
+	
+	// check the retrieved service list against the schema
+	// https://syssgx.github.io/xml.js/
+
+//TODO: look into why both of these validation approaches are failing
+/*
+	console.log(xmllint.validateXML({
+		xml: SL.toString(),
+		schema: [SLschema.toString(), 
+				 TVAschema.toString(), 
+				 MPEG7schema.toString(),
+				 XMLschema.toString()]
+	}));
+*/
+/*
+	if (!SL.validate(SLschema)){
+		SL.validationErrors.forEach(err => console.log("validation error:", err));
+	};
+*/
+	if (SL.root().name() !== "ServiceList") {
+		errs.push("Root element is not <ServiceList>.");
+	}
+	else {
+		var SL_SCHEMA = {}, 
+			SCHEMA_PREFIX=SL.root().namespace().prefix(), 
+			SCHEMA_NAMESPACE=SL.root().namespace().href();
+		SL_SCHEMA[SCHEMA_PREFIX]=SCHEMA_NAMESPACE;
+
+		// Check that the @xml:lang values for each <Name> element are unique and only one element does not have any language specified
+		checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, "Name", "ServiceList", SL, errs);
+
+		// Check that the @xml:lang values for each <ProviderName> element are unique and only one elementdoes not have any language specified
+		checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, "ProviderName", "ServiceList", SL, errs);
+
+		//check <ServiceList><RelatedMaterial>
+		var rm=1, RelatedMaterial;
+		while (RelatedMaterial=SL.get(SCHEMA_PREFIX+":RelatedMaterial["+rm+"]", SL_SCHEMA)) {
+			validateRelatedMaterial(RelatedMaterial,errs,"service list", SERVICE_LIST_RM, SCHEMA_PREFIX, SCHEMA_NAMESPACE, SL_SCHEMA);
+			rm++;
+		}
+
+		// check <ServiceList><RegionList> and remember regionID values
+		var knownRegionIDs=[], RegionList=SL.get(SCHEMA_PREFIX+":RegionList", SL_SCHEMA);
+		if (RegionList) {
+			// recurse the regionlist - Regions can be nested in Regions
+			var r=1, Region;
+			while (Region=SL.get("//"+SCHEMA_PREFIX+":RegionList/"+SCHEMA_PREFIX+":Region["+r+"]", SL_SCHEMA)) {
+				addRegion(Region, 0, knownRegionIDs, errs);
+				r++;
+			}
+		}
+
+		//check <ServiceList><TargetRegion>
+		var tr=1, TargetRegion;
+		while (TargetRegion=SL.get(SCHEMA_PREFIX+":TargetRegion["+tr+"]", SL_SCHEMA)) {
+			if (!isIn(knownRegionIDs,TargetRegion.text())) {
+				errs.push("service list has an unspecified <TargetRegion>"+TargetRegion.text());
+				errs.increment("target region");
+			}
+			tr++;
+		}
+
+		// <ServiceList><LCNTableList> is checked below, after the services are enumerated
+
+		// check mpeg7:TextualType elements in <ServiceList><ContentGuideSourceList>
+		var cgs=1, CGsource;
+		while (CGsource=SL.get(SCHEMA_PREFIX+":ContentGuideSourceList/"+SCHEMA_PREFIX+":ContentGuideSource["+cgs+"]", SL_SCHEMA)) {
+			// Check that the @xml:lang values for each <ContentGuideSourceList><ContentGuideSource>[cgs]<Name> element are unique and only one element 
+			// does not have any language specified
+			checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, "Name", "ServiceList.ContentGuideSourceList.ContentGuideSource["+cgs+"]", CGsource, errs);
+
+			// Check that the @xml:lang values for each <ContentGuideSourceList><ContentGuideSource>[cgs] element are unique and only one element 
+			// does not have any language specified
+			checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, "ProviderName", "ServiceList.ContentGuideSourceList.ContentGuideSource["+cgs+"]", CGsource, errs);
+
+			cgs++;
+		}
+
+		//check service list <ContentGuideSourceList>
+		var ContentGuideSourceIDs=[], CGSourceList=SL.get("//"+SCHEMA_PREFIX+":ContentGuideSourceList", SL_SCHEMA);
+		if (CGSourceList) {
+			var i=1, CGSource;
+			while (CGSource=SL.get("//"+SCHEMA_PREFIX+":ContentGuideSourceList/"+SCHEMA_PREFIX+":ContentGuideSource["+i+"]", SL_SCHEMA)) {
+
+				if (isIn(ContentGuideSourceIDs,CGSource.attr("CGSID").value())) {
+					errs.push("duplicate @CGSID in service list");
+					errs.increment("duplicate CGSID");
+				}
+				else ContentGuideSourceIDs.push(CGSource.attr("CGSID").value());
+
+				var rm=1, CGrm;
+				while (CGrm=SL.get("//"+SCHEMA_PREFIX+":ContentGuideSourceList/"+SCHEMA_PREFIX+":ContentGuideSource["+i+"]/"+SCHEMA_PREFIX+":RelatedMaterial["+rm+"]", SL_SCHEMA)) {
+					validateRelatedMaterial(CGrm,errs,"<ServiceList><ContentGuideSourceList>", CONTENT_GUIDE_RM, SCHEMA_PREFIX, SCHEMA_NAMESPACE, SL_SCHEMA);
+					rm++;
+				}
+				i++;
+			}
+		}
+
+		// check mpeg7:TextualType elements in <ServiceList><ContentGuideSource>
+		var slGCS=SL.get(SCHEMA_PREFIX+":ContentGuideSource", SL_SCHEMA);
+		if (slGCS) {
+			// Check that the @xml:lang values for each <ContentGuideSource><Name> element are unique and only one element does not have any language specified
+			checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, "Name", "ServiceList.ContentGuideSource", slGCS, errs);
+
+			// Check that the @xml:lang values for each <ContentGuideSource><ProviderName> element are unique and only one element does not have any language specified
+			checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, "ProviderName", "ServiceList.ContentGuideSource", slGCS, errs);
+		}
+
+		// check <ServiceList><ContentGuideSource>
+		var CGSource=SL.get("//"+SCHEMA_PREFIX+":ContentGuideSource", SL_SCHEMA);
+		if (CGSource) {
+			var rm=1, CGrm;
+			while (CGrm=SL.get("//"+SCHEMA_PREFIX+":ContentGuideSource/"+SCHEMA_PREFIX+":RelatedMaterial["+rm+"]", SL_SCHEMA)) {
+				validateRelatedMaterial(CGrm,errs,"<ServiceList><ContentGuideSource>", CONTENT_GUIDE_RM, SCHEMA_PREFIX, SCHEMA_NAMESPACE, SL_SCHEMA);
+				rm++;
+			}
+		}
+
+		errs.set("num services",0);
+
+		// check <Service>
+		var s=1, service, knownServices=[], thisServiceId;
+		while (service=SL.get("//"+SCHEMA_PREFIX+":Service["+s+"]", SL_SCHEMA)) {
+			// for each service
+			errs.set("num services",s);
+			thisServiceId="service-"+s;  // use a default value in case <UniqueIdentifier> is not specified
+
+			// check <Service><UniqueIdentifier>
+			var uID=service.get(SCHEMA_PREFIX+":UniqueIdentifier", SL_SCHEMA);
+			if (!uID) {
+				// this should not happen as UniqueIdentifier is a mandatory element within Service
+				errs.push("<UniqueIdentifier> not present for service "+s);
+				errs.increment("no <UniqueIdentifier>");
+			} else {
+				thisServiceId=uID.text();
+				if (!validServiceIdentifier(thisServiceId)) {
+					errs.push("\""+thisServiceId+"\" is not a valid identifier");
+					errs.increment("invalid tag");
+				}
+				if (!uniqueServiceIdentifier(thisServiceId,knownServices)) {
+					errs.push("\""+thisServiceId+"\" is not unique");
+					errs.increment("non unique id");
+				}
+				knownServices.push(thisServiceId);
+			}
+
+			//check <Service><ServiceInstance>
+			var si=1, ServiceInstance;
+			while (ServiceInstance=service.get(SCHEMA_PREFIX+":ServiceInstance["+si+"]", SL_SCHEMA)) {
+				//for each service instance
+
+				// Check that the @xml:lang values for each <DisplayName> element are unique and only one element does not have any language specified
+				checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, "DisplayName", "service instance in service=\""+thisServiceId+"\"", ServiceInstance, errs);
+
+				// check @href of <ServiceInstance><RelatedMaterial>
+				var rm=1, RelatedMaterial;
+				while (RelatedMaterial=ServiceInstance.get(SCHEMA_PREFIX+":RelatedMaterial["+rm+"]", SL_SCHEMA)) {
+					validateRelatedMaterial(RelatedMaterial,errs,"service instance of \""+thisServiceId+"\"", SERVICE_RM, SCHEMA_PREFIX, SCHEMA_NAMESPACE, SL_SCHEMA);
+					rm++;
+				}
+
+				// Check @href of ContentAttributes/AudioConformancePoints
+				var cp=1, conf;
+				while (conf=ServiceInstance.get(SCHEMA_PREFIX+":ContentAttributes/"+SCHEMA_PREFIX+":AudioConformancePoint["+cp+"]", SL_SCHEMA)) {
+					if (conf.attr("href") && !isIn(allowedAudioConformancePoints,conf.attr("href").value())) {
+						errs.push("invalid value for <AudioConformancePoint> ("+conf.attr("href").value()+")");
+						errs.increment("audio conf point");
+					}
+					cp++;
+				}
+
+				// Check @href of ContentAttributes/AudioAttributes/tva:coding
+				cp=1;
+				while (conf=ServiceInstance.get(SCHEMA_PREFIX+":ContentAttributes/"+SCHEMA_PREFIX+":AudioAttributes["+cp+"]/*", SL_SCHEMA)) {
+					if (conf.name()==="Coding" && conf.attr("href") && !isIn(allowedAudioSchemes,conf.attr("href").value())) {
+						errs.push("invalid @href value for <AudioAttributes> ("+conf.attr("href").value()+")");
+						errs.increment("audio codec");
+					}
+					cp++;
+				}
+
+				// Check @href of ContentAttributes/VideoConformancePoints
+				cp=1;
+				while (conf=ServiceInstance.get(SCHEMA_PREFIX+":ContentAttributes/"+SCHEMA_PREFIX+":VideoConformancePoint["+cp+"]", SL_SCHEMA)) {
+					if (conf.attr("href") && !isIn(allowedVideoConformancePoints,conf.attr("href").value())) {
+						errs.push("invalid @href value for <VideoConformancePoint> ("+conf.attr("href").value()+")");
+						errs.increment("video conf point");
+					}
+					cp++;
+				}
+
+				// Check @href of ContentAttributes/VideoAttributes/tva:coding
+				cp=1;
+				while (conf=ServiceInstance.get(SCHEMA_PREFIX+":ContentAttributes/"+SCHEMA_PREFIX+":VideoAttributes["+cp+"]/*", SL_SCHEMA)) {
+					if (conf.name()==="Coding" && conf.attr("href") && !isIn(allowedVideoSchemes,conf.attr("href").value())) {
+						errs.push("invalid @href value for <VideoAttributes> ("+conf.attr("href").value()+")");
+						errs.increment("video codec");
+					}
+					cp++;
+				}
+
+				var Availability=ServiceInstance.get(SCHEMA_PREFIX+":Availability", SL_SCHEMA);
+				if (Availability) {
+					var Period, p=1;
+					while (Period=Availability.get(SCHEMA_PREFIX+":Period["+p+"]", SL_SCHEMA)) {
+						if (Period.attr("validFrom") && Period.attr("validTo")) {
+							// validTo should be >= validFrom
+							var fr=new Date(Period.attr("validFrom").value()), 
+								to=new Date(Period.attr("validTo").value());
+						
+							if (to.getTime() < fr.getTime()) {
+								errs.push("invalid availability period for service \""+thisServiceId+"\". "+fr+">"+to);
+								errs.increment("period start>end");
+							}
+						}
+						p++;
+					}
+				}
+
+				// note that the <SourceType> element becomes optional in A177v2, but if specified then the relevant
+				// delivery parameters also need to be specified
+				var SourceType = ServiceInstance.get(SCHEMA_PREFIX+":SourceType", SL_SCHEMA);
+				if (SourceType) {
+					switch (SourceType.text()) {
+						case DVBT_SOURCE_TYPE:
+							if (!ServiceInstance.get(SCHEMA_PREFIX+":DVBTDeliveryParameters", SL_SCHEMA) ) {
+								NoDeliveryParams(errs, "DVB-T", thisServiceId);
+							}
+							break;
+						case DVBS_SOURCE_TYPE:
+							if (!ServiceInstance.get(SCHEMA_PREFIX+":DVBSDeliveryParameters", SL_SCHEMA) ) {
+								NoDeliveryParams(errs, "DVB-S", thisServiceId);
+							}
+							break;
+						case DVBC_SOURCE_TYPE:
+							if (!ServiceInstance.get(SCHEMA_PREFIX+":DVBCDeliveryParameters", SL_SCHEMA) ) {
+								NoDeliveryParams(errs, "DVB-C", thisServiceId);
+							}
+							break;
+						case DVBDASH_SOURCE_TYPE:
+							if (!ServiceInstance.get(SCHEMA_PREFIX+":DASHDeliveryParameters", SL_SCHEMA) ) {
+								NoDeliveryParams(errs, "DVB-DASH", thisServiceId);
+							}
+							break;
+						case DVBIPTV_SOURCE_TYPE:
+							if (!ServiceInstance.get(SCHEMA_PREFIX+":MulticastTSDeliveryParameters", SL_SCHEMA) && !ServiceInstance.get(SCHEMA_PREFIX+":RTSPDeliveryParameters", SL_SCHEMA) ) {
+								NoDeliveryParams(errs, "Multicast or RTSP", thisServiceId);
+							}
+							break;
+						case DVBAPPLICATION_SOURCE_TYPE:
+							// there should not be any <xxxxDeliveryParameters> elements and there should be either a Service.RelatedMaterial or Service.ServiceInstance.RelatedMaterial signalling a service related application
+							if (ServiceInstance.get(SCHEMA_PREFIX+":DVBTDeliveryParameters", SL_SCHEMA)
+								|| ServiceInstance.get(SCHEMA_PREFIX+":DVBSDeliveryParameters", SL_SCHEMA)
+								|| ServiceInstance.get(SCHEMA_PREFIX+":DVBCDeliveryParameters", SL_SCHEMA)
+								|| ServiceInstance.get(SCHEMA_PREFIX+":DASHDeliveryParameters", SL_SCHEMA)
+								|| ServiceInstance.get(SCHEMA_PREFIX+":MulticastTSDeliveryParameters", SL_SCHEMA)
+								|| ServiceInstance.get(SCHEMA_PREFIX+":RTSPDeliveryParameters", SL_SCHEMA) ) {
+									errs.push("Delivery parameters are not permitted for Application service instance in Service \""+thisServiceId+"\".");
+									errs.increment("invalid application");
+								}
+								else {
+									// no xxxxDeliveryParameters is signalled
+									// check for appropriate Service.RelatedMaterial or Service.ServiceInstance.RelatedMaterial
+									if (!hasSignalledApplication(service, SCHEMA_PREFIX, SL_SCHEMA) 
+										&& !hasSignalledApplication(ServiceInstance, SCHEMA_PREFIX, SL_SCHEMA)) {
+										errs.push("No Application is signalled for SourceType=\""+DVBAPPLICATION_SOURCE_TYPE+"\" in Service \""+thisServiceId+"\".");
+										errs.increment("no application");
+									}
+								}
+							break;
+						default:
+							if (SchemaVersion(SCHEMA_NAMESPACE)==SCHEMA_v1) {
+								errs.push("SourceType \""+SourceType.text()+"\" is not valid in Service \""+thisServiceId+"\".");
+								errs.increment("invalid SourceType");
+							}
+							else {
+								errs.pushW("Service \""+thisServiceId+"\" has a user defined SourceType \""+SourceType.text()+"\"");
+								errs.incrementW("user SourceType");
+							}
+					}
+				}
+				else {
+					// this should not happen as SourceType is a mandatory element within ServiceInstance
+					if (SchemaVersion(SCHEMA_NAMESPACE)==SCHEMA_v1) {
+						errs.push("SourceType not specifcied in ServiceInstance of service \""+thisServiceId+"\".");
+						errs.increment("no SourceType");
+					}
+				}
+
+				var DASHDeliveryParameters = ServiceInstance.get(SCHEMA_PREFIX+":DASHDeliveryParameters", SL_SCHEMA);
+				if (DASHDeliveryParameters) {
+					var URILoc = DASHDeliveryParameters.get(SCHEMA_PREFIX+":UriBasedLocation", SL_SCHEMA);
+					if (!URILoc) {
+						errs.push("UriBasedLocation not specified for DASHDeliveryParameters in service \""+thisServiceId+"\".");
+						errs.increment("no UriBasedLocation");
+					}
+					else {
+						var uriContentType=URILoc.attr("contentType");
+						if (uriContentType) {
+							if (!validDASHcontentType(uriContentType.value())) {
+								errs.push("@contentType=\""+uriContentType.value()+"\" in service \""+thisServiceId+"\" is not valid");
+								errs.increment("no @contentType for DASH");
+							}
+						}
+						else {
+							errs.push("@contentType not specified for URI in service \""+thisServiceId+"\".");
+							errs.increment("no @contentType");
+						}
+					}
+				}
+
+				var DVBTtargetCountry = ServiceInstance.get(SCHEMA_PREFIX+":DVBTDeliveryParameters/"+SCHEMA_PREFIX+":TargetCountry", SL_SCHEMA);
+				if (DVBTtargetCountry) {
+					if (!isISO3166code(DVBTtargetCountry.text())) {
+						errs.push("invalid country code ("+DVBTtargetCountry.text()+") for DVB-T parameters in service \""+thisServiceId+"\"");
+						errs.increment("invalid country code");    
+					}
+				}
+
+				var DVBCtargetCountry = ServiceInstance.get(SCHEMA_PREFIX+":DVBCDeliveryParameters/"+SCHEMA_PREFIX+":TargetCountry", SL_SCHEMA);
+				if (DVBCtargetCountry) {
+					if (!isISO3166code(DVBCtargetCountry.text())) {
+						errs.push("invalid country code ("+DVBCtargetCountry.text()+") for DVB-C parameters in service \""+thisServiceId+"\"");
+						errs.increment("invalid country code");    
+					}
+				}
+
+				si++;  // next <ServiceInstance>
+			}
+
+			//check <Service><TargetRegion>
+			var tr=1, TargetRegion;
+			while (TargetRegion=service.get(SCHEMA_PREFIX+":TargetRegion["+tr+"]", SL_SCHEMA)) {
+				if (!isIn(knownRegionIDs,TargetRegion.text())) {
+					errs.push("service \""+thisServiceId+"\" has an invalid <TargetRegion>"+TargetRegion.text());
+					errs.increment("target region");
+				}
+				tr++;
+			}
+
+			// Check that the @xml:lang values for each <ServiceName> element are unique and only one element does not have any language specified
+			checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, "ServiceName", "service=\""+thisServiceId+"\"", service, errs);
+
+			// Check that the @xml:lang values for each <ProviderName> element are unique and only one element does not have any language specified
+			checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, "ProviderName", "service=\""+thisServiceId+"\"", service, errs);
+
+			//check <Service><RelatedMaterial>
+			var rm=1, RelatedMaterial;
+			while (RelatedMaterial=service.get(SCHEMA_PREFIX+":RelatedMaterial["+rm+"]", SL_SCHEMA)) {
+				validateRelatedMaterial(RelatedMaterial,errs,"service \""+thisServiceId+"\"", SERVICE_RM, SCHEMA_PREFIX, SCHEMA_NAMESPACE, SL_SCHEMA);
+				rm++;
+			}
+
+			//check <Service><ServiceGenre>
+			var ServiceGenre=service.get(SCHEMA_PREFIX+":ServiceGenre", SL_SCHEMA);
+			if (ServiceGenre) {
+				if (!isIn(allowedGenres,ServiceGenre.text())) {
+					errs.push("service \""+thisServiceId+"\" has an invalid <ServiceGenre>"+ServiceGenre.text());
+					errs.increment("invalid ServiceGenre");
+				}
+			}
+
+			//check <Service><ServiceType>                    
+			var ServiceType=service.get(SCHEMA_PREFIX+":ServiceType", SL_SCHEMA);
+			if (ServiceType) {
+				if (!isIn(allowedServiceTypes,ServiceType.attr("href").value())) {
+					errs.push("service \""+thisServiceId+"\" has an invalid <ServiceType>"+ServiceType.attr("href").value());
+					errs.increment("invalid ServiceType");
+				}
+			}
+
+			// check <Service><RecordingInfo>
+			var RecordingInfo=service.get(SCHEMA_PREFIX+":RecordingInfo", SL_SCHEMA);
+			if (RecordingInfo) {
+				if (!isIn(RecordingInfoCSvalules,RecordingInfo.attr("href").value())) {
+					errs.push("invalid <RecordingInfo> value \""+RecordingInfo.attr("href").value()+"\"for service "+thisServiceId);
+					errs.increment("invalid RecordingInfo");
+				}
+			}
+
+			// check <Service><ContentGuideSource>
+			var sCG=service.get(SCHEMA_PREFIX+":ContentGuideSource", SL_SCHEMA);
+			if (sCG) {
+				var rm=1, CGrm;
+				while (CGrm=sCG.get(SCHEMA_PREFIX+":RelatedMaterial["+rm+"]", SL_SCHEMA)) {
+					validateRelatedMaterial(CGrm,errs,"<ContentGuideSource> in service "+thisServiceId, CONTENT_GUIDE_RM, SCHEMA_PREFIX, SCHEMA_NAMESPACE, SL_SCHEMA);
+					rm++;
+				}
+			}
+
+			//check <Service><ContentGuideSourceRef>
+			var sCGref=service.get(SCHEMA_PREFIX+":ContentGuideSourceRef", SL_SCHEMA);
+			if (sCGref) {
+				if (!isIn(ContentGuideSourceIDs,sCGref.text())) {
+					errs.push("content guide reference \""+sCGref.text()+"\" for service \""+thisServiceId+"\" not specified");
+					errs.increment("unspecified content guide source");
+				}
+			}
+
+			// this should not happen if the XML document has passed schema validation
+			if (sCG && sCGref) {
+				errs.push("only <ContentGuideSource> or <CountentGuideSourceRef> to be specifed for a service \""+thisServiceId+"\"");
+				errs.increment("source and ref");
+			}
+			
+			// <Service><ContentguideServiceRef> checked below
+			
+			s++;  // next <Service>
+		}        
+
+		// check <Service><ContentGuideServiceRef>
+		// issues a warning if this is not a reference to another service or is a reference to self
+		s=1;
+		while (service=SL.get("//"+SCHEMA_PREFIX+":Service["+s+"]", SL_SCHEMA)) {
+			var CGSR=service.get(SCHEMA_PREFIX+":ContentGuideServiceRef", SL_SCHEMA);
+			if (CGSR) {
+				var uniqueID=service.get(SCHEMA_PREFIX+":UniqueIdentifier", SL_SCHEMA);
+				if (uniqueID && !isIn(knownServices,CGSR.text())) {
+					errs.pushW("<ContentGuideServiceRef> \""+CGSR.text()+"\" in service \""+uniqueID.text()+"\"- does not refer to another service");
+					errs.incrementW("invalid <ContentGuideServiceRef>");
+				}
+				if (uniqueID && (CGSR.text() == uniqueID.text())) {
+					errs.pushW("<ContentGuideServiceRef> is self");
+					errs.incrementW("self <ContentGuideServiceRef>");
+				}
+			}
+			s++;
+		}
+
+		// check <ServiceList><LCNTableList>
+		var LCNtableList=SL.get("//"+SCHEMA_PREFIX+":LCNTableList", SL_SCHEMA);
+		if (LCNtableList) {
+			var l=1, LCNTable;
+			while (LCNTable=LCNtableList.get(SCHEMA_PREFIX+":LCNTable["+l+"]", SL_SCHEMA)) {
+				// checks on TargetRegion(s) for this LCNTable
+				var tr=1, TargetRegion, lastTargetRegion="";
+				while (TargetRegion=LCNTable.get(SCHEMA_PREFIX+":TargetRegion["+tr+"]", SL_SCHEMA)) {
+					if (!isIn(knownRegionIDs, TargetRegion.text())) {
+						errs.push("<TargetRegion> "+TargetRegion.text()+" in LCNTable is not defined");
+						errs.increment("undefined region");
+					}
+					lastTargetRegion=TargetRegion.text();
+					tr++;
+				}
+				
+				var LCNNumbers=[],e=1,LCN;
+				while (LCN=LCNTable.get(SCHEMA_PREFIX+":LCN["+e+"]", SL_SCHEMA)) {
+					if (LCN.attr("channelNumber")) {
+						var chanNum=LCN.attr("channelNumber").value();
+						if (isIn(LCNNumbers,chanNum)) {
+							errs.push("duplicated channel number "+chanNum+" for <TargetRegion>"+lastTargetRegion);
+							errs.increment("duplicate channel number");
+						} 
+						else LCNNumbers.push(chanNum);
+					}
+
+					if (LCN.attr("serviceRef")) {
+						var servRef=LCN.attr("serviceRef").value();
+						if (!isIn(knownServices,servRef)) {
+							errs.push("LCN reference to unknown service "+servRef);
+							errs.increment("LCN unknown services");
+						}
+					}
+					e++;
+				}
+				l++;
+			}
+		}
+	}	
+}
+
+
+/**
  * Process the service list specificed for errors and display them
  *
  * @param {Object} req The request from Express
@@ -980,7 +1465,7 @@ function processQuery(req,res) {
         res.status(400);
     }
     else {
-        var SL=null, SLxml=null;
+        var SLxml=null;
         var errs=new ErrorList();
         try {
             SLxml = syncRequest("GET", req.query.SLurl);
@@ -988,483 +1473,9 @@ function processQuery(req,res) {
         catch (err) {
             errs.push("retrieval of URL ("+req.query.SLurl+") failed");
         }
-        if (SLxml) try {
-            SL = libxml.parseXmlString(SLxml.getBody().toString().replace(/(\r\n|\n|\r|\t)/gm,""));
-        } catch (err) {
-            errs.push("XML parsing failed: "+err.message);
-            errs.increment("malformed XML");
-        }
-        if (SL) {
-            // check the retrieved service list against the schema
-            // https://syssgx.github.io/xml.js/
-
-//TODO: look into why both of these validation approaches are failing
-/*
-            console.log(xmllint.validateXML({
-                xml: SL.toString(),
-                schema: [SLschema.toString(), 
-                         TVAschema.toString(), 
-                         MPEG7schema.toString(),
-                         XMLschema.toString()]
-            }));
-*/
-/*
-            if (!SL.validate(SLschema)){
-                SL.validationErrors.forEach(err => console.log("validation error:", err));
-            };
-*/
-            if (SL.root().name() !== "ServiceList") {
-                errs.push("Root element is not <ServiceList>.");
-            }
-            else {
-                var SL_SCHEMA = {}, 
-					SCHEMA_PREFIX=SL.root().namespace().prefix(), 
-					SCHEMA_NAMESPACE=SL.root().namespace().href();
-                SL_SCHEMA[SCHEMA_PREFIX]=SCHEMA_NAMESPACE;
-
-                // Check that the @xml:lang values for each <Name> element are unique and only one element does not have any language specified
-                checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, "Name", "ServiceList", SL, errs);
-
-                // Check that the @xml:lang values for each <ProviderName> element are unique and only one elementdoes not have any language specified
-                checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, "ProviderName", "ServiceList", SL, errs);
-
-                //check <ServiceList><RelatedMaterial>
-                var rm=1, RelatedMaterial;
-                while (RelatedMaterial=SL.get(SCHEMA_PREFIX+":RelatedMaterial["+rm+"]", SL_SCHEMA)) {
-                    validateRelatedMaterial(RelatedMaterial,errs,"service list", SERVICE_LIST_RM, SCHEMA_PREFIX, SCHEMA_NAMESPACE, SL_SCHEMA);
-                    rm++;
-                }
-
-                // check <ServiceList><RegionList> and remember regionID values
-                var knownRegionIDs=[], RegionList=SL.get(SCHEMA_PREFIX+":RegionList", SL_SCHEMA);
-                if (RegionList) {
-                    // recurse the regionlist - Regions can be nested in Regions
-                    var r=1, Region;
-                    while (Region=SL.get("//"+SCHEMA_PREFIX+":RegionList/"+SCHEMA_PREFIX+":Region["+r+"]", SL_SCHEMA)) {
-                        addRegion(Region, 0, knownRegionIDs, errs);
-                        r++;
-                    }
-                }
-
-                //check <ServiceList><TargetRegion>
-                var tr=1, TargetRegion;
-                while (TargetRegion=SL.get(SCHEMA_PREFIX+":TargetRegion["+tr+"]", SL_SCHEMA)) {
-                    if (!isIn(knownRegionIDs,TargetRegion.text())) {
-                        errs.push("service list has an unspecified <TargetRegion>"+TargetRegion.text());
-                        errs.increment("target region");
-                    }
-                    tr++;
-                }
-
-                // <ServiceList><LCNTableList> is checked below, after the services are enumerated
-
-                // check mpeg7:TextualType elements in <ServiceList><ContentGuideSourceList>
-                var cgs=1, CGsource;
-                while (CGsource=SL.get(SCHEMA_PREFIX+":ContentGuideSourceList/"+SCHEMA_PREFIX+":ContentGuideSource["+cgs+"]", SL_SCHEMA)) {
-                    // Check that the @xml:lang values for each <ContentGuideSourceList><ContentGuideSource>[cgs]<Name> element are unique and only one element 
-                    // does not have any language specified
-                    checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, "Name", "ServiceList.ContentGuideSourceList.ContentGuideSource["+cgs+"]", CGsource, errs);
-
-                    // Check that the @xml:lang values for each <ContentGuideSourceList><ContentGuideSource>[cgs] element are unique and only one element 
-                    // does not have any language specified
-                    checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, "ProviderName", "ServiceList.ContentGuideSourceList.ContentGuideSource["+cgs+"]", CGsource, errs);
-
-                    cgs++;
-                }
-
-                //check service list <ContentGuideSourceList>
-                var ContentGuideSourceIDs=[], CGSourceList=SL.get("//"+SCHEMA_PREFIX+":ContentGuideSourceList", SL_SCHEMA);
-                if (CGSourceList) {
-                    var i=1, CGSource;
-                    while (CGSource=SL.get("//"+SCHEMA_PREFIX+":ContentGuideSourceList/"+SCHEMA_PREFIX+":ContentGuideSource["+i+"]", SL_SCHEMA)) {
-
-                        if (isIn(ContentGuideSourceIDs,CGSource.attr("CGSID").value())) {
-                            errs.push("duplicate @CGSID in service list");
-                            errs.increment("duplicate CGSID");
-                        }
-                        else ContentGuideSourceIDs.push(CGSource.attr("CGSID").value());
-
-                        var rm=1, CGrm;
-                        while (CGrm=SL.get("//"+SCHEMA_PREFIX+":ContentGuideSourceList/"+SCHEMA_PREFIX+":ContentGuideSource["+i+"]/"+SCHEMA_PREFIX+":RelatedMaterial["+rm+"]", SL_SCHEMA)) {
-                            validateRelatedMaterial(CGrm,errs,"<ServiceList><ContentGuideSourceList>", CONTENT_GUIDE_RM, SCHEMA_PREFIX, SCHEMA_NAMESPACE, SL_SCHEMA);
-                            rm++;
-                        }
-                        i++;
-                    }
-                }
-
-                // check mpeg7:TextualType elements in <ServiceList><ContentGuideSource>
-                var slGCS=SL.get(SCHEMA_PREFIX+":ContentGuideSource", SL_SCHEMA);
-                if (slGCS) {
-                    // Check that the @xml:lang values for each <ContentGuideSource><Name> element are unique and only one element does not have any language specified
-                    checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, "Name", "ServiceList.ContentGuideSource", slGCS, errs);
-
-                    // Check that the @xml:lang values for each <ContentGuideSource><ProviderName> element are unique and only one element does not have any language specified
-                    checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, "ProviderName", "ServiceList.ContentGuideSource", slGCS, errs);
-                }
-
-                // check <ServiceList><ContentGuideSource>
-                var CGSource=SL.get("//"+SCHEMA_PREFIX+":ContentGuideSource", SL_SCHEMA);
-                if (CGSource) {
-                    var rm=1, CGrm;
-                    while (CGrm=SL.get("//"+SCHEMA_PREFIX+":ContentGuideSource/"+SCHEMA_PREFIX+":RelatedMaterial["+rm+"]", SL_SCHEMA)) {
-                        validateRelatedMaterial(CGrm,errs,"<ServiceList><ContentGuideSource>", CONTENT_GUIDE_RM, SCHEMA_PREFIX, SCHEMA_NAMESPACE, SL_SCHEMA);
-                        rm++;
-                    }
-                }
-
-                errs.set("num services",0);
-
-                // check <Service>
-                var s=1, service, knownServices=[], thisServiceId;
-                while (service=SL.get("//"+SCHEMA_PREFIX+":Service["+s+"]", SL_SCHEMA)) {
-                    // for each service
-                    errs.set("num services",s);
-                    thisServiceId="service-"+s;  // use a default value in case <UniqueIdentifier> is not specified
-
-                    // check <Service><UniqueIdentifier>
-                    var uID=service.get(SCHEMA_PREFIX+":UniqueIdentifier", SL_SCHEMA);
-                    if (!uID) {
-                        // this should not happen as UniqueIdentifier is a mandatory element within Service
-                        errs.push("<UniqueIdentifier> not present for service "+s);
-                        errs.increment("no <UniqueIdentifier>");
-                    } else {
-                        thisServiceId=uID.text();
-                        if (!validServiceIdentifier(thisServiceId)) {
-                            errs.push("\""+thisServiceId+"\" is not a valid identifier");
-                            errs.increment("invalid tag");
-                        }
-                        if (!uniqueServiceIdentifier(thisServiceId,knownServices)) {
-                            errs.push("\""+thisServiceId+"\" is not unique");
-                            errs.increment("non unique id");
-                        }
-                        knownServices.push(thisServiceId);
-                    }
-
-                    //check <Service><ServiceInstance>
-                    var si=1, ServiceInstance;
-                    while (ServiceInstance=service.get(SCHEMA_PREFIX+":ServiceInstance["+si+"]", SL_SCHEMA)) {
-                        //for each service instance
-
-                        // Check that the @xml:lang values for each <DisplayName> element are unique and only one element does not have any language specified
-                        checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, "DisplayName", "service instance in service=\""+thisServiceId+"\"", ServiceInstance, errs);
-
-                        // check @href of <ServiceInstance><RelatedMaterial>
-                        var rm=1, RelatedMaterial;
-                        while (RelatedMaterial=ServiceInstance.get(SCHEMA_PREFIX+":RelatedMaterial["+rm+"]", SL_SCHEMA)) {
-                            validateRelatedMaterial(RelatedMaterial,errs,"service instance of \""+thisServiceId+"\"", SERVICE_RM, SCHEMA_PREFIX, SCHEMA_NAMESPACE, SL_SCHEMA);
-                            rm++;
-                        }
-
-                        // Check @href of ContentAttributes/AudioConformancePoints
-                        var cp=1, conf;
-                        while (conf=ServiceInstance.get(SCHEMA_PREFIX+":ContentAttributes/"+SCHEMA_PREFIX+":AudioConformancePoint["+cp+"]", SL_SCHEMA)) {
-                            if (conf.attr("href") && !isIn(allowedAudioConformancePoints,conf.attr("href").value())) {
-                                errs.push("invalid value for <AudioConformancePoint> ("+conf.attr("href").value()+")");
-                                errs.increment("audio conf point");
-                            }
-                            cp++;
-                        }
-
-                        // Check @href of ContentAttributes/AudioAttributes/tva:coding
-                        cp=1;
-                        while (conf=ServiceInstance.get(SCHEMA_PREFIX+":ContentAttributes/"+SCHEMA_PREFIX+":AudioAttributes["+cp+"]/*", SL_SCHEMA)) {
-                            if (conf.name()==="Coding" && conf.attr("href") && !isIn(allowedAudioSchemes,conf.attr("href").value())) {
-                                errs.push("invalid @href value for <AudioAttributes> ("+conf.attr("href").value()+")");
-                                errs.increment("audio codec");
-                            }
-                            cp++;
-                        }
-
-                        // Check @href of ContentAttributes/VideoConformancePoints
-                        cp=1;
-                        while (conf=ServiceInstance.get(SCHEMA_PREFIX+":ContentAttributes/"+SCHEMA_PREFIX+":VideoConformancePoint["+cp+"]", SL_SCHEMA)) {
-                            if (conf.attr("href") && !isIn(allowedVideoConformancePoints,conf.attr("href").value())) {
-                                errs.push("invalid @href value for <VideoConformancePoint> ("+conf.attr("href").value()+")");
-                                errs.increment("video conf point");
-                            }
-                            cp++;
-                        }
-
-                        // Check @href of ContentAttributes/VideoAttributes/tva:coding
-                        cp=1;
-                        while (conf=ServiceInstance.get(SCHEMA_PREFIX+":ContentAttributes/"+SCHEMA_PREFIX+":VideoAttributes["+cp+"]/*", SL_SCHEMA)) {
-                            if (conf.name()==="Coding" && conf.attr("href") && !isIn(allowedVideoSchemes,conf.attr("href").value())) {
-                                errs.push("invalid @href value for <VideoAttributes> ("+conf.attr("href").value()+")");
-                                errs.increment("video codec");
-                            }
-                            cp++;
-                        }
-
-                        var Availability=ServiceInstance.get(SCHEMA_PREFIX+":Availability", SL_SCHEMA);
-                        if (Availability) {
-                            var Period, p=1;
-                            while (Period=Availability.get(SCHEMA_PREFIX+":Period["+p+"]", SL_SCHEMA)) {
-                                if (Period.attr("validFrom") && Period.attr("validTo")) {
-                                    // validTo should be >= validFrom
-                                    var fr=new Date(Period.attr("validFrom").value()), 
-                                        to=new Date(Period.attr("validTo").value());
-                                
-                                    if (to.getTime() < fr.getTime()) {
-                                        errs.push("invalid availability period for service \""+thisServiceId+"\". "+fr+">"+to);
-                                        errs.increment("period start>end");
-                                    }
-                                }
-                                p++;
-                            }
-                        }
-
-						// note that the <SourceType> element becomes optional in A177v2, but if specified then the relevant
-                        // delivery parameters also need to be specified
-                        var SourceType = ServiceInstance.get(SCHEMA_PREFIX+":SourceType", SL_SCHEMA);
-                        if (SourceType) {
-                            switch (SourceType.text()) {
-                                case DVBT_SOURCE_TYPE:
-                                    if (!ServiceInstance.get(SCHEMA_PREFIX+":DVBTDeliveryParameters", SL_SCHEMA) ) {
-										NoDeliveryParams(errs, "DVB-T", thisServiceId);
-                                    }
-                                    break;
-                                case DVBS_SOURCE_TYPE:
-                                    if (!ServiceInstance.get(SCHEMA_PREFIX+":DVBSDeliveryParameters", SL_SCHEMA) ) {
- 										NoDeliveryParams(errs, "DVB-S", thisServiceId);
-                                    }
-                                    break;
-                                case DVBC_SOURCE_TYPE:
-                                    if (!ServiceInstance.get(SCHEMA_PREFIX+":DVBCDeliveryParameters", SL_SCHEMA) ) {
-										NoDeliveryParams(errs, "DVB-C", thisServiceId);
-                                    }
-                                    break;
-                                case DVBDASH_SOURCE_TYPE:
-                                    if (!ServiceInstance.get(SCHEMA_PREFIX+":DASHDeliveryParameters", SL_SCHEMA) ) {
-										NoDeliveryParams(errs, "DVB-DASH", thisServiceId);
-                                    }
-                                    break;
-                                case DVBIPTV_SOURCE_TYPE:
-                                    if (!ServiceInstance.get(SCHEMA_PREFIX+":MulticastTSDeliveryParameters", SL_SCHEMA) && !ServiceInstance.get(SCHEMA_PREFIX+":RTSPDeliveryParameters", SL_SCHEMA) ) {
-										NoDeliveryParams(errs, "Multicast or RTSP", thisServiceId);
-                                    }
-                                    break;
-                                case DVBAPPLICATION_SOURCE_TYPE:
-                                    // there should not be any <xxxxDeliveryParameters> elements and there should be either a Service.RelatedMaterial or Service.ServiceInstance.RelatedMaterial signalling a service related application
-									if (ServiceInstance.get(SCHEMA_PREFIX+":DVBTDeliveryParameters", SL_SCHEMA)
-										|| ServiceInstance.get(SCHEMA_PREFIX+":DVBSDeliveryParameters", SL_SCHEMA)
-										|| ServiceInstance.get(SCHEMA_PREFIX+":DVBCDeliveryParameters", SL_SCHEMA)
-										|| ServiceInstance.get(SCHEMA_PREFIX+":DASHDeliveryParameters", SL_SCHEMA)
-										|| ServiceInstance.get(SCHEMA_PREFIX+":MulticastTSDeliveryParameters", SL_SCHEMA)
-										|| ServiceInstance.get(SCHEMA_PREFIX+":RTSPDeliveryParameters", SL_SCHEMA) ) {
-											errs.push("Delivery parameters are not permitted for Application service instance in Service \""+thisServiceId+"\".");
-											errs.increment("invalid application");
-										}
-										else {
-											// no xxxxDeliveryParameters is signalled
-											// check for appropriate Service.RelatedMaterial or Service.ServiceInstance.RelatedMaterial
-											if (!hasSignalledApplication(service, SCHEMA_PREFIX, SL_SCHEMA) 
-												&& !hasSignalledApplication(ServiceInstance, SCHEMA_PREFIX, SL_SCHEMA)) {
-												errs.push("No Application is signalled for SourceType=\""+DVBAPPLICATION_SOURCE_TYPE+"\" in Service \""+thisServiceId+"\".");
-												errs.increment("no application");
-											}
-										}
-                                    break;
-                                default:
-									if (SchemaVersion(SCHEMA_NAMESPACE)==SCHEMA_v1) {
-										errs.push("SourceType \""+SourceType.text()+"\" is not valid in Service \""+thisServiceId+"\".");
-										errs.increment("invalid SourceType");
-									}
-									else {
-										errs.pushW("Service \""+thisServiceId+"\" has a user defined SourceType \""+SourceType.text()+"\"");
-										errs.incrementW("user SourceType");
-									}
-                            }
-                        }
-                        else {
-                            // this should not happen as SourceType is a mandatory element within ServiceInstance
-							if (SchemaVersion(SCHEMA_NAMESPACE)==SCHEMA_v1) {
-								errs.push("SourceType not specifcied in ServiceInstance of service \""+thisServiceId+"\".");
-								errs.increment("no SourceType");
-							}
-                        }
-
-                        var DASHDeliveryParameters = ServiceInstance.get(SCHEMA_PREFIX+":DASHDeliveryParameters", SL_SCHEMA);
-                        if (DASHDeliveryParameters) {
-                            var URILoc = DASHDeliveryParameters.get(SCHEMA_PREFIX+":UriBasedLocation", SL_SCHEMA);
-                            if (!URILoc) {
-                                errs.push("UriBasedLocation not specified for DASHDeliveryParameters in service \""+thisServiceId+"\".");
-                                errs.increment("no UriBasedLocation");
-                            }
-                            else {
-								var uriContentType=URILoc.attr("contentType");
-                                if (uriContentType) {
-                                    if (!validDASHcontentType(uriContentType.value())) {
-                                        errs.push("@contentType=\""+uriContentType.value()+"\" in service \""+thisServiceId+"\" is not valid");
-                                        errs.increment("no @contentType for DASH");
-                                    }
-                                }
-                                else {
-                                    errs.push("@contentType not specified for URI in service \""+thisServiceId+"\".");
-                                    errs.increment("no @contentType");
-                                }
-                            }
-                        }
-
-                        var DVBTtargetCountry = ServiceInstance.get(SCHEMA_PREFIX+":DVBTDeliveryParameters/"+SCHEMA_PREFIX+":TargetCountry", SL_SCHEMA);
-                        if (DVBTtargetCountry) {
-                            if (!isISO3166code(DVBTtargetCountry.text())) {
-                                errs.push("invalid country code ("+DVBTtargetCountry.text()+") for DVB-T parameters in service \""+thisServiceId+"\"");
-                                errs.increment("invalid country code");    
-                            }
-                        }
-
-                        var DVBCtargetCountry = ServiceInstance.get(SCHEMA_PREFIX+":DVBCDeliveryParameters/"+SCHEMA_PREFIX+":TargetCountry", SL_SCHEMA);
-                        if (DVBCtargetCountry) {
-                            if (!isISO3166code(DVBCtargetCountry.text())) {
-                                errs.push("invalid country code ("+DVBCtargetCountry.text()+") for DVB-C parameters in service \""+thisServiceId+"\"");
-                                errs.increment("invalid country code");    
-                            }
-                        }
-
-                        si++;  // next <ServiceInstance>
-                    }
-
-                    //check <Service><TargetRegion>
-                    var tr=1, TargetRegion;
-                    while (TargetRegion=service.get(SCHEMA_PREFIX+":TargetRegion["+tr+"]", SL_SCHEMA)) {
-                        if (!isIn(knownRegionIDs,TargetRegion.text())) {
-                            errs.push("service \""+thisServiceId+"\" has an invalid <TargetRegion>"+TargetRegion.text());
-                            errs.increment("target region");
-                        }
-                        tr++;
-                    }
-
-                    // Check that the @xml:lang values for each <ServiceName> element are unique and only one element does not have any language specified
-                    checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, "ServiceName", "service=\""+thisServiceId+"\"", service, errs);
-
-                    // Check that the @xml:lang values for each <ProviderName> element are unique and only one element does not have any language specified
-                    checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, "ProviderName", "service=\""+thisServiceId+"\"", service, errs);
-
-                    //check <Service><RelatedMaterial>
-                    var rm=1, RelatedMaterial;
-                    while (RelatedMaterial=service.get(SCHEMA_PREFIX+":RelatedMaterial["+rm+"]", SL_SCHEMA)) {
-                        validateRelatedMaterial(RelatedMaterial,errs,"service \""+thisServiceId+"\"", SERVICE_RM, SCHEMA_PREFIX, SCHEMA_NAMESPACE, SL_SCHEMA);
-                        rm++;
-                    }
-
-                    //check <Service><ServiceGenre>
-                    var ServiceGenre=service.get(SCHEMA_PREFIX+":ServiceGenre", SL_SCHEMA);
-                    if (ServiceGenre) {
-                        if (!isIn(allowedGenres,ServiceGenre.text())) {
-                            errs.push("service \""+thisServiceId+"\" has an invalid <ServiceGenre>"+ServiceGenre.text());
-                            errs.increment("invalid ServiceGenre");
-                        }
-                    }
-
-                    //check <Service><ServiceType>                    
-                    var ServiceType=service.get(SCHEMA_PREFIX+":ServiceType", SL_SCHEMA);
-                    if (ServiceType) {
-                        if (!isIn(allowedServiceTypes,ServiceType.attr("href").value())) {
-                            errs.push("service \""+thisServiceId+"\" has an invalid <ServiceType>"+ServiceType.attr("href").value());
-                            errs.increment("invalid ServiceType");
-                        }
-                    }
-
-                    // check <Service><RecordingInfo>
-                    var RecordingInfo=service.get(SCHEMA_PREFIX+":RecordingInfo", SL_SCHEMA);
-                    if (RecordingInfo) {
-                        if (!isIn(RecordingInfoCSvalules,RecordingInfo.attr("href").value())) {
-                            errs.push("invalid <RecordingInfo> value \""+RecordingInfo.attr("href").value()+"\"for service "+thisServiceId);
-                            errs.increment("invalid RecordingInfo");
-                        }
-                    }
-
-                    // check <Service><ContentGuideSource>
-                    var sCG=service.get(SCHEMA_PREFIX+":ContentGuideSource", SL_SCHEMA);
-                    if (sCG) {
-                        var rm=1, CGrm;
-                        while (CGrm=sCG.get(SCHEMA_PREFIX+":RelatedMaterial["+rm+"]", SL_SCHEMA)) {
-                            validateRelatedMaterial(CGrm,errs,"<ContentGuideSource> in service "+thisServiceId, CONTENT_GUIDE_RM, SCHEMA_PREFIX, SCHEMA_NAMESPACE, SL_SCHEMA);
-                            rm++;
-                        }
-                    }
-
-                    //check <Service><ContentGuideSourceRef>
-                    var sCGref=service.get(SCHEMA_PREFIX+":ContentGuideSourceRef", SL_SCHEMA);
-                    if (sCGref) {
-                        if (!isIn(ContentGuideSourceIDs,sCGref.text())) {
-                            errs.push("content guide reference \""+sCGref.text()+"\" for service \""+thisServiceId+"\" not specified");
-                            errs.increment("unspecified content guide source");
-                        }
-                    }
-
-                    // this should not happen if the XML document has passed schema validation
-                    if (sCG && sCGref) {
-                        errs.push("only <ContentGuideSource> or <CountentGuideSourceRef> to be specifed for a service \""+thisServiceId+"\"");
-                        errs.increment("source and ref");
-                    }
-                    
-                    // <Service><ContentguideServiceRef> checked below
-                    
-                    s++;  // next <Service>
-                }        
-
-                // check <Service><ContentGuideServiceRef>
-                // issues a warning if this is not a reference to another service or is a reference to self
-                s=1;
-                while (service=SL.get("//"+SCHEMA_PREFIX+":Service["+s+"]", SL_SCHEMA)) {
-                    var CGSR=service.get(SCHEMA_PREFIX+":ContentGuideServiceRef", SL_SCHEMA);
-                    if (CGSR) {
-                        var uniqueID=service.get(SCHEMA_PREFIX+":UniqueIdentifier", SL_SCHEMA);
-                        if (uniqueID && !isIn(knownServices,CGSR.text())) {
-                            errs.pushW("<ContentGuideServiceRef> \""+CGSR.text()+"\" in service \""+uniqueID.text()+"\"- does not refer to another service");
-                            errs.incrementW("invalid <ContentGuideServiceRef>");
-                        }
-                        if (uniqueID && (CGSR.text() == uniqueID.text())) {
-                            errs.pushW("<ContentGuideServiceRef> is self");
-                            errs.incrementW("self <ContentGuideServiceRef>");
-                        }
-                    }
-                    s++;
-                }
-
-                // check <ServiceList><LCNTableList>
-                var LCNtableList=SL.get("//"+SCHEMA_PREFIX+":LCNTableList", SL_SCHEMA);
-                if (LCNtableList) {
-                    var l=1, LCNTable;
-                    while (LCNTable=LCNtableList.get(SCHEMA_PREFIX+":LCNTable["+l+"]", SL_SCHEMA)) {
-                        // checks on TargetRegion(s) for this LCNTable
-                        var tr=1, TargetRegion, lastTargetRegion="";
-                        while (TargetRegion=LCNTable.get(SCHEMA_PREFIX+":TargetRegion["+tr+"]", SL_SCHEMA)) {
-                            if (!isIn(knownRegionIDs, TargetRegion.text())) {
-                                errs.push("<TargetRegion> "+TargetRegion.text()+" in LCNTable is not defined");
-                                errs.increment("undefined region");
-                            }
-                            lastTargetRegion=TargetRegion.text();
-                            tr++;
-                        }
-                        
-                        var LCNNumbers=[],e=1,LCN;
-                        while (LCN=LCNTable.get(SCHEMA_PREFIX+":LCN["+e+"]", SL_SCHEMA)) {
-                            if (LCN.attr("channelNumber")) {
-                                var chanNum=LCN.attr("channelNumber").value();
-                                if (isIn(LCNNumbers,chanNum)) {
-                                    errs.push("duplicated channel number "+chanNum+" for <TargetRegion>"+lastTargetRegion);
-                                    errs.increment("duplicate channel number");
-                                } 
-                                else LCNNumbers.push(chanNum);
-                            }
-
-                            if (LCN.attr("serviceRef")) {
-                                var servRef=LCN.attr("serviceRef").value();
-                                if (!isIn(knownServices,servRef)) {
-                                    errs.push("LCN reference to unknown service "+servRef);
-                                    errs.increment("LCN unknown services");
-                                }
-                            }
-                            e++;
-                        }
-                        l++;
-                    }
-                }
-            }
-        }
+		if (SLxml) {
+			validateServiceList(SLxml.getBody().toString().replace(/(\r\n|\n|\r|\t)/gm,""), errs);
+		}
 
         drawForm(res, req.query.SLurl, {errors:errs});
     }
