@@ -125,12 +125,19 @@ var allowedGenres=[], allowedServiceTypes=[], allowedAudioSchemes=[], allowedVid
     allowedCountries=[], knownLanguages=[],
 	allowedAudioConformancePoints=[], allowedVideoConformancePoints=[], RecordingInfoCSvalules=[];
 
+
+/*
 //TODO: validation against schema
-//const DVBI_ServiceListSchemaFilename=path.join("schema","dvbi_v1.0.xsd");
+const DVBI_ServiceListSchemaFilename_v1=path.join("schema","dvbi_v1.0.xsd");
+var SLschema_v1;
+const DVBI_ServiceListSchemaFilename_v2=path.join("schema","dvbi_v2.0.xsd");
+var SLschema_v2;
+
 //const TVA_SchemaFilename=path.join("schema","tva_metadata_3-1.xsd");
 //const MPEG7_SchemaFilename=path.join("schema","tva_mpeg7.xsd");
 //const XML_SchemaFilename=path.join("schema","xml.xsd");
-//var SLschema, TVAschema, MPEG7schema, XMLschema;
+//var TVAschema, MPEG7schema, XMLschema;
+*/
 
 //const allowed_arguments = ["serviceList", ];
 
@@ -335,6 +342,16 @@ function loadLanguages(languagesFile) {
 	});
 }
 
+
+function loadSchema(into, schemafilename) {
+	fs.readFile(schemafilename, {encoding: "utf-8"}, function(err,data){
+        if (!err) {
+			into = libxml.parseXmlString(data.replace(/(\r\n|\n|\r|\t)/gm,""));
+		}
+	});
+}
+
+
 function loadDataFiles() {
 	console.log("loading classification schemes...");
     allowedGenres=[];
@@ -365,7 +382,11 @@ function loadDataFiles() {
 	console.log("loading languages...");
 	knownLanguages=[];
 	loadLanguages(IANA_Subtag_Registry_Filename);
-
+/*	
+	console.log("loading schemas...");
+	loadSchema(SLschema_v1, DVBI_ServiceListSchemaFilename_v1);
+	loadSchema(SLschema_v2, DVBI_ServiceListSchemaFilename_v2);
+*/
 //TODO: validation against schema
 //    SLschema=fs.readFileSync(DVBI_ServiceListSchemaFilename);
 //    TVAschema=fs.readFileSync(TVA_SchemaFilename);
@@ -1068,11 +1089,15 @@ function validateServiceList(SLtext, errs) {
 				 XMLschema.toString()]
 	}));
 */
+
 /*
-	if (!SL.validate(SLschema)){
-		SL.validationErrors.forEach(err => console.log("validation error:", err));
+	if (!SL.validate(SLschema_v1)){
+		SL.validationErrors.forEach(err => console.log("validation error(1):", err));
 	};
-*/
+	if (!SL.validate(SLschema_v2)){
+		SL.validationErrors.forEach(err => console.log("validation error(2):", err));
+	};
+*/	
 	if (SL.root().name() !== "ServiceList") {
 		errs.push("Root element is not <ServiceList>.");
 	}
