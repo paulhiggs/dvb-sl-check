@@ -13,7 +13,7 @@ var app = express();
 // libxmljs - https://github.com/libxmljs/libxmljs
 const libxml = require("libxmljs");
 
-//TODO: validation against schema
+//TODO: validation against schema; package.json: 		"xmllint": "0.1.1",
 //const xmllint = require("xmllint");
 
 // morgan - https://github.com/expressjs/morgan
@@ -132,11 +132,10 @@ const DVBI_ServiceListSchemaFilename_v1=path.join("schema","dvbi_v1.0.xsd");
 var SLschema_v1;
 const DVBI_ServiceListSchemaFilename_v2=path.join("schema","dvbi_v2.0.xsd");
 var SLschema_v2;
-
-//const TVA_SchemaFilename=path.join("schema","tva_metadata_3-1.xsd");
-//const MPEG7_SchemaFilename=path.join("schema","tva_mpeg7.xsd");
-//const XML_SchemaFilename=path.join("schema","xml.xsd");
-//var TVAschema, MPEG7schema, XMLschema;
+const TVA_SchemaFilename=path.join("schema","tva_metadata_3-1.xsd");
+const MPEG7_SchemaFilename=path.join("schema","tva_mpeg7.xsd");
+const XML_SchemaFilename=path.join("schema","xml.xsd");
+var TVAschema, MPEG7schema, XMLschema;
 */
 
 //const allowed_arguments = ["serviceList", ];
@@ -342,7 +341,8 @@ function loadLanguages(languagesFile) {
 	});
 }
 
-
+/*
+//TODO: validation against schema
 function loadSchema(into, schemafilename) {
 	fs.readFile(schemafilename, {encoding: "utf-8"}, function(err,data){
         if (!err) {
@@ -350,7 +350,7 @@ function loadSchema(into, schemafilename) {
 		}
 	});
 }
-
+*/
 
 function loadDataFiles() {
 	console.log("loading classification schemes...");
@@ -382,16 +382,17 @@ function loadDataFiles() {
 	console.log("loading languages...");
 	knownLanguages=[];
 	loadLanguages(IANA_Subtag_Registry_Filename);
-/*	
+/*
+//TODO: validation against schema
 	console.log("loading schemas...");
 	loadSchema(SLschema_v1, DVBI_ServiceListSchemaFilename_v1);
 	loadSchema(SLschema_v2, DVBI_ServiceListSchemaFilename_v2);
+
+    SLschema_v1=fs.readFileSync(DVBI_ServiceListSchemaFilename_v1);
+    TVAschema=fs.readFileSync(TVA_SchemaFilename);
+    MPEG7schema=fs.readFileSync(MPEG7_SchemaFilename);
+    XMLschema=fs.readFileSync(XML_SchemaFilename);
 */
-//TODO: validation against schema
-//    SLschema=fs.readFileSync(DVBI_ServiceListSchemaFilename);
-//    TVAschema=fs.readFileSync(TVA_SchemaFilename);
-//    MPEG7schema=fs.readFileSync(MPEG7_SchemaFilename);
-//    XMLschema=fs.readFileSync(XML_SchemaFilename);
 }
 
 /*
@@ -1081,15 +1082,17 @@ function validateServiceList(SLtext, errs) {
 
 //TODO: look into why both of these validation approaches are failing
 /*
-	console.log(xmllint.validateXML({
-		xml: SL.toString(),
-		schema: [SLschema.toString(), 
-				 TVAschema.toString(), 
-				 MPEG7schema.toString(),
-				 XMLschema.toString()]
-	}));
-*/
+	var lintResult = null;
+	lintResult = xmllint.validateXML({
+		xml: SLtext,
+		schema: [SLschema_v1.toString(), 
+				TVAschema.toString(), 
+				MPEG7schema.toString(),
+				XMLschema.toString()]
+	});
 
+	console.log( lintResult.errors );
+*/
 /*
 	if (!SL.validate(SLschema_v1)){
 		SL.validationErrors.forEach(err => console.log("validation error(1):", err));

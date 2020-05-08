@@ -9,7 +9,6 @@
 		"libxmljs": "^0.19.7",
 		"morgan": "^1.9.1",
 		"sync-request": "6.1.0",
-		"xmllint": "0.1.1",
 		"sprintf-js": "^1.1.2"
 	}
 }
