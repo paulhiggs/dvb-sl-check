@@ -25,9 +25,8 @@ const fileupload = require("express-fileupload");
 const fs=require("fs"), path=require("path");
 //const request = require("request");
 
-// sync-request - https://github.com/ForbesLindesay/sync-request
-const syncRequest = require("sync-request");
-//var XMLHttpRequest = require("xmlhttprequest").XMLHttpRequest;
+
+var XmlHttpRequest = require("xmlhttprequest").XMLHttpRequest;
 
 const https=require("https");
 const HTTP_SERVICE_PORT = 3010;
@@ -58,8 +57,6 @@ const IANA_Subtag_Registry_Filename=path.join(".","language-subtag-registry");
 const IANA_Subtag_Registry_URL="https://www.iana.org/assignments/language-subtag-registry/language-subtag-registry";
 
 
-
-/*
 const REPO_RAW = "https://raw.githubusercontent.com/paulhiggs/dvb-sl-check/master/",
       DVB_METADATA = "https://dvb.org/metadata/",
       TVA_ContentCSURL=REPO_RAW + "cs/" + "ContentCS.xml",
@@ -73,9 +70,8 @@ const REPO_RAW = "https://raw.githubusercontent.com/paulhiggs/dvb-sl-check/maste
       DVB_AudioConformanceCSURL=DVB_METADATA + "cs/2017/" + "AudioConformancePointsCS.xml",
       DVB_VideoConformanceCSURL=DVB_METADATA + "cs/2017/" + "VideoConformancePointsCS.xml",
       ISO3166_URL=REPO_RAW + "iso3166-countries.json",
-	  IANA_Subtag_Registry_URL="https://www.iana.org/assignments/language-subtag-registry/language-subtag-registry",
-      DVBI_RecordingInfoCSURL=REPO_RAW + "cs/" + "DVBRecordingInfoCS-2019.xml";
-*/
+	  DVBI_RecordingInfoCSURL=REPO_RAW + "cs/" + "DVBRecordingInfoCS-2019.xml";
+
 const FILE_FORMAT_CS = "urn:mpeg:mpeg7:cs:FileFormatCS:2001",
       JPEG_IMAGE_CS_VALUE = FILE_FORMAT_CS + ":1",
       PNG_IMAGE_CS_VALUE =  FILE_FORMAT_CS + ":15";
@@ -252,10 +248,10 @@ function addCSTerm(values,CSuri,term){
 }
 
 /**
- * read a classification scheme and load its hierarical values into a linear list 
+ * read a classification scheme from a local file and load its hierarical values into a linear list 
  *
  * @param {Array} values The linear list of values within the classification scheme
- * @param {String] classificationScheme the filename of the classification scheme
+ * @param {String} classificationScheme the filename of the classification scheme
  */
 function loadCS(values, classificationScheme) {
     fs.readFile(classificationScheme, {encoding: "utf-8"}, function(err,data){
@@ -274,6 +270,65 @@ function loadCS(values, classificationScheme) {
         }
     });
 }
+
+const getDocument = (url) => {
+    return new Promise((resolve, reject) => {
+        const http      = require('http'),
+              https     = require('https');
+
+        let client = http;
+
+        if (url.toString().indexOf("https") === 0) {
+            client = https;
+        }
+
+        client.get(url, (resp) => {
+            let data = '';
+
+            // A chunk of data has been recieved.
+            resp.on('data', (chunk) => {
+                data += chunk;
+            });
+
+            // The whole response has been received. Print out the result.
+            resp.on('end', () => {
+                resolve(data);
+            });
+
+        }).on("error", (err) => {
+            reject(err);
+        });
+    });
+};
+
+/**
+ * read a classification scheme from a URL and load its hierarical values into a linear list 
+ *
+ * @param {Array} values The linear list of values within the classification scheme
+ * @param {String} csURL URL to the classification scheme
+ */
+function loadCSfromURL(values, csURL) { 
+	var xhttp = new XmlHttpRequest();
+	xhttp.onreadystatechange = function() {
+		if (this.readyState == 4 && this.status == 200) {
+		// Typical action to be performed when the document is ready:
+			var xmlCS = libxml.parseXmlString(xhttp.responseText.replace(/(\r\n|\n|\r|\t)/gm,""));
+		
+			if (!xmlCS) return;
+			var CSnamespace = xmlCS.root().attr("uri");
+			if (!CSnamespace) return;
+			var t=0, term;
+			while (term=xmlCS.root().child(t)) {
+				addCSTerm(values,CSnamespace.value(),term);
+				t++;
+			}
+		}
+		else console.log("error fetching "+csURL);
+	};
+	xhttp.open("GET", csURL, false);
+	xhttp.send();
+} 
+ 
 
 /**
  * determine if the argument contains a valid ISO 3166 country code
@@ -368,6 +423,7 @@ function loadDataFiles() {
     loadCS(allowedAudioSchemes,DVB_AudioCodecCSFilename);
     loadCS(allowedAudioSchemes,MPEG7_AudioCodingFormatCSFilename);
     loadCS(allowedAudioConformancePoints,DVB_AudioConformanceCSFilename);
+    //loadCSfromURL(allowedAudioConformancePoints,DVB_AudioConformanceCSURL);
 
     allowedVideoSchemes=[]; allowedVideoConformancePoints=[];
     loadCS(allowedVideoSchemes, DVB_VideoCodecCSFilename);
@@ -1615,18 +1671,20 @@ function processQuery(req,res) {
         res.status(400);
     }
     else {
-        var SLxml=null;
+		var SLxml=null;
         var errs=new ErrorList();
-        try {
-            SLxml = syncRequest("GET", req.query.SLurl);
-        }
-        catch (err) {
-            errs.push("retrieval of URL ("+req.query.SLurl+") failed");
-        }
-		if (SLxml) {
-			validateServiceList(SLxml.getBody().toString().replace(/(\r\n|\n|\r|\t)/gm,""), errs);
-		}
-
+		
+		var xhttp = new XmlHttpRequest();
+		xhttp.onreadystatechange = function() {
+			if (this.readyState == 4 && this.status == 200) {
+				validateServiceList(xhttp.responseText.replace(/(\r\n|\n|\r|\t)/gm,""), errs);
+			}
+			else             
+				errs.push("retrieval of URL ("+xhttp.settings.url+") failed");
+		};
+		xhttp.open("GET", req.query.SLurl, false);
+		xhttp.send();
+		
         drawForm(true, res, req.query.SLurl, {errors:errs});
     }
     res.end();
