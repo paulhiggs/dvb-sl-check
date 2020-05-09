@@ -39,10 +39,12 @@ Checks performed:
 * only one element for each @xml:lang is specified in any mpeg7:TextualType element
   
 ## Use
+
 ### URL based validation  
 &lt;server&gt;/check gives a basic/primitive UI. Enter the URL to your service list and press "Submit" button. Await results!
 ### File based validation
 &lt;server&gt;/checkFile gives a basic/primitive UI. Select the service list file and press "Submit" button. Await results!
+
 
 ## Installation
 1. Clone this repository `git clone https://github.com/paulhiggs/dvb-sl-check.git`
@@ -52,3 +54,6 @@ Checks performed:
 If you want to start an HTTPS server, make sure you have `selfsigned.crt` and `selfsigned.key` files in the same directory. These can be generated (on Linux) with `sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout ./selfsigned.key -out selfsigned.crt`
 
 Occassionally, the language-subtag-registry file can be updated from https://www.iana.org/assignments/language-subtag-registry/language-subtag-registry
+
+### Command Line Arguments
+--urls - this argument will force the classification scheme, country and language values to be read from the internet. Default is to load values from local files.

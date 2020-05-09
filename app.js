@@ -13,7 +13,7 @@ var app = express();
 const libxml = require("libxmljs");
 
 //TODO: validation against schema; package.json: 		"xmllint": "0.1.1",
-//const xmllint = require("xmllint");
+const xmllint = require("xmllint");
 
 // morgan - https://github.com/expressjs/morgan
 const morgan = require("morgan")
@@ -41,18 +41,22 @@ const { parse } = require("querystring");
 var sprintf = require("sprintf-js").sprintf,
     vsprintf = require("sprintf-js").vsprintf
 
-const TVA_ContentCSFilename=path.join("cs","ContentCS.xml"),
-      TVA_FormatCSFilename=path.join("cs","FormatCS.xml"),
-      DVBI_ContentSubjectFilename=path.join("cs","DVBContentSubjectCS-2019.xml"),
-      DVBI_ServiceTypeCSFilename=path.join("cs","DVBServiceTypeCS-2019.xml"),
-      DVB_AudioCodecCSFilename=path.join("cs","AudioCodecCS.xml"),
-      DVB_VideoCodecCSFilename=path.join("cs","VideoCodecCS.xml"),
-      MPEG7_AudioCodingFormatCSFilename=path.join("cs","AudioCodingFormatCS.xml"),
-      MPEG7_VisualCodingFormatCSFilename=path.join("cs","VisualCodingFormatCS.xml"),
-      DVB_AudioConformanceCSFilename=path.join("cs","AudioConformancePointsCS.xml"),
-      DVB_VideoConformanceCSFilename=path.join("cs","VideoConformancePointsCS.xml"),
+const A177v1_Namespace = "urn:dvb:metadata:servicediscovery:2019",
+      A177v2_Namespace = "urn:dvb:metadata:servicediscovery:2020";
+
+const dirCS = "cs",
+      TVA_ContentCSFilename=path.join(dirCS,"ContentCS.xml"),
+      TVA_FormatCSFilename=path.join(dirCS,"FormatCS.xml"),
+      DVBI_ContentSubjectFilename=path.join(dirCS,"DVBContentSubjectCS-2019.xml"),
+      DVBI_ServiceTypeCSFilename=path.join(dirCS,"DVBServiceTypeCS-2019.xml"),
+      DVB_AudioCodecCSFilename=path.join(dirCS,"AudioCodecCS.xml"),
+      DVB_VideoCodecCSFilename=path.join(dirCS,"VideoCodecCS.xml"),
+      MPEG7_AudioCodingFormatCSFilename=path.join(dirCS,"AudioCodingFormatCS.xml"),
+      MPEG7_VisualCodingFormatCSFilename=path.join(dirCS,"VisualCodingFormatCS.xml"),
+      DVB_AudioConformanceCSFilename=path.join(dirCS,"AudioConformancePointsCS.xml"),
+      DVB_VideoConformanceCSFilename=path.join(dirCS,"VideoConformancePointsCS.xml"),
       ISO3166_Filename=path.join(".","iso3166-countries.json"),
-      DVBI_RecordingInfoCSFilename=path.join("cs","DVBRecordingInfoCS-2019.xml");
+      DVBI_RecordingInfoCSFilename=path.join(dirCS,"DVBRecordingInfoCS-2019.xml");
 
 // curl from https://www.iana.org/assignments/language-subtag-registry/language-subtag-registry
 const IANA_Subtag_Registry_Filename=path.join(".","language-subtag-registry");
@@ -112,7 +116,6 @@ const DVB_RELATED_CS_v2 = "urn:dvb:metadata:cs:HowRelatedCS:2020",
       LOGO_SERVICE_v2 = DVB_RELATED_CS_v2+":1001.2",
       LOGO_CG_PROVIDER_v2 = DVB_RELATED_CS_v2+":1002.1";
 
-
 // A177 5.2.7.2
 const CONTENT_TYPE_DASH_MPD = "application/dash+xml",    // MPD of linear service
       CONTENT_TYPE_DVB_PLAYLIST = "application/xml";    // XML Playlist
@@ -153,9 +156,9 @@ const SCHEMA_v1 = 1,
  * @return {Integer} representation of the schema version or error code if unknown 
  */
 function SchemaVersion(namespace) {
-	if (namespace == 'urn:dvb:metadata:servicediscovery:2019')
+	if (namespace == A177v1_Namespace)
 		return SCHEMA_v1;
-	else if (namespace == 'urn:dvb:metadata:servicediscovery:2020')
+	else if (namespace == A177v2_Namespace)
 		return SCHEMA_v2;
 
 	return SCHEMA_unknown;
@@ -340,32 +343,70 @@ function isISO3166code(countryCode) {
     return found;
 }
 
+
+
+/**
+ * load the countries list into the allowedCountries global array from the specified text
+ *
+ * @param {String} countryData the text of the country JSON data
+ */
+function loadCountries(countryData) {
+	allowedCountries = JSON.parse(countryData, function (key, value) {
+		if (key == "numeric") {
+			return new Number(value);
+		} else if (key == "alpha2") {
+			if (value.length!=2) return "**"; else return value;
+		} else if (key == "alpha3") {
+			if (value.length!=3) return "***"; else return value;
+		}
+		else {
+			return value;
+		}
+	});
+}
+
 /**
  * load the countries list into the allowedCountries global array from the specified JSON file
  *
  * @param {String} countriesFile the file name to load
  */
-function loadCountries(countriesFile) {
+function loadCountriesFromFile(countriesFile) {
+	console.log("reading countries from", countriesFile);
     fs.readFile(countriesFile, {encoding: "utf-8"}, function(err,data){
         if (!err) {
-            allowedCountries = JSON.parse(data, function (key, value) {
-                if (key == "numeric") {
-                    return new Number(value);
-                } else if (key == "alpha2") {
-                    if (value.length!=2) return "**"; else return value;
-                } else if (key == "alpha3") {
-                    if (value.length!=3) return "***"; else return value;
-                }
-                else {
-                    return value;
-                }
-            });
+			loadCountries(data);
         } else {
             console.log(err);
         }
     });
 }
 
+/**
+ * load the countries list into the allowedCountries global array from the specified JSON file
+ *
+ * @param {String} countriesURL the URL to the file to load
+ */
+function loadCountriesFromURL(countriesURL) {
+	console.log("retrieving countries from", countriesURL);
+	var xhttp = new XmlHttpRequest();
+	xhttp.onreadystatechange = function() {
+		if (this.readyState == 4) {
+			if (this.status == 200) {
+				loadCountries(xhttp.responseText);
+			}
+			else console.log("error ("+this.status+") retrieving "+countriesURL);	
+		}
+	};
+	xhttp.open("GET", countriesURL, true);
+	xhttp.send();	
+}
+
+/**
+ * load the languages into knownLanguages global array from the specified text
+ * file is formatted according to www.iana.org/assignments/language-subtag-registry/language-subtag-registry
+ *
+ * @param {String} languagesData the text of the language data
+ */
 function loadLanguages(languageData) {
 	var entries = languageData.split("%%");
 	entries.forEach(entry => {
@@ -388,6 +429,7 @@ function loadLanguages(languageData) {
  * @param {String} languagesFile the file name to load
  */
 function loadLanguagesFromFile(languagesFile) {
+	console.log("reading languages from", languagesFile);
     fs.readFile(languagesFile, {encoding: "utf-8"}, function(err,data){
         if (!err) {
 			loadLanguages(data);
@@ -455,25 +497,23 @@ function loadDataFiles(useURLs) {
 	RecordingInfoCSvalules=[];
 	loadCS(RecordingInfoCSvalules, useURLs, DVBI_RecordingInfoCSFilename, DVBI_RecordingInfoCSURL);
 
-	console.log("loading countries...");
 	allowedCountries=[];
-    loadCountries(ISO3166_Filename);
+	if (useURLs) 
+		loadCountriesFromURL(ISO3166_URL);
+	else loadCountriesFromFile(ISO3166_Filename);
 	
-	console.log("loading languages...");
 	knownLanguages=[];
-	if (useURLs) {
+	if (useURLs) 
 		loadLanguagesFromURL(IANA_Subtag_Registry_URL);
-	} 
-	else {
-		loadLanguagesFromFile(IANA_Subtag_Registry_Filename);
-	}
+	else loadLanguagesFromFile(IANA_Subtag_Registry_Filename);
 /*
 //TODO: validation against schema
 	console.log("loading schemas...");
-	loadSchema(SLschema_v1, DVBI_ServiceListSchemaFilename_v1);
-	loadSchema(SLschema_v2, DVBI_ServiceListSchemaFilename_v2);
+	//loadSchema(SLschema_v1, DVBI_ServiceListSchemaFilename_v1);
+	//loadSchema(SLschema_v2, DVBI_ServiceListSchemaFilename_v2);
 
     SLschema_v1=fs.readFileSync(DVBI_ServiceListSchemaFilename_v1);
+    SLschema_v2=fs.readFileSync(DVBI_ServiceListSchemaFilename_v2);
     TVAschema=fs.readFileSync(TVA_SchemaFilename);
     MPEG7schema=fs.readFileSync(MPEG7_SchemaFilename);
     XMLschema=fs.readFileSync(XML_SchemaFilename);
@@ -1142,7 +1182,6 @@ function validateServiceList(SLtext, errs) {
 				MPEG7schema.toString(),
 				XMLschema.toString()]
 	});
-
 	console.log( lintResult.errors );
 */
 /*
