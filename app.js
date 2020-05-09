@@ -25,6 +25,8 @@ const fileupload = require("express-fileupload");
 const fs=require("fs"), path=require("path");
 //const request = require("request");
 
+// command line arguments - https://github.com/75lb/command-line-args
+const commandLineArgs = require('command-line-args');
 
 var XmlHttpRequest = require("xmlhttprequest").XMLHttpRequest;
 
@@ -247,59 +249,42 @@ function addCSTerm(values,CSuri,term){
     }
 }
 
+
+
+/**
+ * load the hierarical values from an XML classification scheme document into a linear list 
+ *
+ * @param {Array} values The linear list of values within the classification scheme
+ * @param {String} xmlCS the XML document  of the classification scheme
+ */
+function loadClassificationScheme(values, xmlCS) {
+	if (!xmlCS) return;
+	var CSnamespace = xmlCS.root().attr("uri");
+	if (!CSnamespace) return;
+	var t=0, term;
+	while (term=xmlCS.root().child(t)) {
+		addCSTerm(values,CSnamespace.value(),term);
+		t++;
+	}
+}
+
 /**
  * read a classification scheme from a local file and load its hierarical values into a linear list 
  *
  * @param {Array} values The linear list of values within the classification scheme
  * @param {String} classificationScheme the filename of the classification scheme
  */
-function loadCS(values, classificationScheme) {
+function loadCSfromFile(values, classificationScheme) {
+	console.log("reading CS from", classificationScheme);
     fs.readFile(classificationScheme, {encoding: "utf-8"}, function(err,data){
         if (!err) {
-            var xmlCS = libxml.parseXmlString(data.replace(/(\r\n|\n|\r|\t)/gm,""));
-            if (!xmlCS) return;
-            var CSnamespace = xmlCS.root().attr("uri");
-            if (!CSnamespace) return;
-            var t=0, term;
-            while (term=xmlCS.root().child(t)) {
-                addCSTerm(values,CSnamespace.value(),term);
-                t++;
-            }
+			loadClassificationScheme(values, libxml.parseXmlString(data.replace(/(\r\n|\n|\r|\t)/gm,"")));
         } else {
             console.log(err);
         }
     });
 }
 
-const getDocument = (url) => {
-    return new Promise((resolve, reject) => {
-        const http      = require('http'),
-              https     = require('https');
-
-        let client = http;
-
-        if (url.toString().indexOf("https") === 0) {
-            client = https;
-        }
-
-        client.get(url, (resp) => {
-            let data = '';
-
-            // A chunk of data has been recieved.
-            resp.on('data', (chunk) => {
-                data += chunk;
-            });
-
-            // The whole response has been received. Print out the result.
-            resp.on('end', () => {
-                resolve(data);
-            });
-
-        }).on("error", (err) => {
-            reject(err);
-        });
-    });
-};
 
 /**
  * read a classification scheme from a URL and load its hierarical values into a linear list 
@@ -308,25 +293,33 @@ const getDocument = (url) => {
  * @param {String} csURL URL to the classification scheme
  */
 function loadCSfromURL(values, csURL) { 
+	console.log("retrieving CS from", csURL);
 	var xhttp = new XmlHttpRequest();
 	xhttp.onreadystatechange = function() {
-		if (this.readyState == 4 && this.status == 200) {
-		// Typical action to be performed when the document is ready:
-			var xmlCS = libxml.parseXmlString(xhttp.responseText.replace(/(\r\n|\n|\r|\t)/gm,""));
-		
-			if (!xmlCS) return;
-			var CSnamespace = xmlCS.root().attr("uri");
-			if (!CSnamespace) return;
-			var t=0, term;
-			while (term=xmlCS.root().child(t)) {
-				addCSTerm(values,CSnamespace.value(),term);
-				t++;
+		if (this.readyState == 4) {
+			if (this.status == 200) {
+				loadClassificationScheme(values, libxml.parseXmlString(xhttp.responseText));
 			}
+			else console.log("error ("+this.status+") retrieving "+csURL);	
 		}
-		else console.log("error fetching "+csURL);
 	};
-	xhttp.open("GET", csURL, false);
+	xhttp.open("GET", csURL, true);
 	xhttp.send();
+} 
+ 
+/**
+ * loads classification scheme values from either a local file or an URL based location
+ *
+ * @param {Array} values The linear list of values within the classification scheme
+ * @param {boolean} useURL if true use the URL loading method else use the local file
+ * @param {String} CSfilename the filename of the classification scheme
+ * @param {String} CSurl URL to the classification scheme
+ * 
+ */ 
+function loadCS(values, useURL, CSfilename, CSurl) {
+	if (useURL)
+		loadCSfromURL(values,CSurl);
+	else loadCSfromFile(values, CSfilename);	
 } 
  
 
@@ -373,30 +366,55 @@ function loadCountries(countriesFile) {
     });
 }
 
+function loadLanguages(languageData) {
+	var entries = languageData.split("%%");
+	entries.forEach(entry => {
+		var i=0, items=entry.split("\n");
+		if (isIn(items,"Type: language") || isIn(items,"Type: extlang")) {
+			//found one
+			for (i=0; i<items.length; i++) {
+				if (items[i].startsWith("Subtag:")) {
+					knownLanguages.push(items[i].split(":")[1].trim());
+				}
+			}
+		}
+	});
+}
+
 /**
  * load the languages list into the knownLanguages global array from the specified file
  * file is formatted according to www.iana.org/assignments/language-subtag-registry/language-subtag-registry
  *
  * @param {String} languagesFile the file name to load
  */
-function loadLanguages(languagesFile) {
+function loadLanguagesFromFile(languagesFile) {
     fs.readFile(languagesFile, {encoding: "utf-8"}, function(err,data){
         if (!err) {
-			var entries = data.split("%%");
-			entries.forEach(entry => {
-				var i=0, items=entry.split("\n");
-				if (isIn(items,"Type: language") || isIn(items,"Type: extlang")) {
-					//found one
-					for (i=0; i<items.length; i++) {
-						if (items[i].startsWith("Subtag:")) {
-							knownLanguages.push(items[i].split(":")[1].trim());
-						}
-					}
-				}
-			});
+			loadLanguages(data);
 		}
 	});
 }
+
+/**
+ * load the languages list into the knownLanguages global array from the specified URL
+ *
+ * @param {String} languagesURL the URL to load
+ */
+function loadLanguagesFromURL(languagesURL) {
+	console.log("retrieving languages from", languagesURL);
+	var xhttp = new XmlHttpRequest();
+	xhttp.onreadystatechange = function() {
+		if (this.readyState == 4) {
+			if (this.status == 200) {
+				loadLanguages(xhttp.responseText);
+			}
+			else console.log("error ("+this.status+") retrieving "+languagesURL);	
+		}
+	};
+	xhttp.open("GET", languagesURL, true);
+	xhttp.send();
+}
+
 
 /*
 //TODO: validation against schema
@@ -409,29 +427,33 @@ function loadSchema(into, schemafilename) {
 }
 */
 
-function loadDataFiles() {
+/**
+ * loads necessary classification schemes for validation
+ *
+ * @param {boolean} useURLs use network locations as teh source rather than local files
+ */
+function loadDataFiles(useURLs) {
 	console.log("loading classification schemes...");
     allowedGenres=[];
-    loadCS(allowedGenres,TVA_ContentCSFilename);
-    loadCS(allowedGenres,TVA_FormatCSFilename);
-    loadCS(allowedGenres,DVBI_ContentSubjectFilename);
-
+	loadCS(allowedGenres, useURLs, TVA_ContentCSFilename, TVA_ContentCSURL);
+	loadCS(allowedGenres, useURLs, TVA_FormatCSFilename, TVA_FormatCSURL);
+	loadCS(allowedGenres, useURLs, DVBI_ContentSubjectFilename, DVBI_ContentSubjectURL);
+    
     allowedServiceTypes=[];
-    loadCS(allowedServiceTypes,DVBI_ServiceTypeCSFilename);
+	loadCS(allowedServiceTypes, useURLs, DVBI_ServiceTypeCSFilename, DVBI_ServiceTypeCSURL);
 
     allowedAudioSchemes=[]; allowedAudioConformancePoints=[];
-    loadCS(allowedAudioSchemes,DVB_AudioCodecCSFilename);
-    loadCS(allowedAudioSchemes,MPEG7_AudioCodingFormatCSFilename);
-    loadCS(allowedAudioConformancePoints,DVB_AudioConformanceCSFilename);
-    //loadCSfromURL(allowedAudioConformancePoints,DVB_AudioConformanceCSURL);
-
+	loadCS(allowedAudioSchemes, useURLs, DVB_AudioCodecCSFilename, DVB_AudioCodecCSURL);
+	loadCS(allowedAudioSchemes, useURLs, MPEG7_AudioCodingFormatCSFilename, MPEG7_AudioCodingFormatCSURL);
+	loadCS(allowedAudioConformancePoints, useURLs, DVB_AudioConformanceCSFilename, DVB_AudioConformanceCSURL);
+	
     allowedVideoSchemes=[]; allowedVideoConformancePoints=[];
-    loadCS(allowedVideoSchemes, DVB_VideoCodecCSFilename);
-    loadCS(allowedVideoSchemes, MPEG7_VisualCodingFormatCSFilename);
-    loadCS(allowedVideoConformancePoints, DVB_VideoConformanceCSFilename);
+	loadCS(allowedVideoSchemes, useURLs, DVB_VideoCodecCSFilename, DVB_VideoCodecCSURL);
+	loadCS(allowedVideoSchemes, useURLs, MPEG7_VisualCodingFormatCSFilename, MPEG7_VisualCodingFormatCSURL);
+	loadCS(allowedVideoConformancePoints, useURLs, DVB_VideoConformanceCSFilename, DVB_VideoConformanceCSURL);
 
 	RecordingInfoCSvalules=[];
-    loadCS(RecordingInfoCSvalules, DVBI_RecordingInfoCSFilename);
+	loadCS(RecordingInfoCSvalules, useURLs, DVBI_RecordingInfoCSFilename, DVBI_RecordingInfoCSURL);
 
 	console.log("loading countries...");
 	allowedCountries=[];
@@ -439,7 +461,12 @@ function loadDataFiles() {
 	
 	console.log("loading languages...");
 	knownLanguages=[];
-	loadLanguages(IANA_Subtag_Registry_Filename);
+	if (useURLs) {
+		loadLanguagesFromURL(IANA_Subtag_Registry_URL);
+	} 
+	else {
+		loadLanguagesFromFile(IANA_Subtag_Registry_Filename);
+	}
 /*
 //TODO: validation against schema
 	console.log("loading schemas...");
@@ -453,43 +480,7 @@ function loadDataFiles() {
 */
 }
 
-/*
-function loadDataFilesWeb() {
-    allowedGenres=[];
-    loadCS(allowedGenres,TVA_ContentCSURL);
-    loadCS(allowedGenres,TVA_FormatCSURL);
-    loadCS(allowedGenres,DVBI_ContentSubjectURL);
-    
-    allowedServiceTypes=[];
-    loadCS(allowedServiceTypes,DVBI_ServiceTypeCSURL);
 
-    allowedAudioSchemes=[]; allowedAudioConformancePoints=[];
-    loadCS(allowedAudioSchemes,DVB_AudioCodecCSURL);
-    loadCS(allowedAudioSchemes,MPEG7_AudioCodingFormatCSURL);
-    loadCS(allowedAudioConformancePoints,DVB_AudioConformanceCSURL);
-    
-    allowedVideoSchemes=[]; allowedVideoConformancePoints=[];
-    loadCS(allowedVideoSchemes, DVB_VideoCodecCSURL);
-    loadCS(allowedVideoSchemes, MPEG7_VisualCodingFormatCSURL);
-    loadCS(allowedVideoConformancePoints, DVB_VideoConformanceCSURL);
-
-	RecordingInfoCSvalules=[];
-	loadCS(RecordingInfoCSvalules, DVBI_RecordingInfoCSURL);
-
-	allowedCountries=[];
-    loadCountries(ISO3166_URL);
-    
-	knownLanguages=[];
-	loadLanguages(IANA_Subtag_Registry_URL);
-    
-
-//TODO: validation against schema
-//    SLschema=fs.readFileSync(DVBI_ServiceListSchemaFilename);
-//    TVAschema=fs.readFileSync(TVA_SchemaFilename);
-//    MPEG7schema=fs.readFileSync(MPEG7_SchemaFilename);
-//    XMLschema=fs.readFileSync(XML_SchemaFilename);
-}
-*/
 
 
 /**
@@ -501,6 +492,7 @@ function loadDataFilesWeb() {
 function isJPEGmime(val) {
 	return val==JPEG_MIME
 }
+
 /**
  * determines if the value is a valid PNG MIME type
  *
@@ -602,6 +594,12 @@ function validServiceApplication(HowRelated) {
         || val==APP_OUTSIDE_AVAILABILITY;
 }
 
+/** 
+ * determines if the identifer provided refers to a valid DASH media type (single MPD or MPD playlist)
+ *
+ * @param {String} contentType The contentType for the file
+ * @return {boolean} true if this is a valid MPD or playlist identifier
+ */
 function validDASHcontentType(contentType) {
     // per A177 clause 5.2.7.2
     return contentType==CONTENT_TYPE_DASH_MPD   
@@ -685,9 +683,9 @@ function validContentGuideSourceLogo(HowRelated, namespace) {
  * @param {Object} HowRelated the <HowRelated> subelement (a libxmls ojbect tree) of the <RelatedMaterial> element
  * @param {Object} Format the <Format> subelement (a libxmls ojbect tree) of the <RelatedMaterial> element
  * @param {Object} MediaLocator the <MediaLocator> subelement (a libxmls ojbect tree) of the <RelatedMaterial> element
- * @param {Object} errs The class where errors and warnings relating to the serivce list processing are strored 
+ * @param {Object} errs The class where errors and warnings relating to the serivce list processing are stored 
  * @param {string} Location The printable name used to indicate the location of the <RelatedMaterial> element being checked. used for error reporting
- * @param {string} LocationType The type of element containing the <RelatedMaterial> element. Different vallidation rules apply to different location types
+ * @param {string} LocationType The type of element containing the <RelatedMaterial> element. Different validation rules apply to different location types
  * @param {string} SCHEMA_PREFIX Used when constructing Xpath queries -- not used in this function
  * @param {string} SL_SCHEMA Used when constructing Xpath queries -- not used in this function
  */
@@ -769,9 +767,9 @@ function checkValidLogo(HowRelated,Format,MediaLocator,errs,Location,LocationTyp
  * @param {Object} HowRelated the <HowRelated> subelement (a libxmls ojbect tree) of the <RelatedMaterial> element
  * @param {Object} Format the <Format> subelement (a libxmls ojbect tree) of the <RelatedMaterial> element
  * @param {Object} MediaLocator the <MediaLocator> subelement (a libxmls ojbect tree) of the <RelatedMaterial> element
- * @param {Object} errs The class where errors and warnings relating to the serivce list processing are strored 
+ * @param {Object} errs The class where errors and warnings relating to the serivce list processing are stored 
  * @param {string} Location The printable name used to indicate the location of the <RelatedMaterial> element being checked. used for error reporting
- * @param {string} LocationType The type of element containing the <RelatedMaterial> element. Different vallidation rules apply to different location types
+ * @param {string} LocationType The type of element containing the <RelatedMaterial> element. Different validation rules apply to different location types
  * @param {string} SCHEMA_PREFIX Used when constructing Xpath queries -- not used in this function
  * @param {string} SL_SCHEMA Used when constructing Xpath queries -- not used in this function
  */
@@ -808,7 +806,7 @@ function checkSignalledApplication(HowRelated,Format,MediaLocator,errs,Location,
  * @param {Object} RelatedMaterial the <RelatedMaterial> element (a libxmls ojbect tree) to be checked
  * @param {Object} errs The class where errors and warnings relating to the serivce list processing are stored 
  * @param {string} Location The printable name used to indicate the location of the <RelatedMaterial> element being checked. used for error reporting
- * @param {string} LocationType The type of element containing the <RelatedMaterial> element. Different vallidation rules apply to different location types
+ * @param {string} LocationType The type of element containing the <RelatedMaterial> element. Different validation rules apply to different location types
  * @param {string} SCHEMA_PREFIX Used when constructing Xpath queries -- not used in this function
  * @param {string} SCHEMA_NAMESPACE The namespace of XML document
  * @param {string} SL_SCHEMA Used when constructing Xpath queries -- not used in this function
@@ -830,51 +828,50 @@ function validateRelatedMaterial(RelatedMaterial,errs,Location,LocationType,SCHE
     if (!HowRelated) {
         errs.push("<HowRelated> not specified for <RelatedMaterial> in "+Location);
         errs.increment("no HowRelated");
+		return;
     }
-    else {
-        var HRhref=HowRelated.attr("href");
-        if (HRhref) {
-            if (LocationType==SERVICE_LIST_RM) {
-                if (!validServiceListLogo(HowRelated,SCHEMA_NAMESPACE)) {
-					InvalidHrefValue(errs, HRhref.value(), "<RelatedMaterial>", Location )
-                }
-                else {
-                    MediaLocator.forEach(locator => 
-                        checkValidLogo(HowRelated,Format,locator,errs,Location,LocationType,SCHEMA_PREFIX,SL_SCHEMA));
-                }
-            }
-            if (LocationType==SERVICE_RM) {
-				if (validContentFinishedBanner(HowRelated, SCHEMA_NAMESPACE) && (SchemaVersion(SCHEMA_NAMESPACE) == SCHEMA_v1)) {
-                    errs.push("\""+BANNER_CONTENT_FINISHED_v2 +"\" not permitted for \""+SCHEMA_NAMESPACE+"\" in "+Location);
-                    errs.increment("invalid CS value");					
-				}
-				
-                if (!(validOutScheduleHours(HowRelated, SCHEMA_NAMESPACE) || validContentFinishedBanner(HowRelated, SCHEMA_NAMESPACE) ||validServiceApplication(HowRelated) || validServiceLogo(HowRelated,SCHEMA_NAMESPACE))) {
-					InvalidHrefValue(errs, HRhref.value(), "<RelatedMaterial>", Location );
-                }
-                else {
-                    if (validServiceLogo(HowRelated, SCHEMA_NAMESPACE)||validOutScheduleHours(HowRelated, SCHEMA_NAMESPACE))
-                        MediaLocator.forEach(locator =>
-                            checkValidLogo(HowRelated,Format,locator,errs,Location,LocationType,SCHEMA_PREFIX,SL_SCHEMA));
-                    if (validServiceApplication(HowRelated))
-                        MediaLocator.forEach(locator =>
-                            checkSignalledApplication(HowRelated,Format,locator,errs,Location,LocationType,SCHEMA_PREFIX,SL_SCHEMA));
-                }
-            }
-            if (LocationType==CONTENT_GUIDE_RM) {
-                if (!validContentGuideSourceLogo(HowRelated, SCHEMA_NAMESPACE)) {
-					InvalidHrefValue(errs, HRhref.value(), "<RelatedMaterial>", Location)
-                }
-                else {
-                    MediaLocator.forEach(locator =>
-                        checkValidLogo(HowRelated,Format,locator,errs,Location,LocationType,SCHEMA_PREFIX,SL_SCHEMA));
-                }
-            }
-        }
-        else {
-			NoHrefAttribute(errs, "<RelatedMaterial><HowRelated>", Location);
-        }
-    }
+	var HRhref=HowRelated.attr("href");
+	if (HRhref) {
+		if (LocationType==SERVICE_LIST_RM) {
+			if (!validServiceListLogo(HowRelated,SCHEMA_NAMESPACE)) {
+				InvalidHrefValue(errs, HRhref.value(), "<RelatedMaterial>", Location )
+			}
+			else {
+				MediaLocator.forEach(locator => 
+					checkValidLogo(HowRelated,Format,locator,errs,Location,LocationType,SCHEMA_PREFIX,SL_SCHEMA));
+			}
+		}
+		if (LocationType==SERVICE_RM) {
+			if (validContentFinishedBanner(HowRelated, SCHEMA_NAMESPACE) && (SchemaVersion(SCHEMA_NAMESPACE) == SCHEMA_v1)) {
+				errs.push("\""+BANNER_CONTENT_FINISHED_v2 +"\" not permitted for \""+SCHEMA_NAMESPACE+"\" in "+Location);
+				errs.increment("invalid CS value");					
+			}
+			
+			if (!(validOutScheduleHours(HowRelated, SCHEMA_NAMESPACE) || validContentFinishedBanner(HowRelated, SCHEMA_NAMESPACE) ||validServiceApplication(HowRelated) || validServiceLogo(HowRelated,SCHEMA_NAMESPACE))) {
+				InvalidHrefValue(errs, HRhref.value(), "<RelatedMaterial>", Location );
+			}
+			else {
+				if (validServiceLogo(HowRelated, SCHEMA_NAMESPACE)||validOutScheduleHours(HowRelated, SCHEMA_NAMESPACE))
+					MediaLocator.forEach(locator =>
+						checkValidLogo(HowRelated,Format,locator,errs,Location,LocationType,SCHEMA_PREFIX,SL_SCHEMA));
+				if (validServiceApplication(HowRelated))
+					MediaLocator.forEach(locator =>
+						checkSignalledApplication(HowRelated,Format,locator,errs,Location,LocationType,SCHEMA_PREFIX,SL_SCHEMA));
+			}
+		}
+		if (LocationType==CONTENT_GUIDE_RM) {
+			if (!validContentGuideSourceLogo(HowRelated, SCHEMA_NAMESPACE)) {
+				InvalidHrefValue(errs, HRhref.value(), "<RelatedMaterial>", Location)
+			}
+			else {
+				MediaLocator.forEach(locator =>
+					checkValidLogo(HowRelated,Format,locator,errs,Location,LocationType,SCHEMA_PREFIX,SL_SCHEMA));
+			}
+		}
+	}
+	else {
+		NoHrefAttribute(errs, "<RelatedMaterial><HowRelated>", Location);
+	}
 }
 
 /**
@@ -1742,8 +1739,14 @@ app.use(express.static(__dirname));
 app.set('view engine', 'ejs');
 app.use(fileupload());
 
+// parse command line options
+const optionDefinitions = [
+  { name: 'urls', alias: 'u', type: Boolean, defaultOption: false }
+]
+const options = commandLineArgs(optionDefinitions);
+
 // read in the validation data
-loadDataFiles();
+loadDataFiles( options.urls ? options.urls : false );
 
 // initialize Express
 app.use(express.urlencoded({ extended: true }));
