@@ -13,7 +13,7 @@ var app = express();
 const libxml = require("libxmljs");
 
 //TODO: validation against schema; package.json: 		"xmllint": "0.1.1",
-const xmllint = require("xmllint");
+//const xmllint = require("xmllint");
 
 // morgan - https://github.com/expressjs/morgan
 const morgan = require("morgan")
