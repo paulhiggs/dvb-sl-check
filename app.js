@@ -234,6 +234,18 @@ function isIn(values, value){
     return false;
 }
 
+
+/* 
+ * convert characters in the string to HTML entities
+ *
+ * @param {string} str that should be displayed in HTML
+ * @return {string} a string with ENTITY representations of < and >
+ */
+function HTMLize(str) {
+	return str.replace(/</g,"&lt;").replace(/>/g,"&gt;");              
+}
+
+
 /**
  * Constructs a linear list of terms from a heirarical clssification schemes which are read from an XML document and parsed by libxmljs
  *
@@ -1004,8 +1016,7 @@ function drawForm(URLmode, res, lastInput, o) {
                         res.write(SUMMARY_FORM_HEADER);
                         tableHeader=true;
                     }
-                    var t=i.replace(/</g,"&lt;").replace(/>/g,"&gt;");
-                    res.write("<tr><td>"+t+"</td><td>"+o.errors.counts[i]+"</td></tr>");
+                    res.write("<tr><td>"+HTMLize(i)+"</td><td>"+o.errors.counts[i]+"</td></tr>");
                     resultsShown=true;
                 }
             }
@@ -1015,8 +1026,7 @@ function drawForm(URLmode, res, lastInput, o) {
                         res.write(SUMMARY_FORM_HEADER);
                         tableHeader=true;
                     }
-                    var t=i.replace(/</g,"&lt;").replace(/>/g,"&gt;");
-                    res.write("<tr><td><i>"+t+"</i></td><td>"+o.errors.countsWarn[i]+"</td></tr>");
+                    res.write("<tr><td><i>"+HTMLize(i)+"</i></td><td>"+o.errors.countsWarn[i]+"</td></tr>");
                     resultsShown=true;
                 }
             }
@@ -1030,8 +1040,7 @@ function drawForm(URLmode, res, lastInput, o) {
                     res.write("<table><tr><th>errors</th></tr>");
                     tableHeader=true;                    
                 }
-                var t=value.replace(/</g,"&lt").replace(/>/g,"&gt");
-                res.write("<tr><td>"+t+"</td></tr>");
+                res.write("<tr><td>"+HTMLize(value)+"</td></tr>");
                 resultsShown=true;
             });
             if (tableHeader) res.write("</table>");
@@ -1043,8 +1052,7 @@ function drawForm(URLmode, res, lastInput, o) {
                     res.write("<table><tr><th>warnings</th></tr>");
                     tableHeader=true;                    
                 }
-                var t=value.replace(/</g,"&lt;").replace(/>/g,"&gt;");
-                res.write("<tr><td>"+t+"</td></tr>");
+                res.write("<tr><td>"+HTMLize(value)+"</td></tr>");
                 resultsShown=true;
             });
             if (tableHeader) res.write("</table>");        
