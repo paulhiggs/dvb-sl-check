@@ -8,6 +8,13 @@ var app = express();
  - also look for TODO in the code itself
 */
 
+const ErrorList = require("./dvb-common/ErrorList.js");
+const dvbi = require("./dvb-common/DVB-I_definitions.js");
+const {isJPEGmime, isPNGmime} = require("./dvb-common/MIME_checks.js");
+const {isTAGURI} = require("./dvb-common/URI_checks.js");
+const {loadCS} = require("./dvb-common/CS_handler.js");
+
+
 
 // libxmljs - https://github.com/libxmljs/libxmljs
 const libxml = require("libxmljs");
@@ -41,8 +48,7 @@ const { parse } = require("querystring");
 var sprintf = require("sprintf-js").sprintf,
     vsprintf = require("sprintf-js").vsprintf
 
-const A177v1_Namespace = "urn:dvb:metadata:servicediscovery:2019",
-      A177v2_Namespace = "urn:dvb:metadata:servicediscovery:2020";
+
 
 const dirCS = "cs",
       TVA_ContentCSFilename=path.join(dirCS,"ContentCS.xml"),
@@ -62,7 +68,6 @@ const dirCS = "cs",
 const IANA_Subtag_Registry_Filename=path.join(".","language-subtag-registry");
 const IANA_Subtag_Registry_URL="https://www.iana.org/assignments/language-subtag-registry/language-subtag-registry";
 
-
 const REPO_RAW = "https://raw.githubusercontent.com/paulhiggs/dvb-sl-check/master/",
       DVB_METADATA = "https://dvb.org/metadata/",
       TVA_ContentCSURL=REPO_RAW + "cs/" + "ContentCS.xml",
@@ -78,48 +83,6 @@ const REPO_RAW = "https://raw.githubusercontent.com/paulhiggs/dvb-sl-check/maste
       ISO3166_URL=REPO_RAW + "iso3166-countries.json",
 	  DVBI_RecordingInfoCSURL=REPO_RAW + "cs/" + "DVBRecordingInfoCS-2019.xml";
 
-const FILE_FORMAT_CS = "urn:mpeg:mpeg7:cs:FileFormatCS:2001",
-      JPEG_IMAGE_CS_VALUE = FILE_FORMAT_CS + ":1",
-      PNG_IMAGE_CS_VALUE =  FILE_FORMAT_CS + ":15";
-
-const JPEG_MIME = "image/jpeg", 
-      PNG_MIME =  "image/png",
-      DVB_AIT =   "application/vnd.dvb.ait+xml";
-
-// A177 table 15
-const DVB_SOURCE_PREFIX = "urn:dvb:metadata:source",
-      DVBT_SOURCE_TYPE = DVB_SOURCE_PREFIX + ":dvb-t",
-      DVBS_SOURCE_TYPE = DVB_SOURCE_PREFIX + ":dvb-s",
-      DVBC_SOURCE_TYPE = DVB_SOURCE_PREFIX + ":dvb-c",
-      DVBIPTV_SOURCE_TYPE = DVB_SOURCE_PREFIX + ":dvb-iptv",
-      DVBDASH_SOURCE_TYPE = DVB_SOURCE_PREFIX + ":dvb-dash",
-      DVBAPPLICATION_SOURCE_TYPE = DVB_SOURCE_PREFIX + ":application";
-
-// A177 7.3.2
-const LINKED_APLICATION_CS = "urn:dvb:metadata:cs:LinkedApplicationCS:2019",
-      APP_IN_PARALLEL = LINKED_APLICATION_CS+":1.1",
-      APP_IN_CONTROL  = LINKED_APLICATION_CS+":1.2",
-      APP_OUTSIDE_AVAILABILITY = LINKED_APLICATION_CS+":2";
-
-// A177 7.3.1
-const DVB_RELATED_CS_v1 = "urn:dvb:metadata:cs:HowRelatedCS:2019",
-      BANNER_OUTSIDE_AVAILABILITY_v1 = DVB_RELATED_CS_v1+":1000.1",
-      LOGO_SERVICE_LIST_v1 = DVB_RELATED_CS_v1+":1001.1",
-      LOGO_SERVICE_v1 = DVB_RELATED_CS_v1+":1001.2",
-      LOGO_CG_PROVIDER_v1 = DVB_RELATED_CS_v1+":1002.1";
-
-// A177 7.3.1
-const DVB_RELATED_CS_v2 = "urn:dvb:metadata:cs:HowRelatedCS:2020",
-      BANNER_OUTSIDE_AVAILABILITY_v2 = DVB_RELATED_CS_v2+":1000.1",
-	  BANNER_CONTENT_FINISHED_v2 = DVB_RELATED_CS_v2+":1000.2",	// added in A177v2
-      LOGO_SERVICE_LIST_v2 = DVB_RELATED_CS_v2+":1001.1",
-      LOGO_SERVICE_v2 = DVB_RELATED_CS_v2+":1001.2",
-      LOGO_CG_PROVIDER_v2 = DVB_RELATED_CS_v2+":1002.1";
-
-// A177 5.2.7.2
-const CONTENT_TYPE_DASH_MPD = "application/dash+xml",    // MPD of linear service
-      CONTENT_TYPE_DVB_PLAYLIST = "application/xml";    // XML Playlist
-      
 const SERVICE_LIST_RM = "service list",
       SERVICE_RM = "service",
       CONTENT_GUIDE_RM = "content guide";
@@ -143,7 +106,7 @@ var TVAschema, MPEG7schema, XMLschema;
 
 //const allowed_arguments = ["serviceList", ];
 
-const MAX_SUBREGION_LEVELS=3; // definied for <RegionElement> in Table 33 of A177
+
 
 const SCHEMA_v1 = 1,
       SCHEMA_v2 = 2,
@@ -156,43 +119,12 @@ const SCHEMA_v1 = 1,
  * @return {Integer} representation of the schema version or error code if unknown 
  */
 function SchemaVersion(namespace) {
-	if (namespace == A177v1_Namespace)
+	if (namespace == dvbi.A177v1_Namespace)
 		return SCHEMA_v1;
-	else if (namespace == A177v2_Namespace)
+	else if (namespace == dvbi.A177v2_Namespace)
 		return SCHEMA_v2;
 
 	return SCHEMA_unknown;
-}
-
-class ErrorList {
-/**
- * Manages errors and warnings for the application
- * 
- */
-    counts=[]; messages=[]; countsWarn=[]; messagesWarn=[];
-    
-    increment(key) {
-        if (this.counts[key]===undefined)
-            this.set(key,1);
-        else this.counts[key]++;
-    }
-    set(key,value) {
-        this.counts[key]=value;
-    }
-    incrementW(key) {
-        if (this.countsWarn[key]===undefined)
-            this.setW(key,1);
-        else this.countsWarn[key]++;
-    }
-    setW(key,value) {
-        this.countsWarn[key]=value;
-    }
-    push(message) {
-        this.messages.push(message);
-    }
-    pushW(message) {
-        this.messagesWarn.push(message);
-    }
 }
 
 
@@ -245,98 +177,6 @@ function HTMLize(str) {
 	return str.replace(/</g,"&lt;").replace(/>/g,"&gt;");              
 }
 
-
-/**
- * Constructs a linear list of terms from a heirarical clssification schemes which are read from an XML document and parsed by libxmljs
- *
- * @param {Array} values The array to push classification scheme values into
- * @param {String} CSuri The classification scheme domian
- * @param {Object} term The classification scheme term that may include nested subterms
- */
-function addCSTerm(values,CSuri,term){
-    if (term.name()==="Term") {
-        values.push(CSuri+":"+term.attr("termID").value())
-        var st=0, subTerm;
-        while (subTerm=term.child(st)) {
-            addCSTerm(values,CSuri,subTerm);
-            st++;
-        }
-    }
-}
-
-
-
-/**
- * load the hierarical values from an XML classification scheme document into a linear list 
- *
- * @param {Array} values The linear list of values within the classification scheme
- * @param {String} xmlCS the XML document  of the classification scheme
- */
-function loadClassificationScheme(values, xmlCS) {
-	if (!xmlCS) return;
-	var CSnamespace = xmlCS.root().attr("uri");
-	if (!CSnamespace) return;
-	var t=0, term;
-	while (term=xmlCS.root().child(t)) {
-		addCSTerm(values,CSnamespace.value(),term);
-		t++;
-	}
-}
-
-/**
- * read a classification scheme from a local file and load its hierarical values into a linear list 
- *
- * @param {Array} values The linear list of values within the classification scheme
- * @param {String} classificationScheme the filename of the classification scheme
- */
-function loadCSfromFile(values, classificationScheme) {
-	console.log("reading CS from", classificationScheme);
-    fs.readFile(classificationScheme, {encoding: "utf-8"}, function(err,data){
-        if (!err) {
-			loadClassificationScheme(values, libxml.parseXmlString(data.replace(/(\r\n|\n|\r|\t)/gm,"")));
-        } else {
-            console.log(err);
-        }
-    });
-}
-
-
-/**
- * read a classification scheme from a URL and load its hierarical values into a linear list 
- *
- * @param {Array} values The linear list of values within the classification scheme
- * @param {String} csURL URL to the classification scheme
- */
-function loadCSfromURL(values, csURL) { 
-	console.log("retrieving CS from", csURL);
-	var xhttp = new XmlHttpRequest();
-	xhttp.onreadystatechange = function() {
-		if (this.readyState == 4) {
-			if (this.status == 200) {
-				loadClassificationScheme(values, libxml.parseXmlString(xhttp.responseText));
-			}
-			else console.log("error ("+this.status+") retrieving "+csURL);	
-		}
-	};
-	xhttp.open("GET", csURL, true);
-	xhttp.send();
-} 
- 
-/**
- * loads classification scheme values from either a local file or an URL based location
- *
- * @param {Array} values The linear list of values within the classification scheme
- * @param {boolean} useURL if true use the URL loading method else use the local file
- * @param {String} CSfilename the filename of the classification scheme
- * @param {String} CSurl URL to the classification scheme
- * 
- */ 
-function loadCS(values, useURL, CSfilename, CSurl) {
-	if (useURL)
-		loadCSfromURL(values,CSurl);
-	else loadCSfromFile(values, CSfilename);	
-} 
- 
 
 /**
  * determine if the argument contains a valid ISO 3166 country code
@@ -534,42 +374,6 @@ function loadDataFiles(useURLs) {
 
 
 
-
-/**
- * determines if the value is a valid JPEG MIME type
- *
- * @param {String} val the MIME type
- * @return {boolean} true is the MIME type represents a JPEG image, otherwise false
- */
-function isJPEGmime(val) {
-	return val==JPEG_MIME
-}
-
-/**
- * determines if the value is a valid PNG MIME type
- *
- * @param {String} val the MIME type
- * @return {boolean} true is the MIME type represents a PNG image, otherwise false
- */
-function isPNGmime(val) {
-	return val==PNG_MIME 
-}
-
-/**
- * determine if the passed value conforms to am IETF RFC4151 TAG URI
- *
- * @param {string} identifier The service identifier to be checked
- * @return {boolean} true of the service identifier is in RFC4151 TAG URI format
- */
-function isTAGURI(identifier){
-    // RFC 4151 compliant - https://tools.ietf.org/html/rfc4151
-    // tagURI = "tag:" taggingEntity ":" specific [ "#" fragment ]
-
-    var TAGregex=/tag:(([\dA-Za-z\-\._]+@)?[\dA-Za-z][\dA-Za-z\-]*[\dA-Za-z]*(\.[\dA-Za-z][\dA-Za-z\-]*[\dA-Za-z]*)*),\d{4}(\-\d{2}(\-\d{2})?)?:(['A-Za-z\d\-\._~!$&\(\)\*\+,;=:@\?/]|%[0-9A-Fa-f]{2})*(#(['A-Za-z0-9\-\._~!$&\(\)\*\+,;=:@\?/]|%[0-9A-Fa-f]{2})*)?/g;
-    var s=identifier.match(TAGregex);
-    return s?s[0] === identifier:false;
-}
-
 /** 
  * determines if the identifer provided complies with the requirements for a service identifier
  * at this stage only IETF RFC 4151 TAG URIs are permitted
@@ -616,8 +420,8 @@ function addRegion(Region, depth, knownRegionIDs, errs) {
         });
     }
 
-    if (depth > MAX_SUBREGION_LEVELS) {
-        errs.push("<Region> depth exceeded (>"+MAX_SUBREGION_LEVELS+") for sub-region \""+regionID+"\"");
+    if (depth > dvbi.MAX_SUBREGION_LEVELS) {
+        errs.push("<Region> depth exceeded (>"+dvbi.MAX_SUBREGION_LEVELS+") for sub-region \""+regionID+"\"");
         errs.increment("region depth exceeded");
     }
 
@@ -641,9 +445,9 @@ function validServiceApplication(HowRelated) {
     // return true if val is a valid CS value for Service Related Applications (A177 5.2.3)
     // urn:dvb:metadata:cs:LinkedApplicationCS:2019
     var val= HowRelated.attr("href") ? HowRelated.attr("href").value() : null;
-    return val==APP_IN_PARALLEL
-        || val==APP_IN_CONTROL
-        || val==APP_OUTSIDE_AVAILABILITY;
+    return val==dvbi.APP_IN_PARALLEL
+        || val==dvbi.APP_IN_CONTROL
+        || val==dvbi.APP_OUTSIDE_AVAILABILITY;
 }
 
 /** 
@@ -654,8 +458,8 @@ function validServiceApplication(HowRelated) {
  */
 function validDASHcontentType(contentType) {
     // per A177 clause 5.2.7.2
-    return contentType==CONTENT_TYPE_DASH_MPD   
-        || contentType==CONTENT_TYPE_DVB_PLAYLIST;
+    return contentType==dvbi.CONTENT_TYPE_DASH_MPD   
+        || contentType==dvbi.CONTENT_TYPE_DVB_PLAYLIST;
 }
 
 /** 
@@ -668,8 +472,8 @@ function validDASHcontentType(contentType) {
 function validOutScheduleHours(HowRelated, namespace) {
     // return true if val is a valid CS value for Out of Service Banners (A177 5.2.5.3)
     var val= HowRelated.attr("href") ? HowRelated.attr("href").value() : null;
-    return (SchemaVersion(namespace)==SCHEMA_v1 && val==BANNER_OUTSIDE_AVAILABILITY_v1)
-		|| (SchemaVersion(namespace)==SCHEMA_v2 && val==BANNER_OUTSIDE_AVAILABILITY_v2);
+    return (SchemaVersion(namespace)==SCHEMA_v1 && val==dvbi.BANNER_OUTSIDE_AVAILABILITY_v1)
+		|| (SchemaVersion(namespace)==SCHEMA_v2 && val==dvbi.BANNER_OUTSIDE_AVAILABILITY_v2);
 }
 
 /** 
@@ -683,7 +487,7 @@ function validOutScheduleHours(HowRelated, namespace) {
 function validContentFinishedBanner(HowRelated, namespace) {
     // return true if val is a valid CS value for Content Finished Banner (A177 5.2.7.3)
     var val= HowRelated.attr("href") ? HowRelated.attr("href").value() : null;
-    return (SchemaVersion(namespace)==SCHEMA_v2 && val==BANNER_CONTENT_FINISHED_v2);
+    return (SchemaVersion(namespace)==SCHEMA_v2 && val==dvbi.BANNER_CONTENT_FINISHED_v2);
 }
 
 /** 
@@ -696,8 +500,8 @@ function validContentFinishedBanner(HowRelated, namespace) {
 function validServiceListLogo(HowRelated, namespace) {
     // return true if val is a valid CS value Service List Logo (A177 5.2.6.1)
     var val= HowRelated.attr("href") ? HowRelated.attr("href").value() : null;
-	return (SchemaVersion(namespace)==SCHEMA_v1 && val==LOGO_SERVICE_LIST_v1)
-		|| (SchemaVersion(namespace)==SCHEMA_v2 && val==LOGO_SERVICE_LIST_v2);
+	return (SchemaVersion(namespace)==SCHEMA_v1 && val==dvbi.LOGO_SERVICE_LIST_v1)
+		|| (SchemaVersion(namespace)==SCHEMA_v2 && val==dvbi.LOGO_SERVICE_LIST_v2);
 }
 
 /** 
@@ -710,8 +514,8 @@ function validServiceListLogo(HowRelated, namespace) {
 function validServiceLogo(HowRelated, namespace) {
     // return true if val is a valid CS value Service Logo (A177 5.2.6.2)
 	var val= HowRelated.attr("href") ? HowRelated.attr("href").value() : null;
-    return (SchemaVersion(namespace)==SCHEMA_v1 && val==LOGO_SERVICE_v1)
-		|| (SchemaVersion(namespace)==SCHEMA_v2 && val==LOGO_SERVICE_v2);
+    return (SchemaVersion(namespace)==SCHEMA_v1 && val==dvbi.LOGO_SERVICE_v1)
+		|| (SchemaVersion(namespace)==SCHEMA_v2 && val==dvbi.LOGO_SERVICE_v2);
 }
 
 /** 
@@ -724,8 +528,8 @@ function validServiceLogo(HowRelated, namespace) {
 function validContentGuideSourceLogo(HowRelated, namespace) {
     // return true if val is a valid CS value Service Logo (A177 5.2.6.3)
     var val= HowRelated.attr("href") ? HowRelated.attr("href").value() : null;
-    return (SchemaVersion(namespace)==SCHEMA_v1 && val==LOGO_CG_PROVIDER_v1)
-		|| (SchemaVersion(namespace)==SCHEMA_v2 && val==LOGO_CG_PROVIDER_v2);
+    return (SchemaVersion(namespace)==SCHEMA_v1 && val==dvbi.LOGO_CG_PROVIDER_v1)
+		|| (SchemaVersion(namespace)==SCHEMA_v2 && val==dvbi.LOGO_CG_PROVIDER_v2);
 }
 
 
@@ -764,11 +568,11 @@ function checkValidLogo(HowRelated,Format,MediaLocator,errs,Location,LocationTyp
                 }
                 if (child.attr("href")) {
                     var href=child.attr("href").value();
-                    if (href != JPEG_IMAGE_CS_VALUE && href != PNG_IMAGE_CS_VALUE) {
+                    if (href != dvbi.JPEG_IMAGE_CS_VALUE && href != dvbi.PNG_IMAGE_CS_VALUE) {
 						InvalidHrefValue(errs, href, "<RelatedMaterial><Format><StillPictureFormat>", Location)
                     }
-                    if (href == JPEG_IMAGE_CS_VALUE) isJPEG=true;
-                    if (href == PNG_IMAGE_CS_VALUE) isPNG=true;
+                    if (href == dvbi.JPEG_IMAGE_CS_VALUE) isJPEG=true;
+                    if (href == dvbi.PNG_IMAGE_CS_VALUE) isPNG=true;
                 }
                 else {
 					NoHrefAttribute(errs, "<RelatedMaterial><Format>", Location);
@@ -839,7 +643,7 @@ function checkSignalledApplication(HowRelated,Format,MediaLocator,errs,Location,
                     errs.increment("unspecified MediaUri@contentType");
                 }
                 else {
-                    if (child.attr("contentType").value()!=DVB_AIT) {
+                    if (child.attr("contentType").value()!=dvbi.XML_AIT_CONTENT_TYPE) {
                         errs.pushW("@contentType \""+child.attr("contentType").value()+"\" is not DVB AIT for <RelatedMaterial><MediaLocator> in "+Location);
                         errs.incrementW("invalid MediaUri@contentType");
                     }
@@ -895,7 +699,7 @@ function validateRelatedMaterial(RelatedMaterial,errs,Location,LocationType,SCHE
 		}
 		if (LocationType==SERVICE_RM) {
 			if (validContentFinishedBanner(HowRelated, SCHEMA_NAMESPACE) && (SchemaVersion(SCHEMA_NAMESPACE) == SCHEMA_v1)) {
-				errs.push("\""+BANNER_CONTENT_FINISHED_v2 +"\" not permitted for \""+SCHEMA_NAMESPACE+"\" in "+Location);
+				errs.push("\""+dvbi.BANNER_CONTENT_FINISHED_v2 +"\" not permitted for \""+SCHEMA_NAMESPACE+"\" in "+Location);
 				errs.increment("invalid CS value");					
 			}
 			
@@ -1411,32 +1215,32 @@ function validateServiceList(SLtext, errs) {
 			var SourceType = ServiceInstance.get(SCHEMA_PREFIX+":SourceType", SL_SCHEMA);
 			if (SourceType) {
 				switch (SourceType.text()) {
-					case DVBT_SOURCE_TYPE:
+					case dvbi.DVBT_SOURCE_TYPE:
 						if (!ServiceInstance.get(SCHEMA_PREFIX+":DVBTDeliveryParameters", SL_SCHEMA) ) {
 							NoDeliveryParams(errs, "DVB-T", thisServiceId);
 						}
 						break;
-					case DVBS_SOURCE_TYPE:
+					case dvbi.DVBS_SOURCE_TYPE:
 						if (!ServiceInstance.get(SCHEMA_PREFIX+":DVBSDeliveryParameters", SL_SCHEMA) ) {
 							NoDeliveryParams(errs, "DVB-S", thisServiceId);
 						}
 						break;
-					case DVBC_SOURCE_TYPE:
+					case dvbi.DVBC_SOURCE_TYPE:
 						if (!ServiceInstance.get(SCHEMA_PREFIX+":DVBCDeliveryParameters", SL_SCHEMA) ) {
 							NoDeliveryParams(errs, "DVB-C", thisServiceId);
 						}
 						break;
-					case DVBDASH_SOURCE_TYPE:
+					case dvbi.DVBDASH_SOURCE_TYPE:
 						if (!ServiceInstance.get(SCHEMA_PREFIX+":DASHDeliveryParameters", SL_SCHEMA) ) {
 							NoDeliveryParams(errs, "DVB-DASH", thisServiceId);
 						}
 						break;
-					case DVBIPTV_SOURCE_TYPE:
+					case dvbi.DVBIPTV_SOURCE_TYPE:
 						if (!ServiceInstance.get(SCHEMA_PREFIX+":MulticastTSDeliveryParameters", SL_SCHEMA) && !ServiceInstance.get(SCHEMA_PREFIX+":RTSPDeliveryParameters", SL_SCHEMA) ) {
 							NoDeliveryParams(errs, "Multicast or RTSP", thisServiceId);
 						}
 						break;
-					case DVBAPPLICATION_SOURCE_TYPE:
+					case dvbi.DVBAPPLICATION_SOURCE_TYPE:
 						// there should not be any <xxxxDeliveryParameters> elements and there should be either a Service.RelatedMaterial or Service.ServiceInstance.RelatedMaterial signalling a service related application
 						if (ServiceInstance.get(SCHEMA_PREFIX+":DVBTDeliveryParameters", SL_SCHEMA)
 							|| ServiceInstance.get(SCHEMA_PREFIX+":DVBSDeliveryParameters", SL_SCHEMA)
@@ -1452,7 +1256,7 @@ function validateServiceList(SLtext, errs) {
 								// check for appropriate Service.RelatedMaterial or Service.ServiceInstance.RelatedMaterial
 								if (!hasSignalledApplication(service, SCHEMA_PREFIX, SL_SCHEMA) 
 									&& !hasSignalledApplication(ServiceInstance, SCHEMA_PREFIX, SL_SCHEMA)) {
-									errs.push("No Application is signalled for SourceType=\""+DVBAPPLICATION_SOURCE_TYPE+"\" in Service \""+thisServiceId+"\".");
+									errs.push("No Application is signalled for SourceType=\""+dvbi.DVBAPPLICATION_SOURCE_TYPE+"\" in Service \""+thisServiceId+"\".");
 									errs.increment("no application");
 								}
 							}
