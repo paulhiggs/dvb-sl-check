@@ -49,40 +49,37 @@ const { parse } = require("querystring");
 var sprintf = require("sprintf-js").sprintf,
     vsprintf = require("sprintf-js").vsprintf
 
-
-
-const dirCS = "cs",
-      TVA_ContentCSFilename=path.join(dirCS,"ContentCS.xml"),
-      TVA_FormatCSFilename=path.join(dirCS,"FormatCS.xml"),
-      DVBI_ContentSubjectFilename=path.join(dirCS,"DVBContentSubjectCS-2019.xml"),
-      DVBI_ServiceTypeCSFilename=path.join(dirCS,"DVBServiceTypeCS-2019.xml"),
-      DVB_AudioCodecCSFilename=path.join(dirCS,"AudioCodecCS.xml"),
-      DVB_VideoCodecCSFilename=path.join(dirCS,"VideoCodecCS.xml"),
-      MPEG7_AudioCodingFormatCSFilename=path.join(dirCS,"AudioCodingFormatCS.xml"),
-      MPEG7_VisualCodingFormatCSFilename=path.join(dirCS,"VisualCodingFormatCS.xml"),
-      DVB_AudioConformanceCSFilename=path.join(dirCS,"AudioConformancePointsCS.xml"),
-      DVB_VideoConformanceCSFilename=path.join(dirCS,"VideoConformancePointsCS.xml"),
+const TVA_ContentCSFilename=path.join("dvb-common/tva","ContentCS.xml"),
+      TVA_FormatCSFilename=path.join("dvb-common/tva","FormatCS.xml"),
+      DVBI_ContentSubjectFilename=path.join("dvb-common/dvbi","DVBContentSubjectCS-2019.xml"),
+      DVBI_ServiceTypeCSFilename=path.join("dvb-common/dvbi","DVBServiceTypeCS-2019.xml"),
+      DVB_AudioCodecCSFilename=path.join("dvb-common/dvb","AudioCodecCS.xml"),
+      DVB_VideoCodecCSFilename=path.join("dvb-common/dvb","VideoCodecCS.xml"),
+      MPEG7_AudioCodingFormatCSFilename=path.join("dvb-common/tva","AudioCodingFormatCS.xml"),
+      MPEG7_VisualCodingFormatCSFilename=path.join("dvb-common/tva","VisualCodingFormatCS.xml"),
+      DVB_AudioConformanceCSFilename=path.join("dvb-common/dvb","AudioConformancePointsCS.xml"),
+      DVB_VideoConformanceCSFilename=path.join("dvb-common/dvb","VideoConformancePointsCS.xml"),
       ISO3166_Filename=path.join("dvb-common","iso3166-countries.json"),
-      DVBI_RecordingInfoCSFilename=path.join(dirCS,"DVBRecordingInfoCS-2019.xml");
+      DVBI_RecordingInfoCSFilename=path.join("dvb-common/dvbi","DVBRecordingInfoCS-2019.xml");
 
 // curl from https://www.iana.org/assignments/language-subtag-registry/language-subtag-registry
 const IANA_Subtag_Registry_Filename=path.join(".","language-subtag-registry");
 const IANA_Subtag_Registry_URL="https://www.iana.org/assignments/language-subtag-registry/language-subtag-registry";
 
-const REPO_RAW = "https://raw.githubusercontent.com/paulhiggs/dvb-sl-check/master/",
+const COMMON_REPO_RAW = "https://raw.githubusercontent.com/paulhiggs/dvb-common/master/",
       DVB_METADATA = "https://dvb.org/metadata/",
-      TVA_ContentCSURL=REPO_RAW + "cs/" + "ContentCS.xml",
-      TVA_FormatCSURL=REPO_RAW + "cs/" + "FormatCS.xml",
-      DVBI_ContentSubjectURL=REPO_RAW + "cs/" + "DVBContentSubjectCS-2019.xml",
-      DVBI_ServiceTypeCSURL=REPO_RAW + "cs/" + "DVBServiceTypeCS-2019.xml",
+      TVA_ContentCSURL=COMMON_REPO_RAW + "tva/" + "ContentCS.xml",
+      TVA_FormatCSURL=COMMON_REPO_RAW + "tva/" + "FormatCS.xml",
+      DVBI_ContentSubjectURL=COMMON_REPO_RAW + "dvbi/" + "DVBContentSubjectCS-2019.xml",
+      DVBI_ServiceTypeCSURL=COMMON_REPO_RAW + "dvbi/" + "DVBServiceTypeCS-2019.xml",
       DVB_AudioCodecCSURL=DVB_METADATA + "cs/2007/" + "AudioCodecCS.xml",
       DVB_VideoCodecCSURL=DVB_METADATA + "cs/2007/" + "VideoCodecCS.xml",
-      MPEG7_AudioCodingFormatCSURL=REPO_RAW + "cs/" + "AudioCodingFormatCS.xml",
-      MPEG7_VisualCodingFormatCSURL=REPO_RAW + "cs/" + "VisualCodingFormatCS.xml",
+      MPEG7_AudioCodingFormatCSURL=COMMON_REPO_RAW + "tva/" + "AudioCodingFormatCS.xml",
+      MPEG7_VisualCodingFormatCSURL=COMMON_REPO_RAW + "tva/" + "VisualCodingFormatCS.xml",
       DVB_AudioConformanceCSURL=DVB_METADATA + "cs/2017/" + "AudioConformancePointsCS.xml",
       DVB_VideoConformanceCSURL=DVB_METADATA + "cs/2017/" + "VideoConformancePointsCS.xml",
-      ISO3166_URL=REPO_RAW + "iso3166-countries.json",
-	  DVBI_RecordingInfoCSURL=REPO_RAW + "cs/" + "DVBRecordingInfoCS-2019.xml";
+      ISO3166_URL=COMMON_REPO_RAW + "iso3166-countries.json",
+	  DVBI_RecordingInfoCSURL=COMMON_REPO_RAW + "dvbi/" + "DVBRecordingInfoCS-2019.xml";
 
 const SERVICE_LIST_RM = "service list",
       SERVICE_RM = "service",

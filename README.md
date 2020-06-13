@@ -47,7 +47,7 @@ Checks performed:
 
 
 ## Installation
-1. Clone this repository `git clone https://github.com/paulhiggs/dvb-sl-check.git --recurse-submodules`
+1. Clone this repository `git clone --recurse-submodules https://github.com/paulhiggs/dvb-sl-check.git`
 1. Install necessary libraries (express, libxmljs, morgan)  `npm install`
 1. run it - `node app [--urls]`
 
