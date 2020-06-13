@@ -62,7 +62,7 @@ const dirCS = "cs",
       MPEG7_VisualCodingFormatCSFilename=path.join(dirCS,"VisualCodingFormatCS.xml"),
       DVB_AudioConformanceCSFilename=path.join(dirCS,"AudioConformancePointsCS.xml"),
       DVB_VideoConformanceCSFilename=path.join(dirCS,"VideoConformancePointsCS.xml"),
-      ISO3166_Filename=path.join(".","iso3166-countries.json"),
+      ISO3166_Filename=path.join("dvb-common","iso3166-countries.json"),
       DVBI_RecordingInfoCSFilename=path.join(dirCS,"DVBRecordingInfoCS-2019.xml");
 
 // curl from https://www.iana.org/assignments/language-subtag-registry/language-subtag-registry
@@ -89,7 +89,7 @@ const SERVICE_LIST_RM = "service list",
       CONTENT_GUIDE_RM = "content guide";
 
 var allowedGenres=[], allowedServiceTypes=[], allowedAudioSchemes=[], allowedVideoSchemes=[], 
-    /*allowedCountries=[], */ knownLanguages=[],
+    knownLanguages=[],
 	allowedAudioConformancePoints=[], allowedVideoConformancePoints=[], RecordingInfoCSvalules=[];
 
 var knownCountries = new ISOcountries();
@@ -180,85 +180,7 @@ function HTMLize(str) {
 }
 
 
-/**
- * determine if the argument contains a valid ISO 3166 country code
- *
- * @param {String} countryCode the country code to be checked for validity
- * @return {boolean} true if countryCode is known else false
- */
-/*)
-function isISO3166code(countryCode) {
-    if (countryCode.length!=3) {
-        return false;
-    }
-    var found=false;
-    allowedCountries.forEach(country => {
-        if (countryCode==country.alpha3) found=true;
-    });
-    return found;
-}
-*/
 
-
-/**
- * load the countries list into the allowedCountries global array from the specified text
- *
- * @param {String} countryData the text of the country JSON data
- */
- /*
-function loadCountries(countryData) {
-	allowedCountries = JSON.parse(countryData, function (key, value) {
-		if (key == "numeric") {
-			return new Number(value);
-		} else if (key == "alpha2") {
-			if (value.length!=2) return "**"; else return value;
-		} else if (key == "alpha3") {
-			if (value.length!=3) return "***"; else return value;
-		}
-		else {
-			return value;
-		}
-	});
-}
-*/
-/**
- * load the countries list into the allowedCountries global array from the specified JSON file
- *
- * @param {String} countriesFile the file name to load
- */
- /*
-function loadCountriesFromFile(countriesFile) {
-	console.log("reading countries from", countriesFile);
-    fs.readFile(countriesFile, {encoding: "utf-8"}, function(err,data){
-        if (!err) {
-			loadCountries(data);
-        } else {
-            console.log(err);
-        }
-    });
-}
-*/
-/**
- * load the countries list into the allowedCountries global array from the specified JSON file
- *
- * @param {String} countriesURL the URL to the file to load
- */
- /*
-function loadCountriesFromURL(countriesURL) {
-	console.log("retrieving countries from", countriesURL);
-	var xhttp = new XmlHttpRequest();
-	xhttp.onreadystatechange = function() {
-		if (this.readyState == 4) {
-			if (this.status == 200) {
-				loadCountries(xhttp.responseText);
-			}
-			else console.log("error ("+this.status+") retrieving "+countriesURL);	
-		}
-	};
-	xhttp.open("GET", countriesURL, true);
-	xhttp.send();	
-}
-*/
 /**
  * load the languages into knownLanguages global array from the specified text
  * file is formatted according to www.iana.org/assignments/language-subtag-registry/language-subtag-registry
@@ -354,12 +276,7 @@ function loadDataFiles(useURLs) {
 
 	RecordingInfoCSvalules=[];
 	loadCS(RecordingInfoCSvalules, useURLs, DVBI_RecordingInfoCSFilename, DVBI_RecordingInfoCSURL);
-/*
-	allowedCountries=[];
-	if (useURLs) 
-		loadCountriesFromURL(ISO3166_URL);
-	else loadCountriesFromFile(ISO3166_Filename);
-*/	
+	
 	knownCountries.reset();
 	if (useURLs) 
 		knownCountries.loadCountriesFromURL(ISO3166_URL);
