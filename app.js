@@ -13,6 +13,7 @@ const dvbi = require("./dvb-common/DVB-I_definitions.js");
 const {isJPEGmime, isPNGmime} = require("./dvb-common/MIME_checks.js");
 const {isTAGURI} = require("./dvb-common/URI_checks.js");
 const {loadCS} = require("./dvb-common/CS_handler.js");
+const ISOcountries = require("./dvb-common/ISOcountries.js");
 
 
 
@@ -88,9 +89,10 @@ const SERVICE_LIST_RM = "service list",
       CONTENT_GUIDE_RM = "content guide";
 
 var allowedGenres=[], allowedServiceTypes=[], allowedAudioSchemes=[], allowedVideoSchemes=[], 
-    allowedCountries=[], knownLanguages=[],
+    /*allowedCountries=[], */ knownLanguages=[],
 	allowedAudioConformancePoints=[], allowedVideoConformancePoints=[], RecordingInfoCSvalules=[];
 
+var knownCountries = new ISOcountries();
 
 /*
 //TODO: validation against schema
@@ -184,6 +186,7 @@ function HTMLize(str) {
  * @param {String} countryCode the country code to be checked for validity
  * @return {boolean} true if countryCode is known else false
  */
+/*)
 function isISO3166code(countryCode) {
     if (countryCode.length!=3) {
         return false;
@@ -194,7 +197,7 @@ function isISO3166code(countryCode) {
     });
     return found;
 }
-
+*/
 
 
 /**
@@ -202,6 +205,7 @@ function isISO3166code(countryCode) {
  *
  * @param {String} countryData the text of the country JSON data
  */
+ /*
 function loadCountries(countryData) {
 	allowedCountries = JSON.parse(countryData, function (key, value) {
 		if (key == "numeric") {
@@ -216,12 +220,13 @@ function loadCountries(countryData) {
 		}
 	});
 }
-
+*/
 /**
  * load the countries list into the allowedCountries global array from the specified JSON file
  *
  * @param {String} countriesFile the file name to load
  */
+ /*
 function loadCountriesFromFile(countriesFile) {
 	console.log("reading countries from", countriesFile);
     fs.readFile(countriesFile, {encoding: "utf-8"}, function(err,data){
@@ -232,12 +237,13 @@ function loadCountriesFromFile(countriesFile) {
         }
     });
 }
-
+*/
 /**
  * load the countries list into the allowedCountries global array from the specified JSON file
  *
  * @param {String} countriesURL the URL to the file to load
  */
+ /*
 function loadCountriesFromURL(countriesURL) {
 	console.log("retrieving countries from", countriesURL);
 	var xhttp = new XmlHttpRequest();
@@ -252,7 +258,7 @@ function loadCountriesFromURL(countriesURL) {
 	xhttp.open("GET", countriesURL, true);
 	xhttp.send();	
 }
-
+*/
 /**
  * load the languages into knownLanguages global array from the specified text
  * file is formatted according to www.iana.org/assignments/language-subtag-registry/language-subtag-registry
@@ -348,11 +354,16 @@ function loadDataFiles(useURLs) {
 
 	RecordingInfoCSvalules=[];
 	loadCS(RecordingInfoCSvalules, useURLs, DVBI_RecordingInfoCSFilename, DVBI_RecordingInfoCSURL);
-
+/*
 	allowedCountries=[];
 	if (useURLs) 
 		loadCountriesFromURL(ISO3166_URL);
 	else loadCountriesFromFile(ISO3166_Filename);
+*/	
+	knownCountries.reset();
+	if (useURLs) 
+		knownCountries.loadCountriesFromURL(ISO3166_URL);
+	else knownCountries.loadCountriesFromFile(ISO3166_Filename);
 	
 	knownLanguages=[];
 	if (useURLs) 
@@ -413,7 +424,7 @@ function addRegion(Region, depth, knownRegionIDs, errs) {
     if (countryCodeSpecified) {
         var countries=countryCodeSpecified.value().split(",");
         if (countries) countries.forEach(country => {
-            if (!isISO3166code(country)) {
+            if (!knownCountries.isISO3166code(country)) {
                 errs.push("invalid country code ("+country+") for region \""+regionID+"\"");
                 errs.increment("invalid country code");
             }
@@ -1304,14 +1315,14 @@ function validateServiceList(SLtext, errs) {
 
 			var DVBTtargetCountry = ServiceInstance.get(SCHEMA_PREFIX+":DVBTDeliveryParameters/"+SCHEMA_PREFIX+":TargetCountry", SL_SCHEMA);
 			if (DVBTtargetCountry) {
-				if (!isISO3166code(DVBTtargetCountry.text())) {
+				if (!knownCountries.isISO3166code(DVBTtargetCountry.text())) {
 					InvalidCountryCode(errs, DVBTtargetCountry.text(), "DVB-T", "service \""+thisServiceId+"\"");
 				}
 			}
 
 			var DVBCtargetCountry = ServiceInstance.get(SCHEMA_PREFIX+":DVBCDeliveryParameters/"+SCHEMA_PREFIX+":TargetCountry", SL_SCHEMA);
 			if (DVBCtargetCountry) {
-				if (!isISO3166code(DVBCtargetCountry.text())) { 
+				if (!knownCountries.isISO3166code(DVBCtargetCountry.text())) { 
 					InvalidCountryCode(errs, DVBCtargetCountry.text(), "DVB-C", "service \""+thisServiceId+"\"");
 				}
 			}
