@@ -89,7 +89,7 @@ var allowedGenres=[], allowedServiceTypes=[], allowedAudioSchemes=[], allowedVid
     knownLanguages=[],
 	allowedAudioConformancePoints=[], allowedVideoConformancePoints=[], RecordingInfoCSvalules=[];
 
-var knownCountries = new ISOcountries();
+var knownCountries = new ISOcountries(false, true);
 
 /*
 //TODO: validation against schema
@@ -274,10 +274,9 @@ function loadDataFiles(useURLs) {
 	RecordingInfoCSvalules=[];
 	loadCS(RecordingInfoCSvalules, useURLs, DVBI_RecordingInfoCSFilename, DVBI_RecordingInfoCSURL);
 	
-	knownCountries.reset();
 	if (useURLs) 
-		knownCountries.loadCountriesFromURL(ISO3166_URL);
-	else knownCountries.loadCountriesFromFile(ISO3166_Filename);
+		knownCountries.loadCountriesFromURL(ISO3166_URL, true);
+	else knownCountries.loadCountriesFromFile(ISO3166_Filename, true);
 	
 	knownLanguages=[];
 	if (useURLs) 
