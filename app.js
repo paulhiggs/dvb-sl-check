@@ -13,8 +13,9 @@ const dvbi = require("./dvb-common/DVB-I_definitions.js");
 const {isJPEGmime, isPNGmime} = require("./dvb-common/MIME_checks.js");
 const {isTAGURI} = require("./dvb-common/URI_checks.js");
 const {loadCS} = require("./dvb-common/CS_handler.js");
-const ISOcountries = require("./dvb-common/ISOcountries.js");
 
+const ISOcountries = require("./dvb-common/ISOcountries.js");
+const IANAlanguages = require("./dvb-common/IANAlanguages.js");
 
 
 // libxmljs - https://github.com/libxmljs/libxmljs
@@ -63,7 +64,7 @@ const TVA_ContentCSFilename=path.join("dvb-common/tva","ContentCS.xml"),
       DVBI_RecordingInfoCSFilename=path.join("dvb-common/dvbi","DVBRecordingInfoCS-2019.xml");
 
 // curl from https://www.iana.org/assignments/language-subtag-registry/language-subtag-registry
-const IANA_Subtag_Registry_Filename=path.join(".","language-subtag-registry");
+const IANA_Subtag_Registry_Filename=path.join("./dvb-common","language-subtag-registry");
 const IANA_Subtag_Registry_URL="https://www.iana.org/assignments/language-subtag-registry/language-subtag-registry";
 
 const COMMON_REPO_RAW = "https://raw.githubusercontent.com/paulhiggs/dvb-common/master/",
@@ -86,10 +87,10 @@ const SERVICE_LIST_RM = "service list",
       CONTENT_GUIDE_RM = "content guide";
 
 var allowedGenres=[], allowedServiceTypes=[], allowedAudioSchemes=[], allowedVideoSchemes=[], 
-    knownLanguages=[],
 	allowedAudioConformancePoints=[], allowedVideoConformancePoints=[], RecordingInfoCSvalules=[];
 
 var knownCountries = new ISOcountries(false, true);
+var knownLanguages = new IANAlanguages();
 
 /*
 //TODO: validation against schema
@@ -178,61 +179,6 @@ function HTMLize(str) {
 
 
 
-/**
- * load the languages into knownLanguages global array from the specified text
- * file is formatted according to www.iana.org/assignments/language-subtag-registry/language-subtag-registry
- *
- * @param {String} languagesData the text of the language data
- */
-function loadLanguages(languageData) {
-	var entries = languageData.split("%%");
-	entries.forEach(entry => {
-		var i=0, items=entry.split("\n");
-		if (isIn(items,"Type: language") || isIn(items,"Type: extlang")) {
-			//found one
-			for (i=0; i<items.length; i++) {
-				if (items[i].startsWith("Subtag:")) {
-					knownLanguages.push(items[i].split(":")[1].trim());
-				}
-			}
-		}
-	});
-}
-
-/**
- * load the languages list into the knownLanguages global array from the specified file
- * file is formatted according to www.iana.org/assignments/language-subtag-registry/language-subtag-registry
- *
- * @param {String} languagesFile the file name to load
- */
-function loadLanguagesFromFile(languagesFile) {
-	console.log("reading languages from", languagesFile);
-    fs.readFile(languagesFile, {encoding: "utf-8"}, function(err,data){
-        if (!err) {
-			loadLanguages(data);
-		}
-	});
-}
-
-/**
- * load the languages list into the knownLanguages global array from the specified URL
- *
- * @param {String} languagesURL the URL to load
- */
-function loadLanguagesFromURL(languagesURL) {
-	console.log("retrieving languages from", languagesURL);
-	var xhttp = new XmlHttpRequest();
-	xhttp.onreadystatechange = function() {
-		if (this.readyState == 4) {
-			if (this.status == 200) {
-				loadLanguages(xhttp.responseText);
-			}
-			else console.log("error ("+this.status+") retrieving "+languagesURL);	
-		}
-	};
-	xhttp.open("GET", languagesURL, true);
-	xhttp.send();
-}
 
 
 /*
@@ -278,10 +224,9 @@ function loadDataFiles(useURLs) {
 		knownCountries.loadCountriesFromURL(ISO3166_URL, true);
 	else knownCountries.loadCountriesFromFile(ISO3166_Filename, true);
 	
-	knownLanguages=[];
 	if (useURLs) 
-		loadLanguagesFromURL(IANA_Subtag_Registry_URL);
-	else loadLanguagesFromFile(IANA_Subtag_Registry_Filename);
+		knownLanguages.loadLanguagesFromURL(IANA_Subtag_Registry_URL, true);
+	else knownLanguages.loadLanguagesFromFile(IANA_Subtag_Registry_Filename, true);
 /*
 //TODO: validation against schema
 	console.log("loading schemas...");
@@ -679,7 +624,7 @@ function checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, elementName, elementLocation, n
 
         //if lang is specified, validate the format and value of the attribute against BCP47 (RFC 5646)
 		if (lang != "missing") {
-			if (!isIn(knownLanguages, lang)) {
+			if (!knownLanguages.isKnown(lang)) {
 				errs.push("xml:lang value \""+lang+"\" is invalid");
                 errs.increment("invalid @xml:lang");
 			}
