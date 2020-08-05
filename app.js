@@ -1079,7 +1079,7 @@ function validateServiceList(SLtext, errs) {
 				}
 			}
 
-			// note that the <SourceType> element becomes optional in A177v2, but if specified then the relevant
+			// note that the <SourceType> element becomes optional and in A177v2, but if specified then the relevant
 			// delivery parameters also need to be specified
 			var SourceType = ServiceInstance.get(SCHEMA_PREFIX+":SourceType", SL_SCHEMA);
 			if (SourceType) {
@@ -1135,16 +1135,12 @@ function validateServiceList(SLtext, errs) {
 							errs.push("SourceType \""+SourceType.text()+"\" is not valid in Service \""+thisServiceId+"\".");
 							errs.increment("invalid SourceType");
 						}
-						else {
-							errs.pushW("Service \""+thisServiceId+"\" has a user defined SourceType \""+SourceType.text()+"\"");
-							errs.incrementW("user SourceType");
-						}
 				}
 			}
 			else {
 				// this should not happen as SourceType is a mandatory element within ServiceInstance
 				if (SchemaVersion(SCHEMA_NAMESPACE)==SCHEMA_v1) {
-					errs.push("SourceType not specifcied in ServiceInstance of service \""+thisServiceId+"\".");
+					errs.push("SourceType not specified in ServiceInstance of service \""+thisServiceId+"\".");
 					errs.increment("no SourceType");
 				}
 			}
@@ -1184,7 +1180,25 @@ function validateServiceList(SLtext, errs) {
 					InvalidCountryCode(errs, DVBCtargetCountry.text(), "DVB-C", "service \""+thisServiceId+"\"");
 				}
 			}
-
+			
+			// look for extensions to the DVB defined DeliveryParameters
+			var c=0, childDP;
+			while (child=ServiceInstance.child( c++ )) {
+				switch (child.name()) {
+					case "DVBCDeliveryParameters":
+					case "DVBTDeliveryParameters":
+					case "DVBSDeliveryParameters":
+					case "SATIPDeliveryParameters":
+					case "DASHDeliveryParameters":
+					case "RTSPDeliveryParameters":
+					case "MulticastTSDeliveryParameters":		
+						break;
+					default:
+						// this is an extended delivery parameters type
+				}
+				
+			}
+	
 			si++;  // next <ServiceInstance>
 		}
 
