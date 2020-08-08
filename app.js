@@ -403,6 +403,19 @@ function validContentGuideSourceLogo(HowRelated, namespace) {
 
 
 /**
+ * check if the argument is in the correct format for an DVB-I extension identifier
+ *
+ * @param {string} ext  the signalled extensionName
+ * @returns {boolean} true if the signalled extensionName is in the specification defined format, else false
+ */
+function validExtensionName(ext) {
+	const ExtensionRegex=/[A-Za-z\d][A-Za-z\d:\-/\.]*[A-Za-z\d]/g;
+    var s=ext.match(ExtensionRegex);
+    return s?s[0] === ext:false;
+}
+
+
+/**
  * verifies if the specified logo is valid according to specification
  *
  * @param {Object} HowRelated the <HowRelated> subelement (a libxmls ojbect tree) of the <RelatedMaterial> element
@@ -833,7 +846,6 @@ function hasSignalledApplication(node, SCHEMA_PREFIX, SL_SCHEMA) {
 }
 
 
-
 /**
  * validate the service list and record any errors
  *
@@ -1165,6 +1177,19 @@ function validateServiceList(SLtext, errs) {
 						errs.increment("no @contentType");
 					}
 				}
+				var e=1, extension;
+				while (extension=DASHDeliveryParameters.get(SCHEMA_PREFIX+":Extension", SL_SCHEMA)) {
+					if (extension.attr('extensionName')) {
+						if (!validExtensionName(extension.attr('extensionName').value())) {
+							errs.push("@extensionName=\""+extension.attr('extensionName').value()+"\" is not valid in service \""+thisServiceId+"\".");
+							errs.increment("invalid @extensionName");							
+						}
+					}
+					else {
+						errs.push("@extensionName not specified for DASH extension in \""+thisServiceId+"\".");
+						errs.increment("no @extensionName");
+					}
+				}
 			}
 
 			var DVBTtargetCountry = ServiceInstance.get(SCHEMA_PREFIX+":DVBTDeliveryParameters/"+SCHEMA_PREFIX+":TargetCountry", SL_SCHEMA);
@@ -1180,7 +1205,7 @@ function validateServiceList(SLtext, errs) {
 					InvalidCountryCode(errs, DVBCtargetCountry.text(), "DVB-C", "service \""+thisServiceId+"\"");
 				}
 			}
-			
+/*			
 			// look for extensions to the DVB defined DeliveryParameters
 			var c=0, childDP;
 			while (child=ServiceInstance.child( c++ )) {
@@ -1195,10 +1220,9 @@ function validateServiceList(SLtext, errs) {
 						break;
 					default:
 						// this is an extended delivery parameters type
-				}
-				
+				}				
 			}
-	
+*/	
 			si++;  // next <ServiceInstance>
 		}
 

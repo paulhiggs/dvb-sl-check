@@ -37,6 +37,7 @@ Checks performed:
 * For &lt;DASHDeliveryParameters&gt;
   * valid @contentType in &lt;UriBasedLocation&gt;
 * only one element for each @xml:lang is specified in any mpeg7:TextualType element
+* valid format is used for DASHDeliveryParameters.Extension@extensionName
   
 ## Use
 
