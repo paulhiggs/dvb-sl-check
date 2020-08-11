@@ -268,31 +268,24 @@ function uniqueServiceIdentifier(identifier,identifiers) {
 function addRegion(Region, depth, knownRegionIDs, errs) {
     var regionID=Region.attr("regionID").value();
     var countryCodeSpecified=Region.attr("countryCodes");
-    if (isIn(knownRegionIDs, regionID)) {
-        errs.push("Duplicate RegionID \""+regionID+"\"");
-        errs.increment("duplicate regionID");
-    }
+    if (isIn(knownRegionIDs, regionID)) 
+        errs.push("Duplicate RegionID \""+regionID+"\"", "duplicate regionID");
     else knownRegionIDs.push(regionID);
 
-    if ((depth != 0) && countryCodeSpecified) {
-        errs.push("@countryCodes not permitted for sub-region \""+regionID+"\"");
-        errs.increment("ccode in subRegion");
-    }
+    if ((depth != 0) && countryCodeSpecified) 
+        errs.push("@countryCodes not permitted for sub-region \""+regionID+"\"", "ccode in subRegion");
+
 
     if (countryCodeSpecified) {
         var countries=countryCodeSpecified.value().split(",");
         if (countries) countries.forEach(country => {
-            if (!knownCountries.isISO3166code(country)) {
-                errs.push("invalid country code ("+country+") for region \""+regionID+"\"");
-                errs.increment("invalid country code");
-            }
+            if (!knownCountries.isISO3166code(country)) 
+                errs.push("invalid country code ("+country+") for region \""+regionID+"\"", "invalid country code");
         });
     }
 
-    if (depth > dvbi.MAX_SUBREGION_LEVELS) {
-        errs.push("<Region> depth exceeded (>"+dvbi.MAX_SUBREGION_LEVELS+") for sub-region \""+regionID+"\"");
-        errs.increment("region depth exceeded");
-    }
+    if (depth > dvbi.MAX_SUBREGION_LEVELS) 
+        errs.push("<Region> depth exceeded (>"+dvbi.MAX_SUBREGION_LEVELS+") for sub-region \""+regionID+"\"", "region depth exceeded");
 
     var i=0, RegionChild;
     while ((RegionChild=Region.child(i)) != null) {
@@ -440,14 +433,10 @@ function checkValidLogo(HowRelated,Format,MediaLocator,errs,Location,LocationTyp
         if (subElems) subElems.forEach(child => {
             if (child.name() == "StillPictureFormat") {
                 hasStillPictureFormat=true;
-                if (!child.attr("horizontalSize")) {
-                    errs.push("@horizontalSize not specified for <RelatedMaterial><Format><StillPictureFormat> in "+Location );
-                    errs.increment("no @horizontalSize");
-                }
-                if (!child.attr("verticalSize")) {
-                    errs.push("@verticalSize not specified for <RelatedMaterial><Format><StillPictureFormat> in "+Location );
-                    errs.increment("no @verticalSize");
-                }
+                if (!child.attr("horizontalSize")) 
+                    errs.push("@horizontalSize not specified for <RelatedMaterial><Format><StillPictureFormat> in "+Location, "no @horizontalSize");
+                if (!child.attr("verticalSize")) 
+                    errs.push("@verticalSize not specified for <RelatedMaterial><Format><StillPictureFormat> in "+Location, "no @verticalSize");
                 if (child.attr("href")) {
                     var href=child.attr("href").value();
                     if (href != dvbi.JPEG_IMAGE_CS_VALUE && href != dvbi.PNG_IMAGE_CS_VALUE) {
@@ -461,10 +450,8 @@ function checkValidLogo(HowRelated,Format,MediaLocator,errs,Location,LocationTyp
                 }
             }
         });
-        if (!hasStillPictureFormat) {
-            errs.push("<StillPictureFormat> not specified for <Format> in "+Location);
-            errs.increment("no StillPictureFormat");
-        }
+        if (!hasStillPictureFormat) 
+            errs.push("<StillPictureFormat> not specified for <Format> in "+Location, "no StillPictureFormat");
     }
 
     if (MediaLocator) {
@@ -472,31 +459,22 @@ function checkValidLogo(HowRelated,Format,MediaLocator,errs,Location,LocationTyp
         if (subElems) subElems.forEach(child => {
             if (child.name()=="MediaUri") {
                 hasMediaURI=true;
-                if (!child.attr("contentType")) {
-                    errs.push("@contentType not specified for logo <MediaUri> in "+Location);
-                    errs.increment("unspecified MediaUri@contentType");
-                }
+                if (!child.attr("contentType")) 
+                    errs.push("@contentType not specified for logo <MediaUri> in "+Location, "unspecified MediaUri@contentType");
                 else {
                     var contentType=child.attr("contentType").value();
-                    if (!isJPEGmime(contentType) && !isPNGmime(contentType)) {
-                        errs.push("invalid @contentType \""+contentType+"\" specified for <RelatedMaterial><MediaLocator> in "+Location);
-                        errs.increment("invalid MediaUri@contentType");
-                    }
-                    if (Format && ((isJPEGmime(contentType) && !isJPEG) || (isPNGmime(contentType) && !isPNG))) {
-                        errs.push("conflicting media types in <Format> and <MediaUri> for "+Location);
-                        errs.increment("conflicting mime types");
-                    }
+                    if (!isJPEGmime(contentType) && !isPNGmime(contentType))
+                        errs.push("invalid @contentType \""+contentType+"\" specified for <RelatedMaterial><MediaLocator> in "+Location, "invalid MediaUri@contentType");
+                    if (Format && ((isJPEGmime(contentType) && !isJPEG) || (isPNGmime(contentType) && !isPNG))) 
+                        errs.push("conflicting media types in <Format> and <MediaUri> for "+Location, "conflicting mime types");
                 }
             }
         });
-        if (!hasMediaURI) {
+        if (!hasMediaURI) 
 			NoMediaLocator(errs, "logo", Location);
-        }
     }
-    else {
-        errs.push("MediaLocator not specified for <RelatedMaterial> in "+Location);
-        errs.increment("no MediaLocator");
-    }
+    else 
+        errs.push("MediaLocator not specified for <RelatedMaterial> in "+Location, "no MediaLocator");
 }
 
 /**
@@ -520,15 +498,11 @@ function checkSignalledApplication(HowRelated,Format,MediaLocator,errs,Location,
         if (subElems) subElems.forEach(child => {
             if (child.name()=="MediaUri") {
                 hasMediaURI=true;
-                if (!child.attr("contentType")) {
-                    errs.push("@contentType not specified for <MediaUri> in "+Location);
-                    errs.increment("unspecified MediaUri@contentType");
-                }
+                if (!child.attr("contentType")) 
+                    errs.push("@contentType not specified for <MediaUri> in "+Location, "unspecified MediaUri@contentType");
                 else {
-                    if (child.attr("contentType").value()!=dvbi.XML_AIT_CONTENT_TYPE) {
-                        errs.pushW("@contentType \""+child.attr("contentType").value()+"\" is not DVB AIT for <RelatedMaterial><MediaLocator> in "+Location);
-                        errs.incrementW("invalid MediaUri@contentType");
-                    }
+                    if (child.attr("contentType").value()!=dvbi.XML_AIT_CONTENT_TYPE) 
+                        errs.pushW("@contentType \""+child.attr("contentType").value()+"\" is not DVB AIT for <RelatedMaterial><MediaLocator> in "+Location, "invalid MediaUri@contentType");
                 }
             }
         });
@@ -564,8 +538,7 @@ function validateRelatedMaterial(RelatedMaterial,errs,Location,LocationType,SCHE
     }
 
     if (!HowRelated) {
-        errs.push("<HowRelated> not specified for <RelatedMaterial> in "+Location);
-        errs.increment("no HowRelated");
+        errs.push("<HowRelated> not specified for <RelatedMaterial> in "+Location, "no HowRelated");
 		return;
     }
 	var HRhref=HowRelated.attr("href");
@@ -580,10 +553,8 @@ function validateRelatedMaterial(RelatedMaterial,errs,Location,LocationType,SCHE
 			}
 		}
 		if (LocationType==SERVICE_RM) {
-			if (validContentFinishedBanner(HowRelated, SCHEMA_NAMESPACE) && (SchemaVersion(SCHEMA_NAMESPACE) == SCHEMA_v1)) {
-				errs.push("\""+dvbi.BANNER_CONTENT_FINISHED_v2 +"\" not permitted for \""+SCHEMA_NAMESPACE+"\" in "+Location);
-				errs.increment("invalid CS value");					
-			}
+			if (validContentFinishedBanner(HowRelated, SCHEMA_NAMESPACE) && (SchemaVersion(SCHEMA_NAMESPACE) == SCHEMA_v1)) 
+				errs.push("\""+dvbi.BANNER_CONTENT_FINISHED_v2 +"\" not permitted for \""+SCHEMA_NAMESPACE+"\" in "+Location, "invalid CS value");
 			
 			if (!(validOutScheduleHours(HowRelated, SCHEMA_NAMESPACE) || validContentFinishedBanner(HowRelated, SCHEMA_NAMESPACE) ||validServiceApplication(HowRelated) || validServiceLogo(HowRelated,SCHEMA_NAMESPACE))) {
 				InvalidHrefValue(errs, HRhref.value(), "<RelatedMaterial>", Location );
@@ -629,18 +600,14 @@ function checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, elementName, elementLocation, n
         if (!langAttr)
             lang="missing"
         else lang=langAttr.value();
-        if (isIn(elementLanguages,lang)) {
-            errs.push("xml:lang="+lang+" already specifed for <"+elementName+"> for "+elementLocation);
-            errs.increment("duplicate @xml:lang");
-        }
+        if (isIn(elementLanguages,lang)) 
+            errs.push("xml:lang="+lang+" already specifed for <"+elementName+"> for "+elementLocation, "duplicate @xml:lang");
         else elementLanguages.push(lang);
 
         //if lang is specified, validate the format and value of the attribute against BCP47 (RFC 5646)
 		if (lang != "missing") {
-			if (!knownLanguages.isKnown(lang)) {
-				errs.push("xml:lang value \""+lang+"\" is invalid");
-                errs.increment("invalid @xml:lang");
-			}
+			if (!knownLanguages.isKnown(lang)) 
+				errs.push("xml:lang value \""+lang+"\" is invalid", "invalid @xml:lang");
 		}
 		
         i++;
@@ -758,8 +725,7 @@ function drawForm(URLmode, res, lastInput, o) {
  * @param {String} serviceId The serviceId whose instance is missing delivery parameters
  */
 function NoDeliveryParams(errs, source, serviceId) {
-    errs.push(source+" delivery parameters not specified for service instance in service \""+serviceId+"\"");
-    errs.increment("no delivery params");
+    errs.push(source+" delivery parameters not specified for service instance in service \""+serviceId+"\"", "no delivery params");
 }
 
 /**
@@ -770,8 +736,7 @@ function NoDeliveryParams(errs, source, serviceId) {
  * @param {String} loc The location of the element
  */
 function NoHrefAttribute(errs, src, loc) {
-	errs.push("no @href specified for "+src+" in "+loc);
-	errs.increment("no href");
+	errs.push("no @href specified for "+src+" in "+loc, "no href");
 }
 
 /**
@@ -783,8 +748,7 @@ function NoHrefAttribute(errs, src, loc) {
  * @param {String} loc The location of the element
  */
 function InvalidHrefValue(errs, value, src, loc) {
-	errs.push("invalid @href=\""+value+"\" specified for "+src+" in "+loc);
-	errs.increment("invalid href");
+	errs.push("invalid @href=\""+value+"\" specified for "+src+" in "+loc, "invalid href");
 }
 
 /**
@@ -796,8 +760,7 @@ function InvalidHrefValue(errs, value, src, loc) {
  * @param {String} loc The location of the element
  */
 function InvalidCountryCode(errs, value, src, loc) {
-	errs.push("invalid country code ("+value+") for "+src+" parameters in "+loc);
-	errs.increment("invalid country code"); 
+	errs.push("invalid country code ("+value+") for "+src+" parameters in "+loc, "invalid country code");
 }
 
 /**
@@ -808,8 +771,7 @@ function InvalidCountryCode(errs, value, src, loc) {
  * @param {String} loc The location of the element
  */
 function UnspecifiedTargetRegion(errs, region, loc) {
-	errs.push(loc+" has an unspecified <TargetRegion>"+region);
-	errs.increment("target region");	
+	errs.push(loc+" has an unspecified <TargetRegion>"+region, "target region");	
 }
 
 
@@ -821,8 +783,7 @@ function UnspecifiedTargetRegion(errs, region, loc) {
  * @param {String} loc The location of the element
  */
 function NoMediaLocator(errs, src, loc) {
-	errs.push("<MediaUri> not specified for "+src+" <MediaLocator> in "+loc);
-    errs.increment("no MediaUri");
+	errs.push("<MediaUri> not specified for "+src+" <MediaLocator> in "+loc, "no MediaUri");
 }
 
 /**
@@ -857,8 +818,7 @@ function validateServiceList(SLtext, errs) {
 	if (SLtext) try {
 		SL = libxml.parseXmlString(SLtext);
 	} catch (err) {
-		errs.push("XML parsing failed: "+err.message);
-		errs.increment("malformed XML");
+		errs.push("XML parsing failed: "+err.message, "malformed XML");
 	}
 	if (!SL || !SL.root()) return;
 	
@@ -955,10 +915,8 @@ function validateServiceList(SLtext, errs) {
 		var i=1, CGSource;
 		while (CGSource=SL.get("//"+SCHEMA_PREFIX+":ContentGuideSourceList/"+SCHEMA_PREFIX+":ContentGuideSource["+i+"]", SL_SCHEMA)) {
 
-			if (isIn(ContentGuideSourceIDs,CGSource.attr("CGSID").value())) {
-				errs.push("duplicate @CGSID in service list");
-				errs.increment("duplicate CGSID");
-			}
+			if (isIn(ContentGuideSourceIDs,CGSource.attr("CGSID").value()))
+				errs.push("duplicate @CGSID in service list", "duplicate CGSID");
 			else ContentGuideSourceIDs.push(CGSource.attr("CGSID").value());
 
 			var rm=1, CGrm;
@@ -1001,20 +959,16 @@ function validateServiceList(SLtext, errs) {
 
 		// check <Service><UniqueIdentifier>
 		var uID=service.get(SCHEMA_PREFIX+":UniqueIdentifier", SL_SCHEMA);
-		if (!uID) {
+		if (!uID) 
 			// this should not happen as UniqueIdentifier is a mandatory element within Service
-			errs.push("<UniqueIdentifier> not present for service "+s);
-			errs.increment("no <UniqueIdentifier>");
-		} else {
+			errs.push("<UniqueIdentifier> not present for service "+s, "no <UniqueIdentifier>");
+
+		else {
 			thisServiceId=uID.text();
-			if (!validServiceIdentifier(thisServiceId)) {
-				errs.push("\""+thisServiceId+"\" is not a valid identifier");
-				errs.increment("invalid tag");
-			}
-			if (!uniqueServiceIdentifier(thisServiceId,knownServices)) {
-				errs.push("\""+thisServiceId+"\" is not unique");
-				errs.increment("non unique id");
-			}
+			if (!validServiceIdentifier(thisServiceId)) 
+				errs.push("\""+thisServiceId+"\" is not a valid identifier", "invalid tag");
+			if (!uniqueServiceIdentifier(thisServiceId,knownServices)) 
+				errs.push("\""+thisServiceId+"\" is not unique", "non unique id");
 			knownServices.push(thisServiceId);
 		}
 
@@ -1036,40 +990,32 @@ function validateServiceList(SLtext, errs) {
 			// Check @href of ContentAttributes/AudioConformancePoints
 			var cp=1, conf;
 			while (conf=ServiceInstance.get(SCHEMA_PREFIX+":ContentAttributes/"+SCHEMA_PREFIX+":AudioConformancePoint["+cp+"]", SL_SCHEMA)) {
-				if (conf.attr("href") && !isIn(allowedAudioConformancePoints,conf.attr("href").value())) {
-					errs.push("invalid value for <AudioConformancePoint> ("+conf.attr("href").value()+")");
-					errs.increment("audio conf point");
-				}
+				if (conf.attr("href") && !isIn(allowedAudioConformancePoints,conf.attr("href").value())) 
+					errs.push("invalid value for <AudioConformancePoint> ("+conf.attr("href").value()+")", "audio conf point");
 				cp++;
 			}
 
 			// Check @href of ContentAttributes/AudioAttributes/tva:coding
 			cp=1;
 			while (conf=ServiceInstance.get(SCHEMA_PREFIX+":ContentAttributes/"+SCHEMA_PREFIX+":AudioAttributes["+cp+"]/*", SL_SCHEMA)) {
-				if (conf.name()==="Coding" && conf.attr("href") && !isIn(allowedAudioSchemes,conf.attr("href").value())) {
-					errs.push("invalid @href value for <AudioAttributes> ("+conf.attr("href").value()+")");
-					errs.increment("audio codec");
-				}
+				if (conf.name()==="Coding" && conf.attr("href") && !isIn(allowedAudioSchemes,conf.attr("href").value())) 
+					errs.push("invalid @href value for <AudioAttributes> ("+conf.attr("href").value()+")", "audio codec");
 				cp++;
 			}
 
 			// Check @href of ContentAttributes/VideoConformancePoints
 			cp=1;
 			while (conf=ServiceInstance.get(SCHEMA_PREFIX+":ContentAttributes/"+SCHEMA_PREFIX+":VideoConformancePoint["+cp+"]", SL_SCHEMA)) {
-				if (conf.attr("href") && !isIn(allowedVideoConformancePoints,conf.attr("href").value())) {
-					errs.push("invalid @href value for <VideoConformancePoint> ("+conf.attr("href").value()+")");
-					errs.increment("video conf point");
-				}
+				if (conf.attr("href") && !isIn(allowedVideoConformancePoints,conf.attr("href").value())) 
+					errs.push("invalid @href value for <VideoConformancePoint> ("+conf.attr("href").value()+")", "video conf point");
 				cp++;
 			}
 
 			// Check @href of ContentAttributes/VideoAttributes/tva:coding
 			cp=1;
 			while (conf=ServiceInstance.get(SCHEMA_PREFIX+":ContentAttributes/"+SCHEMA_PREFIX+":VideoAttributes["+cp+"]/*", SL_SCHEMA)) {
-				if (conf.name()==="Coding" && conf.attr("href") && !isIn(allowedVideoSchemes,conf.attr("href").value())) {
-					errs.push("invalid @href value for <VideoAttributes> ("+conf.attr("href").value()+")");
-					errs.increment("video codec");
-				}
+				if (conf.name()==="Coding" && conf.attr("href") && !isIn(allowedVideoSchemes,conf.attr("href").value())) 
+					errs.push("invalid @href value for <VideoAttributes> ("+conf.attr("href").value()+")", "video codec");
 				cp++;
 			}
 
@@ -1082,10 +1028,8 @@ function validateServiceList(SLtext, errs) {
 						var fr=new Date(Period.attr("validFrom").value()), 
 							to=new Date(Period.attr("validTo").value());
 					
-						if (to.getTime() < fr.getTime()) {
-							errs.push("invalid availability period for service \""+thisServiceId+"\". "+fr+">"+to);
-							errs.increment("period start>end");
-						}
+						if (to.getTime() < fr.getTime()) 
+							errs.push("invalid availability period for service \""+thisServiceId+"\". "+fr+">"+to, "period start>end");
 					}
 					p++;
 				}
@@ -1128,83 +1072,65 @@ function validateServiceList(SLtext, errs) {
 							|| ServiceInstance.get(SCHEMA_PREFIX+":DVBCDeliveryParameters", SL_SCHEMA)
 							|| ServiceInstance.get(SCHEMA_PREFIX+":DASHDeliveryParameters", SL_SCHEMA)
 							|| ServiceInstance.get(SCHEMA_PREFIX+":MulticastTSDeliveryParameters", SL_SCHEMA)
-							|| ServiceInstance.get(SCHEMA_PREFIX+":RTSPDeliveryParameters", SL_SCHEMA) ) {
-								errs.push("Delivery parameters are not permitted for Application service instance in Service \""+thisServiceId+"\".");
-								errs.increment("invalid application");
-							}
+							|| ServiceInstance.get(SCHEMA_PREFIX+":RTSPDeliveryParameters", SL_SCHEMA) ) 
+								errs.push("Delivery parameters are not permitted for Application service instance in Service \""+thisServiceId+"\".", "invalid application");
+
 							else {
 								// no xxxxDeliveryParameters is signalled
 								// check for appropriate Service.RelatedMaterial or Service.ServiceInstance.RelatedMaterial
 								if (!hasSignalledApplication(service, SCHEMA_PREFIX, SL_SCHEMA) 
 									&& !hasSignalledApplication(ServiceInstance, SCHEMA_PREFIX, SL_SCHEMA)) {
-									errs.push("No Application is signalled for SourceType=\""+dvbi.DVBAPPLICATION_SOURCE_TYPE+"\" in Service \""+thisServiceId+"\".");
-									errs.increment("no application");
+									errs.push("No Application is signalled for SourceType=\""+dvbi.DVBAPPLICATION_SOURCE_TYPE+"\" in Service \""+thisServiceId+"\".", "no application");
 								}
 							}
 						break;
 					default:
-						if (SchemaVersion(SCHEMA_NAMESPACE)==SCHEMA_v1) {
-							errs.push("SourceType \""+SourceType.text()+"\" is not valid in Service \""+thisServiceId+"\".");
-							errs.increment("invalid SourceType");
-						}
+						if (SchemaVersion(SCHEMA_NAMESPACE)==SCHEMA_v1) 
+							errs.push("SourceType \""+SourceType.text()+"\" is not valid in Service \""+thisServiceId+"\".", "invalid SourceType");
 				}
 			}
 			else {
 				// this should not happen as SourceType is a mandatory element within ServiceInstance
-				if (SchemaVersion(SCHEMA_NAMESPACE)==SCHEMA_v1) {
-					errs.push("SourceType not specified in ServiceInstance of service \""+thisServiceId+"\".");
-					errs.increment("no SourceType");
-				}
+				if (SchemaVersion(SCHEMA_NAMESPACE)==SCHEMA_v1) 
+					errs.push("SourceType not specified in ServiceInstance of service \""+thisServiceId+"\".", "no SourceType");
 			}
 
 			var DASHDeliveryParameters = ServiceInstance.get(SCHEMA_PREFIX+":DASHDeliveryParameters", SL_SCHEMA);
 			if (DASHDeliveryParameters) {
 				var URILoc = DASHDeliveryParameters.get(SCHEMA_PREFIX+":UriBasedLocation", SL_SCHEMA);
-				if (!URILoc) {
-					errs.push("UriBasedLocation not specified for DASHDeliveryParameters in service \""+thisServiceId+"\".");
-					errs.increment("no UriBasedLocation");
-				}
+				if (!URILoc) 
+					errs.push("UriBasedLocation not specified for DASHDeliveryParameters in service \""+thisServiceId+"\".", "no UriBasedLocation");
 				else {
 					var uriContentType=URILoc.attr("contentType");
-					if (uriContentType) {
+					if (uriContentType) 
 						if (!validDASHcontentType(uriContentType.value())) {
-							errs.push("@contentType=\""+uriContentType.value()+"\" in service \""+thisServiceId+"\" is not valid");
-							errs.increment("no @contentType for DASH");
-						}
+							errs.push("@contentType=\""+uriContentType.value()+"\" in service \""+thisServiceId+"\" is not valid", "no @contentType for DASH");
 					}
-					else {
-						errs.push("@contentType not specified for URI in service \""+thisServiceId+"\".");
-						errs.increment("no @contentType");
-					}
+					else 
+						errs.push("@contentType not specified for URI in service \""+thisServiceId+"\".", "no @contentType");
 				}
 				var e=1, extension;
 				while (extension=DASHDeliveryParameters.get(SCHEMA_PREFIX+":Extension", SL_SCHEMA)) {
 					if (extension.attr('extensionName')) {
-						if (!validExtensionName(extension.attr('extensionName').value())) {
-							errs.push("@extensionName=\""+extension.attr('extensionName').value()+"\" is not valid in service \""+thisServiceId+"\".");
-							errs.increment("invalid @extensionName");							
-						}
+						if (!validExtensionName(extension.attr('extensionName').value())) 
+							errs.push("@extensionName=\""+extension.attr('extensionName').value()+"\" is not valid in service \""+thisServiceId+"\".", "invalid @extensionName");
 					}
-					else {
-						errs.push("@extensionName not specified for DASH extension in \""+thisServiceId+"\".");
-						errs.increment("no @extensionName");
-					}
+					else 
+						errs.push("@extensionName not specified for DASH extension in \""+thisServiceId+"\".", "no @extensionName");
 				}
 			}
 
 			var DVBTtargetCountry = ServiceInstance.get(SCHEMA_PREFIX+":DVBTDeliveryParameters/"+SCHEMA_PREFIX+":TargetCountry", SL_SCHEMA);
-			if (DVBTtargetCountry) {
-				if (!knownCountries.isISO3166code(DVBTtargetCountry.text())) {
+			if (DVBTtargetCountry)
+				if (!knownCountries.isISO3166code(DVBTtargetCountry.text())) 
 					InvalidCountryCode(errs, DVBTtargetCountry.text(), "DVB-T", "service \""+thisServiceId+"\"");
-				}
-			}
+
 
 			var DVBCtargetCountry = ServiceInstance.get(SCHEMA_PREFIX+":DVBCDeliveryParameters/"+SCHEMA_PREFIX+":TargetCountry", SL_SCHEMA);
-			if (DVBCtargetCountry) {
-				if (!knownCountries.isISO3166code(DVBCtargetCountry.text())) { 
+			if (DVBCtargetCountry)
+				if (!knownCountries.isISO3166code(DVBCtargetCountry.text()))  
 					InvalidCountryCode(errs, DVBCtargetCountry.text(), "DVB-C", "service \""+thisServiceId+"\"");
-				}
-			}
+
 /*			
 			// look for extensions to the DVB defined DeliveryParameters
 			var c=0, childDP;
@@ -1228,12 +1154,9 @@ function validateServiceList(SLtext, errs) {
 
 		//check <Service><TargetRegion>
 		var tr=1, TargetRegion;
-		while (TargetRegion=service.get(SCHEMA_PREFIX+":TargetRegion["+tr+"]", SL_SCHEMA)) {
-			if (!isIn(knownRegionIDs,TargetRegion.text())) {
+		while (TargetRegion=service.get(SCHEMA_PREFIX+":TargetRegion["+ tr++ +"]", SL_SCHEMA)) 
+			if (!isIn(knownRegionIDs,TargetRegion.text())) 
 				UnspecifiedTargetRegion(errs, TargetRegion.text(), "service \""+thisServiceId+"\"");
-			}
-			tr++;
-		}
 
 		// Check that the @xml:lang values for each <ServiceName> element are unique and only one element does not have any language specified
 		checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, "ServiceName", "service=\""+thisServiceId+"\"", service, errs);
@@ -1243,77 +1166,58 @@ function validateServiceList(SLtext, errs) {
 
 		//check <Service><RelatedMaterial>
 		var rm=1, RelatedMaterial;
-		while (RelatedMaterial=service.get(SCHEMA_PREFIX+":RelatedMaterial["+rm+"]", SL_SCHEMA)) {
+		while (RelatedMaterial=service.get(SCHEMA_PREFIX+":RelatedMaterial["+ rm++ +"]", SL_SCHEMA)) 
 			validateRelatedMaterial(RelatedMaterial,errs,"service \""+thisServiceId+"\"", SERVICE_RM, SCHEMA_PREFIX, SCHEMA_NAMESPACE, SL_SCHEMA);
-			rm++;
-		}
 
 		//check <Service><ServiceGenre>
 		var ServiceGenre=service.get(SCHEMA_PREFIX+":ServiceGenre", SL_SCHEMA);
 		if (ServiceGenre) {
 			if (ServiceGenre.attr("href")) {
-				if (!isIn(allowedGenres,ServiceGenre.attr("href").value())) {
-					errs.push("service \""+thisServiceId+"\" has an invalid <ServiceGenre>"+ServiceGenre.attr("href").value());
-					errs.increment("invalid ServiceGenre");
-				}
+				if (!isIn(allowedGenres,ServiceGenre.attr("href").value())) 
+					errs.push("service \""+thisServiceId+"\" has an invalid <ServiceGenre>"+ServiceGenre.attr("href").value(), "invalid ServiceGenre");
 			}
-			else {
-				NoHrefAttribute(errs, "<ServiceGenre>", "service \""+thisServiceId+"\"");
-			}				
+			else NoHrefAttribute(errs, "<ServiceGenre>", "service \""+thisServiceId+"\"");			
 		}
 
 		//check <Service><ServiceType>                    
 		var ServiceType=service.get(SCHEMA_PREFIX+":ServiceType", SL_SCHEMA);
 		if (ServiceType) {
 			if (ServiceType.attr("href")) {
-				if (!isIn(allowedServiceTypes,ServiceType.attr("href").value())) {
-					errs.push("service \""+thisServiceId+"\" has an invalid <ServiceType>"+ServiceType.attr("href").value());
-					errs.increment("invalid ServiceType");
-				}
+				if (!isIn(allowedServiceTypes,ServiceType.attr("href").value())) 
+					errs.push("service \""+thisServiceId+"\" has an invalid <ServiceType>"+ServiceType.attr("href").value(), "invalid ServiceType");
 			}
-			else {
-				NoHrefAttribute(errs, "<ServiceType>", "service \""+thisServiceId+"\"");
-			}
+			else NoHrefAttribute(errs, "<ServiceType>", "service \""+thisServiceId+"\"");
 		}
 
 		// check <Service><RecordingInfo>
 		var RecordingInfo=service.get(SCHEMA_PREFIX+":RecordingInfo", SL_SCHEMA);
 		if (RecordingInfo) {
 			if (RecordingInfo.attr("href")) {
-				if (!isIn(RecordingInfoCSvalules,RecordingInfo.attr("href").value())) {
-					errs.push("invalid <RecordingInfo> value \""+RecordingInfo.attr("href").value()+"\"for service "+thisServiceId);
-					errs.increment("invalid RecordingInfo");
-				}
+				if (!isIn(RecordingInfoCSvalules,RecordingInfo.attr("href").value())) 
+					errs.push("invalid <RecordingInfo> value \""+RecordingInfo.attr("href").value()+"\"for service "+thisServiceId, "invalid RecordingInfo");
 			}
-			else {
-				NoHrefAttribute(errs, "<RecordingInfo>", "service \""+thisServiceId+"\"");
-			}
+			else NoHrefAttribute(errs, "<RecordingInfo>", "service \""+thisServiceId+"\"");
 		}
 
 		// check <Service><ContentGuideSource>
 		var sCG=service.get(SCHEMA_PREFIX+":ContentGuideSource", SL_SCHEMA);
 		if (sCG) {
 			var rm=1, CGrm;
-			while (CGrm=sCG.get(SCHEMA_PREFIX+":RelatedMaterial["+rm+"]", SL_SCHEMA)) {
+			while (CGrm=sCG.get(SCHEMA_PREFIX+":RelatedMaterial["+ rm++ +"]", SL_SCHEMA)) 
 				validateRelatedMaterial(CGrm,errs,"<ContentGuideSource> in service "+thisServiceId, CONTENT_GUIDE_RM, SCHEMA_PREFIX, SCHEMA_NAMESPACE, SL_SCHEMA);
-				rm++;
-			}
+
 		}
 
 		//check <Service><ContentGuideSourceRef>
 		var sCGref=service.get(SCHEMA_PREFIX+":ContentGuideSourceRef", SL_SCHEMA);
 		if (sCGref) {
-			if (!isIn(ContentGuideSourceIDs,sCGref.text())) {
-				errs.push("content guide reference \""+sCGref.text()+"\" for service \""+thisServiceId+"\" not specified");
-				errs.increment("unspecified content guide source");
-			}
+			if (!isIn(ContentGuideSourceIDs,sCGref.text())) 
+				errs.push("content guide reference \""+sCGref.text()+"\" for service \""+thisServiceId+"\" not specified", "unspecified content guide source");
 		}
 
 		// this should not happen if the XML document has passed schema validation
-		if (sCG && sCGref) {
-			errs.push("only <ContentGuideSource> or <CountentGuideSourceRef> to be specifed for a service \""+thisServiceId+"\"");
-			errs.increment("source and ref");
-		}
+		if (sCG && sCGref)
+			errs.push("only <ContentGuideSource> or <CountentGuideSourceRef> to be specifed for a service \""+thisServiceId+"\"", "source and ref");
 		
 		// <Service><ContentguideServiceRef> checked below
 		
@@ -1327,14 +1231,10 @@ function validateServiceList(SLtext, errs) {
 		var CGSR=service.get(SCHEMA_PREFIX+":ContentGuideServiceRef", SL_SCHEMA);
 		if (CGSR) {
 			var uniqueID=service.get(SCHEMA_PREFIX+":UniqueIdentifier", SL_SCHEMA);
-			if (uniqueID && !isIn(knownServices,CGSR.text())) {
-				errs.pushW("<ContentGuideServiceRef> \""+CGSR.text()+"\" in service \""+uniqueID.text()+"\"- does not refer to another service");
-				errs.incrementW("invalid <ContentGuideServiceRef>");
-			}
-			if (uniqueID && (CGSR.text() == uniqueID.text())) {
-				errs.pushW("<ContentGuideServiceRef> is self");
-				errs.incrementW("self <ContentGuideServiceRef>");
-			}
+			if (uniqueID && !isIn(knownServices,CGSR.text())) 
+				errs.pushW("<ContentGuideServiceRef> \""+CGSR.text()+"\" in service \""+uniqueID.text()+"\"- does not refer to another service", "invalid <ContentGuideServiceRef>");
+			if (uniqueID && (CGSR.text() == uniqueID.text()))
+				errs.pushW("<ContentGuideServiceRef> is self", "self <ContentGuideServiceRef>");
 		}
 		s++;
 	}
@@ -1343,39 +1243,30 @@ function validateServiceList(SLtext, errs) {
 	var LCNtableList=SL.get("//"+SCHEMA_PREFIX+":LCNTableList", SL_SCHEMA);
 	if (LCNtableList) {
 		var l=1, LCNTable;
-		while (LCNTable=LCNtableList.get(SCHEMA_PREFIX+":LCNTable["+l+"]", SL_SCHEMA)) {
+		while (LCNTable=LCNtableList.get(SCHEMA_PREFIX+":LCNTable["+ l++ +"]", SL_SCHEMA)) {
 			// checks on TargetRegion(s) for this LCNTable
 			var tr=1, TargetRegion, lastTargetRegion="";
-			while (TargetRegion=LCNTable.get(SCHEMA_PREFIX+":TargetRegion["+tr+"]", SL_SCHEMA)) {
-				if (!isIn(knownRegionIDs, TargetRegion.text())) {
-					errs.push("<TargetRegion> "+TargetRegion.text()+" in LCNTable is not defined");
-					errs.increment("undefined region");
-				}
+			while (TargetRegion=LCNTable.get(SCHEMA_PREFIX+":TargetRegion["+ tr++ +"]", SL_SCHEMA)) {
+				if (!isIn(knownRegionIDs, TargetRegion.text())) 
+					errs.push("<TargetRegion> "+TargetRegion.text()+" in LCNTable is not defined", "undefined region");
 				lastTargetRegion=TargetRegion.text();
-				tr++;
 			}
 			
 			var LCNNumbers=[],e=1,LCN;
-			while (LCN=LCNTable.get(SCHEMA_PREFIX+":LCN["+e+"]", SL_SCHEMA)) {
+			while (LCN=LCNTable.get(SCHEMA_PREFIX+":LCN["+ e++ +"]", SL_SCHEMA)) {
 				if (LCN.attr("channelNumber")) {
 					var chanNum=LCN.attr("channelNumber").value();
-					if (isIn(LCNNumbers,chanNum)) {
-						errs.push("duplicated channel number "+chanNum+" for <TargetRegion>"+lastTargetRegion);
-						errs.increment("duplicate channel number");
-					} 
+					if (isIn(LCNNumbers,chanNum)) 
+						errs.push("duplicated channel number "+chanNum+" for <TargetRegion>"+lastTargetRegion, "duplicate channel number");
 					else LCNNumbers.push(chanNum);
 				}
 
 				if (LCN.attr("serviceRef")) {
 					var servRef=LCN.attr("serviceRef").value();
-					if (!isIn(knownServices,servRef)) {
-						errs.push("LCN reference to unknown service "+servRef);
-						errs.increment("LCN unknown services");
-					}
+					if (!isIn(knownServices,servRef)) 
+						errs.push("LCN reference to unknown service "+servRef, "LCN unknown services");
 				}
-				e++;
 			}
-			l++;
 		}
 	}
 }
