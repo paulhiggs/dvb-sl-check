@@ -1,54 +1,54 @@
 // node.js - https://nodejs.org/en/
 // express framework - https://expressjs.com/en/4x/api.html
-const express = require("express");
-var app = express();
+const express=require("express");
+var app=express();
 
 /* TODO:
 
  - also look for TODO in the code itself
 */
 
-const ErrorList = require("./dvb-common/ErrorList.js");
-const dvbi = require("./dvb-common/DVB-I_definitions.js");
-const {isJPEGmime, isPNGmime} = require("./dvb-common/MIME_checks.js");
-const {isTAGURI} = require("./dvb-common/URI_checks.js");
-const {loadCS} = require("./dvb-common/CS_handler.js");
+const ErrorList=require("./dvb-common/ErrorList.js");
+const dvbi=require("./dvb-common/DVB-I_definitions.js");
+const {isJPEGmime, isPNGmime}=require("./dvb-common/MIME_checks.js");
+const {isTAGURI}=require("./dvb-common/URI_checks.js");
+const {loadCS}=require("./dvb-common/CS_handler.js");
 
-const ISOcountries = require("./dvb-common/ISOcountries.js");
-const IANAlanguages = require("./dvb-common/IANAlanguages.js");
+const ISOcountries=require("./dvb-common/ISOcountries.js");
+const IANAlanguages=require("./dvb-common/IANAlanguages.js");
 
 
 // libxmljs - https://github.com/libxmljs/libxmljs
-const libxml = require("libxmljs");
+const libxml=require("libxmljs");
 
 //TODO: validation against schema; package.json: 		"xmllint": "0.1.1",
-//const xmllint = require("xmllint");
+//const xmllint=require("xmllint");
 
 // morgan - https://github.com/expressjs/morgan
-const morgan = require("morgan")
+const morgan=require("morgan")
 
 // file upload for express - https://github.com/richardgirges/express-fileupload
-const fileupload = require("express-fileupload");
+const fileupload=require("express-fileupload");
 
 
 const fs=require("fs"), path=require("path");
-//const request = require("request");
+//const request=require("request");
 
 // command line arguments - https://github.com/75lb/command-line-args
-const commandLineArgs = require('command-line-args');
+const commandLineArgs=require('command-line-args');
 
-var XmlHttpRequest = require("xmlhttprequest").XMLHttpRequest;
+var XmlHttpRequest=require("xmlhttprequest").XMLHttpRequest;
 
 const https=require("https");
-const HTTP_SERVICE_PORT = 3010;
+const HTTP_SERVICE_PORT=3010;
 const HTTPS_SERVICE_PORT=HTTP_SERVICE_PORT+1;
 const keyFilename=path.join(".","selfsigned.key"), certFilename=path.join(".","selfsigned.crt");
 
-const { parse } = require("querystring");
+const { parse }=require("querystring");
 
 // https://github.com/alexei/sprintf.js
-var sprintf = require("sprintf-js").sprintf,
-    vsprintf = require("sprintf-js").vsprintf
+var sprintf=require("sprintf-js").sprintf,
+    vsprintf=require("sprintf-js").vsprintf
 
 const TVA_ContentCSFilename=path.join("dvb-common/tva","ContentCS.xml"),
       TVA_FormatCSFilename=path.join("dvb-common/tva","FormatCS.xml"),
@@ -67,8 +67,8 @@ const TVA_ContentCSFilename=path.join("dvb-common/tva","ContentCS.xml"),
 const IANA_Subtag_Registry_Filename=path.join("./dvb-common","language-subtag-registry");
 const IANA_Subtag_Registry_URL="https://www.iana.org/assignments/language-subtag-registry/language-subtag-registry";
 
-const COMMON_REPO_RAW = "https://raw.githubusercontent.com/paulhiggs/dvb-common/master/",
-      DVB_METADATA = "https://dvb.org/metadata/",
+const COMMON_REPO_RAW="https://raw.githubusercontent.com/paulhiggs/dvb-common/master/",
+      DVB_METADATA="https://dvb.org/metadata/",
       TVA_ContentCSURL=COMMON_REPO_RAW + "tva/" + "ContentCS.xml",
       TVA_FormatCSURL=COMMON_REPO_RAW + "tva/" + "FormatCS.xml",
       DVBI_ContentSubjectURL=COMMON_REPO_RAW + "dvbi/" + "DVBContentSubjectCS-2019.xml",
@@ -82,15 +82,15 @@ const COMMON_REPO_RAW = "https://raw.githubusercontent.com/paulhiggs/dvb-common/
       ISO3166_URL=COMMON_REPO_RAW + "iso3166-countries.json",
 	  DVBI_RecordingInfoCSURL=COMMON_REPO_RAW + "dvbi/" + "DVBRecordingInfoCS-2019.xml";
 
-const SERVICE_LIST_RM = "service list",
-      SERVICE_RM = "service",
-      CONTENT_GUIDE_RM = "content guide";
+const SERVICE_LIST_RM="service list",
+      SERVICE_RM="service",
+      CONTENT_GUIDE_RM="content guide";
 
 var allowedGenres=[], allowedServiceTypes=[], allowedAudioSchemes=[], allowedVideoSchemes=[], 
 	allowedAudioConformancePoints=[], allowedVideoConformancePoints=[], RecordingInfoCSvalules=[];
 
-var knownCountries = new ISOcountries(false, true);
-var knownLanguages = new IANAlanguages();
+var knownCountries=new ISOcountries(false, true);
+var knownLanguages=new IANAlanguages();
 
 /*
 //TODO: validation against schema
@@ -104,13 +104,13 @@ const XML_SchemaFilename=path.join("schema","xml.xsd");
 var TVAschema, MPEG7schema, XMLschema;
 */
 
-//const allowed_arguments = ["serviceList", ];
+//const allowed_arguments=["serviceList", ];
 
 
 
-const SCHEMA_v1 = 1,
-      SCHEMA_v2 = 2,
-	  SCHEMA_unknown = -1;
+const SCHEMA_v1=1,
+      SCHEMA_v2=2,
+	  SCHEMA_unknown= -1;
 	  
 /**
  * determine the schema version (and hence the specificaion version) in use 
@@ -186,7 +186,7 @@ function HTMLize(str) {
 function loadSchema(into, schemafilename) {
 	fs.readFile(schemafilename, {encoding: "utf-8"}, function(err,data){
         if (!err) {
-			into = libxml.parseXmlString(data.replace(/(\r\n|\n|\r|\t)/gm,""));
+			into=libxml.parseXmlString(data.replace(/(\r\n|\n|\r|\t)/gm,""));
 		}
 	});
 }
@@ -534,7 +534,7 @@ function validateRelatedMaterial(RelatedMaterial,errs,Location,LocationType,SCHE
         else if (elem.name()==="MediaLocator")
             MediaLocator.push(elem);
 
-        elem = elem.nextElement();
+        elem=elem.nextElement();
     }
 
     if (!HowRelated) {
@@ -638,7 +638,7 @@ const ENTRY_FORM_URL="<form method=\"post\"><p><i>URL:</i></p><input type=\"url\
 const ENTRY_FORM_FILE="<form method=\"post\" encType=\"multipart/form-data\"><p><i>FILE:</i></p><input type=\"file\" name=\"SLfile\" value=\"%s\"><input type=\"submit\" value=\"submit\"></form>";
 
 const RESULT_WITH_INSTRUCTION="<br><p><i>Results:</i></p>";
-const SUMMARY_FORM_HEADER = "<table><tr><th>item</th><th>count</th></tr>";
+const SUMMARY_FORM_HEADER="<table><tr><th>item</th><th>count</th></tr>";
 const FORM_BOTTOM="</body></html>";
 
 /**
@@ -816,7 +816,7 @@ function hasSignalledApplication(node, SCHEMA_PREFIX, SL_SCHEMA) {
 function validateServiceList(SLtext, errs) {
 	var SL=null;
 	if (SLtext) try {
-		SL = libxml.parseXmlString(SLtext);
+		SL=libxml.parseXmlString(SLtext);
 	} catch (err) {
 		errs.push("XML parsing failed: "+err.message, "malformed XML");
 	}
@@ -827,8 +827,8 @@ function validateServiceList(SLtext, errs) {
 
 //TODO: look into why both of these validation approaches are failing
 /*
-	var lintResult = null;
-	lintResult = xmllint.validateXML({
+	var lintResult=null;
+	lintResult=xmllint.validateXML({
 		xml: SLtext,
 		schema: [SLschema_v1.toString(), 
 				TVAschema.toString(), 
@@ -850,7 +850,7 @@ function validateServiceList(SLtext, errs) {
 		return;
 	}
 	
-	var SL_SCHEMA = {}, 
+	var SL_SCHEMA={}, 
 		SCHEMA_PREFIX=SL.root().namespace().prefix(), 
 		SCHEMA_NAMESPACE=SL.root().namespace().href();
 	SL_SCHEMA[SCHEMA_PREFIX]=SCHEMA_NAMESPACE;
@@ -1037,7 +1037,7 @@ function validateServiceList(SLtext, errs) {
 
 			// note that the <SourceType> element becomes optional and in A177v2, but if specified then the relevant
 			// delivery parameters also need to be specified
-			var SourceType = ServiceInstance.get(SCHEMA_PREFIX+":SourceType", SL_SCHEMA);
+			var SourceType=ServiceInstance.get(SCHEMA_PREFIX+":SourceType", SL_SCHEMA);
 			if (SourceType) {
 				switch (SourceType.text()) {
 					case dvbi.DVBT_SOURCE_TYPE:
@@ -1095,9 +1095,9 @@ function validateServiceList(SLtext, errs) {
 					errs.push("SourceType not specified in ServiceInstance of service \""+thisServiceId+"\".", "no SourceType");
 			}
 
-			var DASHDeliveryParameters = ServiceInstance.get(SCHEMA_PREFIX+":DASHDeliveryParameters", SL_SCHEMA);
+			var DASHDeliveryParameters=ServiceInstance.get(SCHEMA_PREFIX+":DASHDeliveryParameters", SL_SCHEMA);
 			if (DASHDeliveryParameters) {
-				var URILoc = DASHDeliveryParameters.get(SCHEMA_PREFIX+":UriBasedLocation", SL_SCHEMA);
+				var URILoc=DASHDeliveryParameters.get(SCHEMA_PREFIX+":UriBasedLocation", SL_SCHEMA);
 				if (!URILoc) 
 					errs.push("UriBasedLocation not specified for DASHDeliveryParameters in service \""+thisServiceId+"\".", "no UriBasedLocation");
 				else {
@@ -1106,8 +1106,7 @@ function validateServiceList(SLtext, errs) {
 						if (!validDASHcontentType(uriContentType.value())) {
 							errs.push("@contentType=\""+uriContentType.value()+"\" in service \""+thisServiceId+"\" is not valid", "no @contentType for DASH");
 					}
-					else 
-						errs.push("@contentType not specified for URI in service \""+thisServiceId+"\".", "no @contentType");
+					else errs.push("@contentType not specified for URI in service \""+thisServiceId+"\".", "no @contentType");
 				}
 				var e=1, extension;
 				while (extension=DASHDeliveryParameters.get(SCHEMA_PREFIX+":Extension", SL_SCHEMA)) {
@@ -1115,40 +1114,30 @@ function validateServiceList(SLtext, errs) {
 						if (!validExtensionName(extension.attr('extensionName').value())) 
 							errs.push("@extensionName=\""+extension.attr('extensionName').value()+"\" is not valid in service \""+thisServiceId+"\".", "invalid @extensionName");
 					}
-					else 
-						errs.push("@extensionName not specified for DASH extension in \""+thisServiceId+"\".", "no @extensionName");
+					else errs.push("@extensionName not specified for DASH extension in \""+thisServiceId+"\".", "no @extensionName");
 				}
 			}
 
-			var DVBTtargetCountry = ServiceInstance.get(SCHEMA_PREFIX+":DVBTDeliveryParameters/"+SCHEMA_PREFIX+":TargetCountry", SL_SCHEMA);
+			var DVBTtargetCountry=ServiceInstance.get(SCHEMA_PREFIX+":DVBTDeliveryParameters/"+SCHEMA_PREFIX+":TargetCountry", SL_SCHEMA);
 			if (DVBTtargetCountry)
 				if (!knownCountries.isISO3166code(DVBTtargetCountry.text())) 
 					InvalidCountryCode(errs, DVBTtargetCountry.text(), "DVB-T", "service \""+thisServiceId+"\"");
 
 
-			var DVBCtargetCountry = ServiceInstance.get(SCHEMA_PREFIX+":DVBCDeliveryParameters/"+SCHEMA_PREFIX+":TargetCountry", SL_SCHEMA);
+			var DVBCtargetCountry=ServiceInstance.get(SCHEMA_PREFIX+":DVBCDeliveryParameters/"+SCHEMA_PREFIX+":TargetCountry", SL_SCHEMA);
 			if (DVBCtargetCountry)
 				if (!knownCountries.isISO3166code(DVBCtargetCountry.text()))  
 					InvalidCountryCode(errs, DVBCtargetCountry.text(), "DVB-C", "service \""+thisServiceId+"\"");
 
-/*			
-			// look for extensions to the DVB defined DeliveryParameters
-			var c=0, childDP;
-			while (child=ServiceInstance.child( c++ )) {
-				switch (child.name()) {
-					case "DVBCDeliveryParameters":
-					case "DVBTDeliveryParameters":
-					case "DVBSDeliveryParameters":
-					case "SATIPDeliveryParameters":
-					case "DASHDeliveryParameters":
-					case "RTSPDeliveryParameters":
-					case "MulticastTSDeliveryParameters":		
-						break;
-					default:
-						// this is an extended delivery parameters type
-				}				
+			var OtherDeliveryParameters=ServiceInstance.get(SCHEMA_PREFIX+":OtherDeliveryParameters", SL_SCHEMA);
+			if (OtherDeliveryParameters) {
+				if (OtherDeliveryParamers.attr("extensionName")) {
+					if (!validExtensionName(OtherDeliveryParamers.attr("extensionName").value()))
+						errs.push("@extensionName=\""+OtherDeliveryParameters.attr('extensionName').value()+"\" is not valid in service \""+thisServiceId+"\".", "invalid @extensionName");
+				} //!!!!
+				else errs.push("@extensionName not specified for DASH extension in \""+thisServiceId+"\".", "no @extensionName");
 			}
-*/	
+			
 			si++;  // next <ServiceInstance>
 		}
 
@@ -1320,9 +1309,9 @@ function processQuery(req,res) {
 		var SLxml=null;
         var errs=new ErrorList();
 		
-		var xhttp = new XmlHttpRequest();
-		xhttp.onreadystatechange = function() {
-			if (this.readyState == 4 && this.status == 200) {
+		var xhttp=new XmlHttpRequest();
+		xhttp.onreadystatechange=function() {
+			if (this.readyState==this.DONE && this.status==200) {
 				validateServiceList(xhttp.responseText.replace(/(\r\n|\n|\r|\t)/gm,""), errs);
 			}
 			else             
@@ -1355,7 +1344,7 @@ function processFile(req,res) {
         var SLxml=null;
         var errs=new ErrorList();
         try {
-            SLxml = req.files.SLfile.data;
+            SLxml=req.files.SLfile.data;
         }
         catch (err) {
             errs.push("retrieval of FILE ("+req.query.SLfile+") failed");
@@ -1389,10 +1378,10 @@ app.set('view engine', 'ejs');
 app.use(fileupload());
 
 // parse command line options
-const optionDefinitions = [
+const optionDefinitions=[
   { name: 'urls', alias: 'u', type: Boolean, defaultOption: false }
 ]
-const options = commandLineArgs(optionDefinitions);
+const options=commandLineArgs(optionDefinitions);
 
 // read in the validation data
 loadDataFiles( options.urls ? options.urls : false );
@@ -1430,20 +1419,20 @@ app.get("*", function(req,res) {
 
 // start the HTTP server
 
-var http_server = app.listen(HTTP_SERVICE_PORT, function() {
+var http_server=app.listen(HTTP_SERVICE_PORT, function() {
     console.log("HTTP listening on port number", http_server.address().port);
 });
 
 
 // start the HTTPS server
 // sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout ./selfsigned.key -out selfsigned.crt
-var https_options = {
+var https_options={
     key:readmyfile(keyFilename),
     cert:readmyfile(certFilename)
 };
 
 if (https_options.key && https_options.cert) {
-    var https_server = https.createServer(https_options, app);
+    var https_server=https.createServer(https_options, app);
     https_server.listen(HTTPS_SERVICE_PORT, function(){
         console.log("HTTPS listening on port number", https_server.address().port);
     });
