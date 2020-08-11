@@ -1134,7 +1134,7 @@ function validateServiceList(SLtext, errs) {
 				if (OtherDeliveryParamers.attr("extensionName")) {
 					if (!validExtensionName(OtherDeliveryParamers.attr("extensionName").value()))
 						errs.push("@extensionName=\""+OtherDeliveryParameters.attr('extensionName').value()+"\" is not valid in service \""+thisServiceId+"\".", "invalid @extensionName");
-				} //!!!!
+				}
 				else errs.push("@extensionName not specified for DASH extension in \""+thisServiceId+"\".", "no @extensionName");
 			}
 			
