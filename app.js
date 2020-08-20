@@ -17,7 +17,6 @@ const {loadCS}=require("./dvb-common/CS_handler.js");
 const ISOcountries=require("./dvb-common/ISOcountries.js");
 const IANAlanguages=require("./dvb-common/IANAlanguages.js");
 
-
 // libxmljs - https://github.com/libxmljs/libxmljs
 const libxml=require("libxmljs");
 
@@ -819,7 +818,10 @@ function validateServiceList(SLtext, errs) {
 	} catch (err) {
 		errs.push("XML parsing failed: "+err.message, "malformed XML");
 	}
-	if (!SL || !SL.root()) return;
+	if (!SL || !SL.root()) {
+		errs.push("SL is empty")
+		return;
+	}
 	
 	// check the retrieved service list against the schema
 	// https://syssgx.github.io/xml.js/
@@ -1299,15 +1301,14 @@ function checkFile(req) {
  */ 
 function processQuery(req,res) {
     if (isEmpty(req.query)) {
-        drawForm(true, res);    
+        drawForm(true, res);  
     } else if (!checkQuery(req)) {
         drawForm(true, res, req.query.SLurl, {error:"URL not specified"});
         res.status(400);
     }
     else {
-		var SLxml=null;
         var errs=new ErrorList();
-		
+	
 		var xhttp=new XmlHttpRequest();
 		xhttp.onreadystatechange=function() {
 			if (this.readyState==this.DONE && this.status==200) {
@@ -1321,7 +1322,7 @@ function processQuery(req,res) {
 		
         drawForm(true, res, req.query.SLurl, {errors:errs});
     }
-    res.end();
+    res.end()
 }
 
 
@@ -1381,7 +1382,7 @@ const optionDefinitions=[
   {name: 'urls', alias: 'u', type: Boolean, defaultValue: false},
   {name: 'port', alias: 'p', type: Number, defaultValue:DEFAULT_HTTP_SERVICE_PORT },
   {name: 'sport', alias: 's', type: Number, defaultValue:DEFAULT_HTTP_SERVICE_PORT+1 }
-]]
+]
  
 const options=commandLineArgs(optionDefinitions);
 
