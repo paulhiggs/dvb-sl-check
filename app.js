@@ -106,6 +106,14 @@ var TVAschema, MPEG7schema, XMLschema;
 
 
 
+function quote(str) {
+	return "\""+str+"\"";
+}
+function attribute(attr) {
+	return "@"+attr;
+}
+
+
 const SCHEMA_v1=1,
       SCHEMA_v2=2,
 	  SCHEMA_unknown= -1;
@@ -264,6 +272,7 @@ function validServiceIdentifier(identifier){
     return isTAGURI(identifier);
 }
 
+
 /** 
  * determines if the identifer provided is unique against a list of known identifiers
  *
@@ -276,26 +285,26 @@ function uniqueServiceIdentifier(identifier,identifiers) {
 }
 
 function addRegion(Region, depth, knownRegionIDs, errs) {
-    var regionID=Region.attr("regionID").value();
-    var countryCodeSpecified=Region.attr("countryCodes");
+    var regionID=Region.attr(dvbi.a_regionID).value();
+    var countryCodeSpecified=Region.attr(dvbi.a_countryCodes);
     if (isIn(knownRegionIDs, regionID)) 
-        errs.push("Duplicate RegionID \""+regionID+"\"", "duplicate regionID");
+        errs.push("Duplicate RegionID "+quote(regionID), "duplicate regionID");
     else knownRegionIDs.push(regionID);
 
     if ((depth != 0) && countryCodeSpecified) 
-        errs.push("@countryCodes not permitted for sub-region \""+regionID+"\"", "ccode in subRegion");
+        errs.push(attribute(dvbi.a_countryCodes)+" not permitted for sub-region "+quote(regionID), "ccode in subRegion");
 
 
     if (countryCodeSpecified) {
         var countries=countryCodeSpecified.value().split(",");
         if (countries) countries.forEach(country => {
             if (!knownCountries.isISO3166code(country)) 
-                errs.push("invalid country code ("+country+") for region \""+regionID+"\"", "invalid country code");
+                errs.push("invalid country code ("+country+") for region "+quote(regionID), "invalid country code");
         });
     }
 
     if (depth > dvbi.MAX_SUBREGION_LEVELS) 
-        errs.push("<Region> depth exceeded (>"+dvbi.MAX_SUBREGION_LEVELS+") for sub-region \""+regionID+"\"", "region depth exceeded");
+        errs.push("<Region> depth exceeded (>"+dvbi.MAX_SUBREGION_LEVELS+") for sub-region "+quote(regionID), "region depth exceeded");
 
     var i=0, RegionChild;
     while ((RegionChild=Region.child(i)) != null) {
@@ -316,7 +325,7 @@ function addRegion(Region, depth, knownRegionIDs, errs) {
 function validServiceApplication(HowRelated) {
     // return true if val is a valid CS value for Service Related Applications (A177 5.2.3)
     // urn:dvb:metadata:cs:LinkedApplicationCS:2019
-    var val= HowRelated.attr("href") ? HowRelated.attr("href").value() : null;
+    var val= HowRelated.attr(dvbi.a_href) ? HowRelated.attr(dvbi.a_href).value() : null;
     return val==dvbi.APP_IN_PARALLEL
         || val==dvbi.APP_IN_CONTROL
         || val==dvbi.APP_OUTSIDE_AVAILABILITY;
@@ -343,7 +352,7 @@ function validDASHcontentType(contentType) {
  */
 function validOutScheduleHours(HowRelated, namespace) {
     // return true if val is a valid CS value for Out of Service Banners (A177 5.2.5.3)
-    var val= HowRelated.attr("href") ? HowRelated.attr("href").value() : null;
+    var val= HowRelated.attr(dvbi.a_href) ? HowRelated.attr(dvbi.a_href).value() : null;
     return (SchemaVersion(namespace)==SCHEMA_v1 && val==dvbi.BANNER_OUTSIDE_AVAILABILITY_v1)
 		|| (SchemaVersion(namespace)==SCHEMA_v2 && val==dvbi.BANNER_OUTSIDE_AVAILABILITY_v2);
 }
@@ -358,7 +367,7 @@ function validOutScheduleHours(HowRelated, namespace) {
  */
 function validContentFinishedBanner(HowRelated, namespace) {
     // return true if val is a valid CS value for Content Finished Banner (A177 5.2.7.3)
-    var val= HowRelated.attr("href") ? HowRelated.attr("href").value() : null;
+    var val= HowRelated.attr(dvbi.a_href) ? HowRelated.attr(dvbi.a_href).value() : null;
     return (SchemaVersion(namespace)==SCHEMA_v2 && val==dvbi.BANNER_CONTENT_FINISHED_v2);
 }
 
@@ -371,7 +380,7 @@ function validContentFinishedBanner(HowRelated, namespace) {
  */
 function validServiceListLogo(HowRelated, namespace) {
     // return true if val is a valid CS value Service List Logo (A177 5.2.6.1)
-    var val= HowRelated.attr("href") ? HowRelated.attr("href").value() : null;
+    var val= HowRelated.attr(dvbi.a_href) ? HowRelated.attr(dvbi.a_href).value() : null;
 	return (SchemaVersion(namespace)==SCHEMA_v1 && val==dvbi.LOGO_SERVICE_LIST_v1)
 		|| (SchemaVersion(namespace)==SCHEMA_v2 && val==dvbi.LOGO_SERVICE_LIST_v2);
 }
@@ -385,7 +394,7 @@ function validServiceListLogo(HowRelated, namespace) {
  */
 function validServiceLogo(HowRelated, namespace) {
     // return true if val is a valid CS value Service Logo (A177 5.2.6.2)
-	var val= HowRelated.attr("href") ? HowRelated.attr("href").value() : null;
+	var val= HowRelated.attr(dvbi.a_href) ? HowRelated.attr(dvbi.a_href).value() : null;
     return (SchemaVersion(namespace)==SCHEMA_v1 && val==dvbi.LOGO_SERVICE_v1)
 		|| (SchemaVersion(namespace)==SCHEMA_v2 && val==dvbi.LOGO_SERVICE_v2);
 }
@@ -399,7 +408,7 @@ function validServiceLogo(HowRelated, namespace) {
  */
 function validContentGuideSourceLogo(HowRelated, namespace) {
     // return true if val is a valid CS value Service Logo (A177 5.2.6.3)
-    var val= HowRelated.attr("href") ? HowRelated.attr("href").value() : null;
+    var val= HowRelated.attr(dvbi.a_href) ? HowRelated.attr(dvbi.a_href).value() : null;
     return (SchemaVersion(namespace)==SCHEMA_v1 && val==dvbi.LOGO_CG_PROVIDER_v1)
 		|| (SchemaVersion(namespace)==SCHEMA_v2 && val==dvbi.LOGO_CG_PROVIDER_v2);
 }
@@ -443,12 +452,12 @@ function checkValidLogo(HowRelated,Format,MediaLocator,errs,Location,LocationTyp
         if (subElems) subElems.forEach(child => {
             if (child.name() == "StillPictureFormat") {
                 hasStillPictureFormat=true;
-                if (!child.attr("horizontalSize")) 
-                    errs.push("@horizontalSize not specified for <RelatedMaterial><Format><StillPictureFormat> in "+Location, "no @horizontalSize");
-                if (!child.attr("verticalSize")) 
-                    errs.push("@verticalSize not specified for <RelatedMaterial><Format><StillPictureFormat> in "+Location, "no @verticalSize");
-                if (child.attr("href")) {
-                    var href=child.attr("href").value();
+                if (!child.attr(dvbi.a_horizontalSize)) 
+                    errs.push(attribute(dvbi.a_horizontalSize)+" not specified for <RelatedMaterial><Format><StillPictureFormat> in "+Location, "no "+attribute(dvbi.a_horizontalSize));
+                if (!child.attr(dvbi.a_verticalSize)) 
+                    errs.push(attribute(dvbi.a_verticalSize)+" not specified for <RelatedMaterial><Format><StillPictureFormat> in "+Location, "no "+attribute(dvbi.a_verticalSize));
+                if (child.attr(dvbi.a_href)) {
+                    var href=child.attr(dvbi.a_href).value();
                     if (href != dvbi.JPEG_IMAGE_CS_VALUE && href != dvbi.PNG_IMAGE_CS_VALUE) {
 						InvalidHrefValue(errs, href, "<RelatedMaterial><Format><StillPictureFormat>", Location)
                     }
@@ -469,12 +478,12 @@ function checkValidLogo(HowRelated,Format,MediaLocator,errs,Location,LocationTyp
         if (subElems) subElems.forEach(child => {
             if (child.name()=="MediaUri") {
                 hasMediaURI=true;
-                if (!child.attr("contentType")) 
-                    errs.push("@contentType not specified for logo <MediaUri> in "+Location, "unspecified MediaUri@contentType");
+                if (!child.attr(dvbi.a_contentType)) 
+                    errs.push(attribute(dvbi.a_contentType)+" not specified for logo <MediaUri> in "+Location, "unspecified MediaUri@contentType");
                 else {
-                    var contentType=child.attr("contentType").value();
+                    var contentType=child.attr(dvbi.a_contentType).value();
                     if (!isJPEGmime(contentType) && !isPNGmime(contentType))
-                        errs.push("invalid @contentType \""+contentType+"\" specified for <RelatedMaterial><MediaLocator> in "+Location, "invalid MediaUri@contentType");
+                        errs.push("invalid "+attribute(dvbi.a_contentType)+" "+quote(contentType)+" specified for <RelatedMaterial><MediaLocator> in "+Location, "invalid MediaUri@contentType");
                     if (Format && ((isJPEGmime(contentType) && !isJPEG) || (isPNGmime(contentType) && !isPNG))) 
                         errs.push("conflicting media types in <Format> and <MediaUri> for "+Location, "conflicting mime types");
                 }
@@ -508,11 +517,11 @@ function checkSignalledApplication(HowRelated,Format,MediaLocator,errs,Location,
         if (subElems) subElems.forEach(child => {
             if (child.name()=="MediaUri") {
                 hasMediaURI=true;
-                if (!child.attr("contentType")) 
-                    errs.push("@contentType not specified for <MediaUri> in "+Location, "unspecified MediaUri@contentType");
+                if (!child.attr(dvbi.a_contentType)) 
+                    errs.push(attribute(dvbi.a_contentType)+" not specified for <MediaUri> in "+Location, "unspecified MediaUri@contentType");
                 else {
-                    if (child.attr("contentType").value()!=dvbi.XML_AIT_CONTENT_TYPE) 
-                        errs.pushW("@contentType \""+child.attr("contentType").value()+"\" is not DVB AIT for <RelatedMaterial><MediaLocator> in "+Location, "invalid MediaUri@contentType");
+                    if (child.attr(dvbi.a_contentType).value()!=dvbi.XML_AIT_CONTENT_TYPE) 
+                        errs.pushW(attribute(dvbi.a_contentType)+" "+quote(child.attr(dvbi.a_contentType).value())+" is not DVB AIT for <RelatedMaterial><MediaLocator> in "+Location, "invalid MediaUri@contentType");
                 }
             }
         });
@@ -551,7 +560,7 @@ function validateRelatedMaterial(RelatedMaterial,errs,Location,LocationType,SCHE
         errs.push("<HowRelated> not specified for <RelatedMaterial> in "+Location, "no HowRelated");
 		return;
     }
-	var HRhref=HowRelated.attr("href");
+	var HRhref=HowRelated.attr(dvbi.a_href);
 	if (HRhref) {
 		if (LocationType==SERVICE_LIST_RM) {
 			if (!validServiceListLogo(HowRelated,SCHEMA_NAMESPACE)) {
@@ -564,7 +573,7 @@ function validateRelatedMaterial(RelatedMaterial,errs,Location,LocationType,SCHE
 		}
 		if (LocationType==SERVICE_RM) {
 			if (validContentFinishedBanner(HowRelated, SCHEMA_NAMESPACE) && (SchemaVersion(SCHEMA_NAMESPACE) == SCHEMA_v1)) 
-				errs.push("\""+dvbi.BANNER_CONTENT_FINISHED_v2 +"\" not permitted for \""+SCHEMA_NAMESPACE+"\" in "+Location, "invalid CS value");
+				errs.push(quote(dvbi.BANNER_CONTENT_FINISHED_v2)+" not permitted for "+quote(SCHEMA_NAMESPACE)+" in "+Location, "invalid CS value");
 			
 			if (!(validOutScheduleHours(HowRelated, SCHEMA_NAMESPACE) || validContentFinishedBanner(HowRelated, SCHEMA_NAMESPACE) ||validServiceApplication(HowRelated) || validServiceLogo(HowRelated,SCHEMA_NAMESPACE))) {
 				InvalidHrefValue(errs, HRhref.value(), "<RelatedMaterial>", Location );
@@ -606,7 +615,7 @@ function validateRelatedMaterial(RelatedMaterial,errs,Location,LocationType,SCHE
 function checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, elementName, elementLocation, node, errs) {
     var elementLanguages=[], i=1;
     while (elem=node.get(xPath(SCHEMA_PREFIX, elementName, i), SL_SCHEMA)) {
-        var lang, langAttr=elem.attr("lang");
+        var lang, langAttr=elem.attr(dvbi.a_lang);
         if (!langAttr)
             lang="missing"
         else lang=langAttr.value();
@@ -617,7 +626,7 @@ function checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, elementName, elementLocation, n
         //if lang is specified, validate the format and value of the attribute against BCP47 (RFC 5646)
 		if (lang != "missing") {
 			if (!knownLanguages.isKnown(lang)) 
-				errs.push("xml:lang value \""+lang+"\" is invalid", "invalid @xml:lang");
+				errs.push("xml:lang value "+quote(lang)+" is invalid", "invalid @xml:lang");
 		}
 		
         i++;
@@ -735,7 +744,7 @@ function drawForm(URLmode, res, lastInput, o) {
  * @param {String} serviceId The serviceId whose instance is missing delivery parameters
  */
 function NoDeliveryParams(errs, source, serviceId) {
-    errs.push(source+" delivery parameters not specified for service instance in service \""+serviceId+"\"", "no delivery params");
+    errs.push(source+" delivery parameters not specified for service instance in service "+quote(serviceId), "no delivery params");
 }
 
 /**
@@ -758,7 +767,7 @@ function NoHrefAttribute(errs, src, loc) {
  * @param {String} loc The location of the element
  */
 function InvalidHrefValue(errs, value, src, loc) {
-	errs.push("invalid @href=\""+value+"\" specified for "+src+" in "+loc, "invalid href");
+	errs.push("invalid "+attribute(dvbi.a_href)+"="+quote(value)+" specified for "+src+" in "+loc, "invalid href");
 }
 
 /**
@@ -806,8 +815,8 @@ function NoMediaLocator(errs, src, loc) {
  */
 function hasSignalledApplication(node, SCHEMA_PREFIX, SL_SCHEMA) {
 	var i=1, elem;
-    while (elem=node.get(xPath(SCHEMA_PREFIX, "RelatedMaterial", i), SL_SCHEMA)) {
-        var hr=elem.get(xPath(SCHEMA_PREFIX, "HowRelated"), SL_SCHEMA);
+    while (elem=node.get(xPath(SCHEMA_PREFIX, dvbi.e_RelatedMaterial, i), SL_SCHEMA)) {
+        var hr=elem.get(xPath(SCHEMA_PREFIX, dvbi.e_HowRelated), SL_SCHEMA);
 		if (hr && validServiceApplication(hr)) 
 			return true;			
         i++;
@@ -869,7 +878,7 @@ function validateServiceList(SLtext, errs) {
 	SL_SCHEMA[SCHEMA_PREFIX]=SCHEMA_NAMESPACE;
 
 	if (SchemaVersion(SCHEMA_NAMESPACE) == SCHEMA_unknown) {
-		errs.push("Unsupported namespace \""+SCHEMA_NAMESPACE+"\"");
+		errs.push("Unsupported namespace "+quote(SCHEMA_NAMESPACE));
 		return;
 	}
 
@@ -880,92 +889,81 @@ function validateServiceList(SLtext, errs) {
 	checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, "ProviderName", "ServiceList", SL, errs);
 
 	//check <ServiceList><RelatedMaterial>
-	var rm=1, RelatedMaterial;
-	while (RelatedMaterial=SL.get(xPath(SCHEMA_PREFIX, "RelatedMaterial", rm), SL_SCHEMA)) {
+	var rm=0, RelatedMaterial;
+	while (RelatedMaterial=SL.get(xPath(SCHEMA_PREFIX, dvbi.e_RelatedMaterial, ++rm), SL_SCHEMA)) 
 		validateRelatedMaterial(RelatedMaterial,errs,"service list", SERVICE_LIST_RM, SCHEMA_PREFIX, SCHEMA_NAMESPACE, SL_SCHEMA);
-		rm++;
-	}
 
 	// check <ServiceList><RegionList> and remember regionID values
-	var knownRegionIDs=[], RegionList=SL.get(xPath(SCHEMA_PREFIX, "RegionList"), SL_SCHEMA);
+	var knownRegionIDs=[], RegionList=SL.get(xPath(SCHEMA_PREFIX, dvbi.e_RegionList), SL_SCHEMA);
 	if (RegionList) {
 		// recurse the regionlist - Regions can be nested in Regions
-		var r=1, Region;
-		while (Region=SL.get("//"+xPath(SCHEMA_PREFIX, "RegionList")+"/"+xPath(SCHEMA_PREFIX, "Region", r), SL_SCHEMA)) {
+		var r=0, Region;
+		while (Region=RegionList.get(xPath(SCHEMA_PREFIX, dvbi.e_Region, ++r), SL_SCHEMA)) 
 			addRegion(Region, 0, knownRegionIDs, errs);
-			r++;
-		}
 	}
 
 	//check <ServiceList><TargetRegion>
-	var tr=1, TargetRegion;
-	while (TargetRegion=SL.get(xPath(SCHEMA_PREFIX, "TargetRegion", tr), SL_SCHEMA)) {
-		if (!isIn(knownRegionIDs,TargetRegion.text())) {
+	var tr=0, TargetRegion;
+	while (TargetRegion=SL.get(xPath(SCHEMA_PREFIX, dvbi.e_TargetRegion, ++tr), SL_SCHEMA)) 
+		if (!isIn(knownRegionIDs,TargetRegion.text())) 
 			UnspecifiedTargetRegion(errs, TargetRegion.text(), "service list");
-		}
-		tr++;
-	}
+
 
 	// <ServiceList><LCNTableList> is checked below, after the services are enumerated
 
 	// check mpeg7:TextualType elements in <ServiceList><ContentGuideSourceList>
-	var cgs=1, CGsource;
-	while (CGsource=SL.get(xPath(SCHEMA_PREFIX,"ContentGuideSourceList")+"/"+xPath(SCHEMA_PREFIX, "ContentGuideSource", cgs), SL_SCHEMA)) {
+	var cgs=0, CGsource;
+	while (CGsource=SL.get(xPath(SCHEMA_PREFIX, dvbi.e_ContentGuideSourceList)+"/"+xPath(SCHEMA_PREFIX, dvbi.e_ContentGuideSource, ++cgs), SL_SCHEMA)) {
 		// Check that the @xml:lang values for each <ContentGuideSourceList><ContentGuideSource>[cgs]<Name> element are unique and only one element 
 		// does not have any language specified
-		checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, "Name", "ServiceList.ContentGuideSourceList.ContentGuideSource["+cgs+"]", CGsource, errs);
+		checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, dvbi.e_Name, "ServiceList.ContentGuideSourceList.ContentGuideSource["+cgs+"]", CGsource, errs);
 
 		// Check that the @xml:lang values for each <ContentGuideSourceList><ContentGuideSource>[cgs] element are unique and only one element 
 		// does not have any language specified
-		checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, "ProviderName", "ServiceList.ContentGuideSourceList.ContentGuideSource["+cgs+"]", CGsource, errs);
-
-		cgs++;
+		checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, dvbi.e_ProviderName, "ServiceList.ContentGuideSourceList.ContentGuideSource["+cgs+"]", CGsource, errs);
 	}
 
 	//check service list <ContentGuideSourceList>
-	var ContentGuideSourceIDs=[], CGSourceList=SL.get("//"+xPath(SCHEMA_PREFIX, "ContentGuideSourceList"), SL_SCHEMA);
+	var ContentGuideSourceIDs=[], CGSourceList=SL.get("//"+xPath(SCHEMA_PREFIX, dvbi.e_ContentGuideSourceList), SL_SCHEMA);
 	if (CGSourceList) {
-		var i=1, CGSource;
-		while (CGSource=CGSourceList.get(xPath(SCHEMA_PREFIX, "ContentGuideSource", i), SL_SCHEMA)) {
+		var i=0, CGSource;
+		while (CGSource=CGSourceList.get(xPath(SCHEMA_PREFIX, dvbi.e_ContentGuideSource, ++i), SL_SCHEMA)) {
 
-			if (isIn(ContentGuideSourceIDs,CGSource.attr("CGSID").value()))
-				errs.push("duplicate @CGSID in service list", "duplicate CGSID");
-			else ContentGuideSourceIDs.push(CGSource.attr("CGSID").value());
+			if (isIn(ContentGuideSourceIDs,CGSource.attr(dvbi.a_CGSID).value()))
+				errs.push("duplicate "+attribute(dvbi.a_CGSID)+" in service list", "duplicate "+attribute(dvbi.a_CGSID));
+			else ContentGuideSourceIDs.push(CGSource.attr(dvbi.a_CGSID).value());
 
-			var rm=1, CGrm;
-			while (CGrm=CGSource.get(xPath(SCHEMA_PREFIX, "RelatedMaterial", rm), SL_SCHEMA)) {
+			var rm=0, CGrm;
+			while (CGrm=CGSource.get(xPath(SCHEMA_PREFIX, dvbi.e_RelatedMaterial, ++rm), SL_SCHEMA)) 
 				validateRelatedMaterial(CGrm,errs,"<ServiceList><ContentGuideSourceList>", CONTENT_GUIDE_RM, SCHEMA_PREFIX, SCHEMA_NAMESPACE, SL_SCHEMA);
-				rm++;
-			}
-			i++;
 		}
 	}
 
 	// check  elements in <ServiceList><ContentGuideSource>
-	var slGCS=SL.get(xPath(SCHEMA_PREFIX, "ContentGuideSource"), SL_SCHEMA);
+	var slGCS=SL.get(xPath(SCHEMA_PREFIX, dvbi.e_ContentGuideSource), SL_SCHEMA);
 	if (slGCS) {
 		// Check that the @xml:lang values for each <ContentGuideSource><Name> element are unique and only one element does not have any language specified
-		checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, "Name", "ServiceList.ContentGuideSource", slGCS, errs);
+		checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, dvbi.e_Name, "ServiceList."+dvbi.e_ContentGuideSource, slGCS, errs);
 
 		// Check that the @xml:lang values for each <ContentGuideSource><ProviderName> element are unique and only one element does not have any language specified
-		checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, "ProviderName", "ServiceList.ContentGuideSource", slGCS, errs);
+		checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, dvbi.e_ProviderName, "ServiceList."+dvbi.e_ContentGuideSource, slGCS, errs);
 
 		var rm=0, CGrm;
-		while (CGrm=slGCS.get(xPath(SCHEMA_PREFIX, "RelatedMaterial", ++rm), SL_SCHEMA))
-			validateRelatedMaterial(CGrm,errs,"<ServiceList><ContentGuideSource>", CONTENT_GUIDE_RM, SCHEMA_PREFIX, SCHEMA_NAMESPACE, SL_SCHEMA);
+		while (CGrm=slGCS.get(xPath(SCHEMA_PREFIX, dvbi.e_RelatedMaterial, ++rm), SL_SCHEMA))
+			validateRelatedMaterial(CGrm, errs, "<ServiceList><ContentGuideSource>", CONTENT_GUIDE_RM, SCHEMA_PREFIX, SCHEMA_NAMESPACE, SL_SCHEMA);
 	}
 
 	errs.set("num services",0);
 
 	// check <Service>
 	var s=0, service, knownServices=[], thisServiceId;
-	while (service=SL.get("//"+xPath(SCHEMA_PREFIX, "Service", ++s), SL_SCHEMA)) {
+	while (service=SL.get("//"+xPath(SCHEMA_PREFIX, dvbi.e_Service, ++s), SL_SCHEMA)) {
 		// for each service
 		errs.set("num services",s);
 		thisServiceId="service-"+s;  // use a default value in case <UniqueIdentifier> is not specified
 
 		// check <Service><UniqueIdentifier>
-		var uID=service.get(xPath(SCHEMA_PREFIX, "UniqueIdentifier"), SL_SCHEMA);
+		var uID=service.get(xPath(SCHEMA_PREFIX, dvbi.e_UniqueIdentifier), SL_SCHEMA);
 		if (!uID) 
 			// this should not happen as UniqueIdentifier is a mandatory element within Service
 			errs.push("<UniqueIdentifier> not present for service "+s, "no <UniqueIdentifier>");
@@ -973,167 +971,165 @@ function validateServiceList(SLtext, errs) {
 		else {
 			thisServiceId=uID.text();
 			if (!validServiceIdentifier(thisServiceId)) 
-				errs.push("\""+thisServiceId+"\" is not a valid identifier", "invalid tag");
+				errs.push(quote(thisServiceId)+" is not a valid identifier", "invalid tag");
 			if (!uniqueServiceIdentifier(thisServiceId,knownServices)) 
-				errs.push("\""+thisServiceId+"\" is not unique", "non unique id");
+				errs.push(quote(thisServiceId)+" is not unique", "non unique id");
 			knownServices.push(thisServiceId);
 		}
 
 		//check <Service><ServiceInstance>
 		var si=1, ServiceInstance;
-		while (ServiceInstance=service.get(xPath(SCHEMA_PREFIX, "ServiceInstance", si), SL_SCHEMA)) {
+		while (ServiceInstance=service.get(xPath(SCHEMA_PREFIX, dvbi.e_ServiceInstance, si), SL_SCHEMA)) {
 			//for each service instance
 
 			// Check that the @xml:lang values for each <DisplayName> element are unique and only one element does not have any language specified
-			checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, "DisplayName", "service instance in service=\""+thisServiceId+"\"", ServiceInstance, errs);
+			checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, dvbi.e_DisplayName, "service instance in service="+quote(thisServiceId), ServiceInstance, errs);
 
 			// check @href of <ServiceInstance><RelatedMaterial>
-			var rm=1, RelatedMaterial;
-			while (RelatedMaterial=ServiceInstance.get(xPath(SCHEMA_PREFIX, "RelatedMaterial", rm), SL_SCHEMA)) {
-				validateRelatedMaterial(RelatedMaterial,errs,"service instance of \""+thisServiceId+"\"", SERVICE_RM, SCHEMA_PREFIX, SCHEMA_NAMESPACE, SL_SCHEMA);
-				rm++;
-			}
+			var rm=0, RelatedMaterial;
+			while (RelatedMaterial=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_RelatedMaterial, ++rm), SL_SCHEMA)) 
+				validateRelatedMaterial(RelatedMaterial,errs,"service instance of "+quote(thisServiceId), SERVICE_RM, SCHEMA_PREFIX, SCHEMA_NAMESPACE, SL_SCHEMA);
 
 			// Check @href of ContentAttributes/AudioConformancePoints
 			var cp=0, conf;
-			while (conf=ServiceInstance.get(xPath(SCHEMA_PREFIX, "ContentAttributes")+"/"+xPath(SCHEMA_PREFIX, "AudioConformancePoint", ++cp), SL_SCHEMA)) 
-				if (conf.attr("href") && !isIn(allowedAudioConformancePoints,conf.attr("href").value())) 
-					errs.push("invalid value for <AudioConformancePoint> ("+conf.attr("href").value()+")", "audio conf point");
+			while (conf=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_ContentAttributes)+"/"+xPath(SCHEMA_PREFIX, dvbi.e_AudioConformancePoint, ++cp), SL_SCHEMA)) 
+				if (conf.attr(dvbi.a_href) && !isIn(allowedAudioConformancePoints,conf.attr(dvbi.a_href).value())) 
+					errs.push("invalid value for <AudioConformancePoint> ("+conf.attr(dvbi.a_href).value()+")", "audio conf point");
 
 			// Check @href of ContentAttributes/AudioAttributes/tva:coding
 			cp=0;
-			while (conf=ServiceInstance.get(xPath(SCHEMA_PREFIX, "ContentAttributes")+"/"+xPath(SCHEMA_PREFIX, "AudioAttributes", ++cp)+"/*", SL_SCHEMA))
-				if (conf.name()==="Coding" && conf.attr("href") && !isIn(allowedAudioSchemes,conf.attr("href").value())) 
-					errs.push("invalid @href value for <AudioAttributes> ("+conf.attr("href").value()+")", "audio codec");
+			while (conf=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_ContentAttributes)+"/"+xPath(SCHEMA_PREFIX, dvbi.e_AudioAttributes, ++cp)+"/*", SL_SCHEMA))
+				if (conf.name()===dvbi.e_Coding && conf.attr(dvbi.a_href) && !isIn(allowedAudioSchemes,conf.attr(dvbi.a_href).value())) 
+					errs.push("invalid @href value for <AudioAttributes> ("+conf.attr(dvbi.a_href).value()+")", "audio codec");
 
 			// Check @href of ContentAttributes/VideoConformancePoints
 			cp=0;
-			while (conf=ServiceInstance.get(xPath(SCHEMA_PREFIX, "ContentAttributes")+"/"+xPath(SCHEMA_PREFIX, "VideoConformancePoint", ++cp), SL_SCHEMA))  
-				if (conf.attr("href") && !isIn(allowedVideoConformancePoints,conf.attr("href").value())) 
-					errs.push("invalid @href value for <VideoConformancePoint> ("+conf.attr("href").value()+")", "video conf point");
+			while (conf=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_ContentAttributes)+"/"+xPath(SCHEMA_PREFIX, dvbi.e_VideoConformancePoint, ++cp), SL_SCHEMA))  
+				if (conf.attr(dvbi.a_href) && !isIn(allowedVideoConformancePoints,conf.attr(dvbi.a_href).value())) 
+					errs.push("invalid @href value for <VideoConformancePoint> ("+conf.attr(dvbi.a_href).value()+")", "video conf point");
 
 			// Check @href of ContentAttributes/VideoAttributes/tva:coding
 			cp=0;
-			while (conf=ServiceInstance.get(xPath(SCHEMA_PREFIX, "ContentAttributes")+"/"+xPath(SCHEMA_PREFIX, "VideoAttributes", ++cp)+"/*", SL_SCHEMA)) 
-				if (conf.name()==="Coding" && conf.attr("href") && !isIn(allowedVideoSchemes,conf.attr("href").value())) 
-					errs.push("invalid @href value for <VideoAttributes> ("+conf.attr("href").value()+")", "video codec");
+			while (conf=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_ContentAttributes)+"/"+xPath(SCHEMA_PREFIX, dvbi.e_VideoAttributes, ++cp)+"/*", SL_SCHEMA)) 
+				if (conf.name()===dvbi.e_Coding && conf.attr(dvbi.a_href) && !isIn(allowedVideoSchemes,conf.attr(dvbi.a_href).value())) 
+					errs.push("invalid @href value for <VideoAttributes> ("+conf.attr(dvbi.a_href).value()+")", "video codec");
 
-			var Availability=ServiceInstance.get(xPath(SCHEMA_PREFIX, "Availability"), SL_SCHEMA);
+			var Availability=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_Availability), SL_SCHEMA);
 			if (Availability) {
 				var Period, p=0;
-				while (Period=Availability.get(xPath(SCHEMA_PREFIX, "Period", ++p), SL_SCHEMA)) 
-					if (Period.attr("validFrom") && Period.attr("validTo")) {
+				while (Period=Availability.get(xPath(SCHEMA_PREFIX, dvbi.e_Period, ++p), SL_SCHEMA)) 
+					if (Period.attr(dvbi.a_validFrom) && Period.attr(dvbi.a_validTo)) {
 						// validTo should be >= validFrom
-						var fr=new Date(Period.attr("validFrom").value()), 
-							to=new Date(Period.attr("validTo").value());
+						var fr=new Date(Period.attr(dvbi.a_validFrom).value()), 
+							to=new Date(Period.attr(dvbi.a_validTo).value());
 					
 						if (to.getTime() < fr.getTime()) 
-							errs.push("invalid availability period for service \""+thisServiceId+"\". "+fr+">"+to, "period start>end");
+							errs.push("invalid availability period for service "+quote(thisServiceId)+". "+fr+">"+to, "period start>end");
 					}
 
 			}
 
 			// note that the <SourceType> element becomes optional and in A177v2, but if specified then the relevant
 			// delivery parameters also need to be specified
-			var SourceType=ServiceInstance.get(xPath(SCHEMA_PREFIX, "SourceType"), SL_SCHEMA);
+			var SourceType=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_SourceType), SL_SCHEMA);
 			if (SourceType) {
 				switch (SourceType.text()) {
 					case dvbi.DVBT_SOURCE_TYPE:
-						if (!ServiceInstance.get(xPath(SCHEMA_PREFIX, "DVBTDeliveryParameters"), SL_SCHEMA) ) {
+						if (!ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_DVBTDeliveryParameters), SL_SCHEMA) ) {
 							NoDeliveryParams(errs, "DVB-T", thisServiceId);
 						}
 						break;
 					case dvbi.DVBS_SOURCE_TYPE:
-						if (!ServiceInstance.get(xPath(SCHEMA_PREFIX, "DVBSDeliveryParameters"), SL_SCHEMA) ) {
+						if (!ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_DVBSDeliveryParameters), SL_SCHEMA) ) {
 							NoDeliveryParams(errs, "DVB-S", thisServiceId);
 						}
 						break;
 					case dvbi.DVBC_SOURCE_TYPE:
-						if (!ServiceInstance.get(xPath(SCHEMA_PREFIX, "DVBCDeliveryParameters"), SL_SCHEMA) ) {
+						if (!ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_DVBCDeliveryParameters), SL_SCHEMA) ) {
 							NoDeliveryParams(errs, "DVB-C", thisServiceId);
 						}
 						break;
 					case dvbi.DVBDASH_SOURCE_TYPE:
-						if (!ServiceInstance.get(xPath(SCHEMA_PREFIX, "DASHDeliveryParameters"), SL_SCHEMA) ) {
+						if (!ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_DASHDeliveryParameters), SL_SCHEMA) ) {
 							NoDeliveryParams(errs, "DVB-DASH", thisServiceId);
 						}
 						break;
 					case dvbi.DVBIPTV_SOURCE_TYPE:
-						if (!ServiceInstance.get(xPath(SCHEMA_PREFIX, "MulticastTSDeliveryParameters"), SL_SCHEMA) && !ServiceInstance.get(xPath(SCHEMA_PREFIX, "RTSPDeliveryParameters"), SL_SCHEMA) ) {
+						if (!ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_MulticastTSDeliveryParameters), SL_SCHEMA) && !ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_RTSPDeliveryParameters), SL_SCHEMA) ) {
 							NoDeliveryParams(errs, "Multicast or RTSP", thisServiceId);
 						}
 						break;
 					case dvbi.DVBAPPLICATION_SOURCE_TYPE:
 						// there should not be any <xxxxDeliveryParameters> elements and there should be either a Service.RelatedMaterial or Service.ServiceInstance.RelatedMaterial signalling a service related application
-						if (ServiceInstance.get(xPath(SCHEMA_PREFIX, "DVBTDeliveryParameters"), SL_SCHEMA)
-							|| ServiceInstance.get(xPath(SCHEMA_PREFIX, "DVBSDeliveryParameters"), SL_SCHEMA)
-							|| ServiceInstance.get(xPath(SCHEMA_PREFIX, "DVBCDeliveryParameters"), SL_SCHEMA)
-							|| ServiceInstance.get(xPath(SCHEMA_PREFIX, "DASHDeliveryParameters"), SL_SCHEMA)
-							|| ServiceInstance.get(xPath(SCHEMA_PREFIX, "MulticastTSDeliveryParameters"), SL_SCHEMA)
-							|| ServiceInstance.get(xPath(SCHEMA_PREFIX, "RTSPDeliveryParameters"), SL_SCHEMA) ) 
-								errs.push("Delivery parameters are not permitted for Application service instance in Service \""+thisServiceId+"\".", "invalid application");
+						if (ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_DVBTDeliveryParameters), SL_SCHEMA)
+							|| ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_DVBSDeliveryParameters), SL_SCHEMA)
+							|| ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_DVBCDeliveryParameters), SL_SCHEMA)
+							|| ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_DASHDeliveryParameters), SL_SCHEMA)
+							|| ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_MulticastTSDeliveryParameters), SL_SCHEMA)
+							|| ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_RTSPDeliveryParameters), SL_SCHEMA) ) 
+								errs.push("Delivery parameters are not permitted for Application service instance in Service "+quote(thisServiceId), "invalid application");
 
 							else {
 								// no xxxxDeliveryParameters is signalled
 								// check for appropriate Service.RelatedMaterial or Service.ServiceInstance.RelatedMaterial
 								if (!hasSignalledApplication(service, SCHEMA_PREFIX, SL_SCHEMA) 
 									&& !hasSignalledApplication(ServiceInstance, SCHEMA_PREFIX, SL_SCHEMA)) {
-									errs.push("No Application is signalled for SourceType=\""+dvbi.DVBAPPLICATION_SOURCE_TYPE+"\" in Service \""+thisServiceId+"\".", "no application");
+									errs.push("No Application is signalled for SourceType="+quote(dvbi.DVBAPPLICATION_SOURCE_TYPE)+" in Service "+quote(thisServiceId), "no application");
 								}
 							}
 						break;
 					default:
 						if (SchemaVersion(SCHEMA_NAMESPACE)==SCHEMA_v1) 
-							errs.push("SourceType \""+SourceType.text()+"\" is not valid in Service \""+thisServiceId+"\".", "invalid SourceType");
+							errs.push("SourceType "+quote(SourceType.text())+" is not valid in Service "+quote(thisServiceId), "invalid SourceType");
 				}
 			}
 			else {
 				// this should not happen as SourceType is a mandatory element within ServiceInstance
 				if (SchemaVersion(SCHEMA_NAMESPACE)==SCHEMA_v1) 
-					errs.push("SourceType not specified in ServiceInstance of service \""+thisServiceId+"\".", "no SourceType");
+					errs.push("SourceType not specified in ServiceInstance of service "+quote(thisServiceId), "no SourceType");
 			}
 
-			var DASHDeliveryParameters=ServiceInstance.get(xPath(SCHEMA_PREFIX, "DASHDeliveryParameters"), SL_SCHEMA);
+			var DASHDeliveryParameters=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_DASHDeliveryParameters), SL_SCHEMA);
 			if (DASHDeliveryParameters) {
-				var URILoc=DASHDeliveryParameters.get(xPath(SCHEMA_PREFIX, "UriBasedLocation"), SL_SCHEMA);
+				var URILoc=DASHDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_UriBasedLocation), SL_SCHEMA);
 				if (!URILoc) 
-					errs.push("UriBasedLocation not specified for DASHDeliveryParameters in service \""+thisServiceId+"\".", "no UriBasedLocation");
+					errs.push(dvbi.e_UriBasedLocation+" not specified for DASHDeliveryParameters in service "+quote(thisServiceId), "no "+dvbi.e_UriBasedLocation);
 				else {
-					var uriContentType=URILoc.attr("contentType");
+					var uriContentType=URILoc.attr(dvbi.a_contentType);
 					if (uriContentType) 
 						if (!validDASHcontentType(uriContentType.value())) {
-							errs.push("@contentType=\""+uriContentType.value()+"\" in service \""+thisServiceId+"\" is not valid", "no @contentType for DASH");
+							errs.push(attribute(dvbi.a_contentType)+"="+quote(uriContentType.value())+" in service "+quote(thisServiceId)+" is not valid", "no "+attribute(dvbi.a_contentType)+" for DASH");
 					}
-					else errs.push("@contentType not specified for URI in service \""+thisServiceId+"\".", "no @contentType");
+					else errs.push(attribute(dvbi.a_contentType)+" not specified for URI in service "+quote(thisServiceId), "no "+attribute(dvbi.a_contentType));
 				}
 				var e=1, extension;
-				while (extension=DASHDeliveryParameters.get(xPath(SCHEMA_PREFIX, +"Extension"), SL_SCHEMA)) {
-					if (extension.attr('extensionName')) {
-						if (!validExtensionName(extension.attr('extensionName').value())) 
-							errs.push("@extensionName=\""+extension.attr('extensionName').value()+"\" is not valid in service \""+thisServiceId+"\".", "invalid @extensionName");
+				while (extension=DASHDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_Extension), SL_SCHEMA)) {
+					if (extension.attr(dvbi.a_extensionName)) {
+						if (!validExtensionName(extension.attr(dvbi.a_extensionName).value())) 
+							errs.push(attribute(dvbi.a_extensionName)+"="+quote(extension.attr(dvbi.a_extensionName).value())+" is not valid in service "+quote(thisServiceId), "invalid "+attribute(dvbi.a_extensionName));
 					}
-					else errs.push("@extensionName not specified for DASH extension in \""+thisServiceId+"\".", "no @extensionName");
+					else errs.push(attribute(dvbi.a_extensionName)+" not specified for DASH extension in "+quote(thisServiceId), "no "+attribute(dvbi.a_extensionName));
 				}
 			}
 
-			var DVBTtargetCountry=ServiceInstance.get(xPath(SCHEMA_PREFIX, "DVBTDeliveryParameters")+"/"+xPath(SCHEMA_PREFIX, "TargetCountry"), SL_SCHEMA);
+			var DVBTtargetCountry=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_DVBTDeliveryParameters)+"/"+xPath(SCHEMA_PREFIX, dvbi.e_TargetCountry), SL_SCHEMA);
 			if (DVBTtargetCountry)
 				if (!knownCountries.isISO3166code(DVBTtargetCountry.text())) 
-					InvalidCountryCode(errs, DVBTtargetCountry.text(), "DVB-T", "service \""+thisServiceId+"\"");
+					InvalidCountryCode(errs, DVBTtargetCountry.text(), "DVB-T", "service "+quote(thisServiceId));
 
 
-			var DVBCtargetCountry=ServiceInstance.get(xPath(SCHEMA_PREFIX, "DVBCDeliveryParameters")+"/"+xPath(SCHEMA_PREFIX, "TargetCountry"), SL_SCHEMA, SL_SCHEMA);
+			var DVBCtargetCountry=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_DVBCDeliveryParameters)+"/"+xPath(SCHEMA_PREFIX, dvbi.e_TargetCountry), SL_SCHEMA, SL_SCHEMA);
 			if (DVBCtargetCountry)
 				if (!knownCountries.isISO3166code(DVBCtargetCountry.text()))  
-					InvalidCountryCode(errs, DVBCtargetCountry.text(), "DVB-C", "service \""+thisServiceId+"\"");
+					InvalidCountryCode(errs, DVBCtargetCountry.text(), "DVB-C", "service "+quote(thisServiceId));
 
-			var OtherDeliveryParameters=ServiceInstance.get(xPath(SCHEMA_PREFIX, "OtherDeliveryParameters"), SL_SCHEMA);
+			var OtherDeliveryParameters=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_OtherDeliveryParameters), SL_SCHEMA);
 			if (OtherDeliveryParameters) {
-				if (OtherDeliveryParamers.attr("extensionName")) {
-					if (!validExtensionName(OtherDeliveryParamers.attr("extensionName").value()))
-						errs.push("@extensionName=\""+OtherDeliveryParameters.attr('extensionName').value()+"\" is not valid in service \""+thisServiceId+"\".", "invalid @extensionName");
+				if (OtherDeliveryParamers.attr(dvbi.a_extensionName)) {
+					if (!validExtensionName(OtherDeliveryParamers.attr(dvbi.a_extensionName).value()))
+						errs.push(attribute(dvbi.a_extensionName)+"="+quote(OtherDeliveryParameters.attr(dvbi.a_extensionName).value())+" is not valid in service "+quote(thisServiceId), "invalid "+attribute(dvbi.a_extensionName));
 				}
-				else errs.push("@extensionName not specified for OtherDeliveryParameters extension in \""+thisServiceId+"\".", "no @extensionName");
+				else errs.push(attribute(dvbi.a_extensionName)+" not specified for OtherDeliveryParameters extension in "+quote(thisServiceId), "no "+attribute(dvbi.a_extensionName));
 			}
 			
 			si++;  // next <ServiceInstance>
@@ -1141,70 +1137,70 @@ function validateServiceList(SLtext, errs) {
 
 		//check <Service><TargetRegion>
 		var tr=0, TargetRegion;
-		while (TargetRegion=service.get(xPath(SCHEMA_PREFIX, "TargetRegion", ++tr), SL_SCHEMA)) 
+		while (TargetRegion=service.get(xPath(SCHEMA_PREFIX, dvbi.e_TargetRegion, ++tr), SL_SCHEMA)) 
 			if (!isIn(knownRegionIDs,TargetRegion.text())) 
-				UnspecifiedTargetRegion(errs, TargetRegion.text(), "service \""+thisServiceId+"\"");
+				UnspecifiedTargetRegion(errs, TargetRegion.text(), "service "+quote(thisServiceId));
 
 		// Check that the @xml:lang values for each <ServiceName> element are unique and only one element does not have any language specified
-		checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, "ServiceName", "service=\""+thisServiceId+"\"", service, errs);
+		checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, dvbi.e_ServiceName, "service="+quote(thisServiceId), service, errs);
 
 		// Check that the @xml:lang values for each <ProviderName> element are unique and only one element does not have any language specified
-		checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, "ProviderName", "service=\""+thisServiceId+"\"", service, errs);
+		checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, dvbi.e_ProviderName, "service="+quote(thisServiceId), service, errs);
 
 		//check <Service><RelatedMaterial>
 		var rm=0, RelatedMaterial;
-		while (RelatedMaterial=service.get(xPath(SCHEMA_PREFIX, "RelatedMaterial", ++rm), SL_SCHEMA)) 
-			validateRelatedMaterial(RelatedMaterial,errs,"service \""+thisServiceId+"\"", SERVICE_RM, SCHEMA_PREFIX, SCHEMA_NAMESPACE, SL_SCHEMA);
+		while (RelatedMaterial=service.get(xPath(SCHEMA_PREFIX, dvbi.e_RelatedMaterial, ++rm), SL_SCHEMA)) 
+			validateRelatedMaterial(RelatedMaterial,errs,"service "+quote(thisServiceId), SERVICE_RM, SCHEMA_PREFIX, SCHEMA_NAMESPACE, SL_SCHEMA);
 
 		//check <Service><ServiceGenre>
-		var ServiceGenre=service.get(xPath(SCHEMA_PREFIX, "ServiceGenre"), SL_SCHEMA);
+		var ServiceGenre=service.get(xPath(SCHEMA_PREFIX, dvbi.e_ServiceGenre), SL_SCHEMA);
 		if (ServiceGenre) {
-			if (ServiceGenre.attr("href")) {
-				if (!isIn(allowedGenres,ServiceGenre.attr("href").value())) 
-					errs.push("service \""+thisServiceId+"\" has an invalid <ServiceGenre>"+ServiceGenre.attr("href").value(), "invalid ServiceGenre");
+			if (ServiceGenre.attr(dvbi.a_href)) {
+				if (!isIn(allowedGenres,ServiceGenre.attr(dvbi.a_href).value())) 
+					errs.push("service "+quote(thisServiceId)+" has an invalid <ServiceGenre> "+quote(ServiceGenre.attr(dvbi.a_href).value()), "invalid "+dvbi.e_ServiceGenre);
 			}
-			else NoHrefAttribute(errs, "<ServiceGenre>", "service \""+thisServiceId+"\"");			
+			else NoHrefAttribute(errs, "<ServiceGenre>", "service "+quote(thisServiceId));			
 		}
 
 		//check <Service><ServiceType>                    
-		var ServiceType=service.get(xPath(SCHEMA_PREFIX, "ServiceType"), SL_SCHEMA);
+		var ServiceType=service.get(xPath(SCHEMA_PREFIX, dvbi.e_ServiceType), SL_SCHEMA);
 		if (ServiceType) {
-			if (ServiceType.attr("href")) {
-				if (!isIn(allowedServiceTypes,ServiceType.attr("href").value())) 
-					errs.push("service \""+thisServiceId+"\" has an invalid <ServiceType>"+ServiceType.attr("href").value(), "invalid ServiceType");
+			if (ServiceType.attr(dvbi.a_href)) {
+				if (!isIn(allowedServiceTypes,ServiceType.attr(dvbi.a_href).value())) 
+					errs.push("service "+quote(thisServiceId)+" has an invalid <ServiceType>"+ServiceType.attr(dvbi.a_href).value(), "invalid ServiceType");
 			}
-			else NoHrefAttribute(errs, "<ServiceType>", "service \""+thisServiceId+"\"");
+			else NoHrefAttribute(errs, "<ServiceType>", "service "+quote(thisServiceId));
 		}
 
 		// check <Service><RecordingInfo>
-		var RecordingInfo=service.get(xPath(SCHEMA_PREFIX, "RecordingInfo"), SL_SCHEMA);
+		var RecordingInfo=service.get(xPath(SCHEMA_PREFIX, dvbi.e_RecordingInfo), SL_SCHEMA);
 		if (RecordingInfo) {
-			if (RecordingInfo.attr("href")) {
-				if (!isIn(RecordingInfoCSvalules,RecordingInfo.attr("href").value())) 
-					errs.push("invalid <RecordingInfo> value \""+RecordingInfo.attr("href").value()+"\"for service "+thisServiceId, "invalid RecordingInfo");
+			if (RecordingInfo.attr(dvbi.a_href)) {
+				if (!isIn(RecordingInfoCSvalules, RecordingInfo.attr(dvbi.a_href).value())) 
+					errs.push("invalid <RecordingInfo> value "+quote(RecordingInfo.attr(dvbi.a_href).value())+"for service "+thisServiceId, "invalid RecordingInfo");
 			}
-			else NoHrefAttribute(errs, "<RecordingInfo>", "service \""+thisServiceId+"\"");
+			else NoHrefAttribute(errs, "<RecordingInfo>", "service "+quote(thisServiceId));
 		}
 
 		// check <Service><ContentGuideSource>
-		var sCG=service.get(xPath(SCHEMA_PREFIX, "ContentGuideSource"), SL_SCHEMA);
+		var sCG=service.get(xPath(SCHEMA_PREFIX, dvbi.e_ContentGuideSource), SL_SCHEMA);
 		if (sCG) {
 			var rm=0, CGrm;
-			while (CGrm=sCG.get(xPath(SCHEMA_PREFIX, "RelatedMaterial", ++rm), SL_SCHEMA)) 
+			while (CGrm=sCG.get(xPath(SCHEMA_PREFIX, dvbi.e_RelatedMaterial, ++rm), SL_SCHEMA)) 
 				validateRelatedMaterial(CGrm,errs,"<ContentGuideSource> in service "+thisServiceId, CONTENT_GUIDE_RM, SCHEMA_PREFIX, SCHEMA_NAMESPACE, SL_SCHEMA);
 
 		}
 
 		//check <Service><ContentGuideSourceRef>
-		var sCGref=service.get(xPath(SCHEMA_PREFIX, "ContentGuideSourceRef"), SL_SCHEMA);
+		var sCGref=service.get(xPath(SCHEMA_PREFIX, dvbi.e_ContentGuideSourceRef), SL_SCHEMA);
 		if (sCGref) {
 			if (!isIn(ContentGuideSourceIDs,sCGref.text())) 
-				errs.push("content guide reference \""+sCGref.text()+"\" for service \""+thisServiceId+"\" not specified", "unspecified content guide source");
+				errs.push("content guide reference "+quote(sCGref.text())+" for service "+quote(thisServiceId)+" not specified", "unspecified content guide source");
 		}
 
 		// this should not happen if the XML document has passed schema validation
 		if (sCG && sCGref)
-			errs.push("only <ContentGuideSource> or <CountentGuideSourceRef> to be specifed for a service \""+thisServiceId+"\"", "source and ref");
+			errs.push("only <ContentGuideSource> or <CountentGuideSourceRef> to be specifed for a service "+quote(thisServiceId), "source and ref");
 		
 		// <Service><ContentguideServiceRef> checked below
 	}        
@@ -1212,41 +1208,41 @@ function validateServiceList(SLtext, errs) {
 	// check <Service><ContentGuideServiceRef>
 	// issues a warning if this is not a reference to another service or is a reference to self
 	s=0;
-	while (service=SL.get("//"+xPath(SCHEMA_PREFIX, "Service", ++s), SL_SCHEMA)) {
-		var CGSR=service.get(xPath(SCHEMA_PREFIX, "ContentGuideServiceRef"), SL_SCHEMA);
+	while (service=SL.get("//"+xPath(SCHEMA_PREFIX, dvbi.e_Service, ++s), SL_SCHEMA)) {
+		var CGSR=service.get(xPath(SCHEMA_PREFIX, dvbi.e_ContentGuideServiceRef), SL_SCHEMA);
 		if (CGSR) {
-			var uniqueID=service.get(xPath(SCHEMA_PREFIX, "UniqueIdentifier"), SL_SCHEMA);
+			var uniqueID=service.get(xPath(SCHEMA_PREFIX, dvbi.e_UniqueIdentifier), SL_SCHEMA);
 			if (uniqueID && !isIn(knownServices,CGSR.text())) 
-				errs.pushW("<ContentGuideServiceRef> \""+CGSR.text()+"\" in service \""+uniqueID.text()+"\"- does not refer to another service", "invalid <ContentGuideServiceRef>");
+				errs.pushW("<ContentGuideServiceRef> "+quote(CGSR.text())+" in service "+quote(uniqueID.text())+" does not refer to another service", "invalid <ContentGuideServiceRef>");
 			if (uniqueID && (CGSR.text() == uniqueID.text()))
 				errs.pushW("<ContentGuideServiceRef> is self", "self <ContentGuideServiceRef>");
 		}
 	}
 
 	// check <ServiceList><LCNTableList>
-	var LCNtableList=SL.get("//"+xPath(SCHEMA_PREFIX, "LCNTableList"), SL_SCHEMA);
+	var LCNtableList=SL.get("//"+xPath(SCHEMA_PREFIX, dvbi.e_LCNTableList), SL_SCHEMA);
 	if (LCNtableList) {
 		var l=0, LCNTable;
-		while (LCNTable=LCNtableList.get(xPath(SCHEMA_PREFIX, "LCNTable", ++l), SL_SCHEMA)) {
+		while (LCNTable=LCNtableList.get(xPath(SCHEMA_PREFIX, dvbi.e_LCNTable, ++l), SL_SCHEMA)) {
 			// checks on TargetRegion(s) for this LCNTable
 			var tr=0, TargetRegion, lastTargetRegion="";
-			while (TargetRegion=LCNTable.get(xPath(SCHEMA_PREFIX, "TargetRegion", ++tr), SL_SCHEMA)) {
+			while (TargetRegion=LCNTable.get(xPath(SCHEMA_PREFIX, dvbi.e_TargetRegion, ++tr), SL_SCHEMA)) {
 				if (!isIn(knownRegionIDs, TargetRegion.text())) 
 					errs.push("<TargetRegion> "+TargetRegion.text()+" in LCNTable is not defined", "undefined region");
 				lastTargetRegion=TargetRegion.text();
 			}
 			
 			var LCNNumbers=[],e=0,LCN;
-			while (LCN=LCNTable.get(xPath(SCHEMA_PREFIX, "LCN", ++e), SL_SCHEMA)) {
-				if (LCN.attr("channelNumber")) {
-					var chanNum=LCN.attr("channelNumber").value();
+			while (LCN=LCNTable.get(xPath(SCHEMA_PREFIX, dvbi.e_LCN, ++e), SL_SCHEMA)) {
+				if (LCN.attr(dvbi.channelNumber)) {
+					var chanNum=LCN.attr(dvbi.channelNumber).value();
 					if (isIn(LCNNumbers,chanNum)) 
 						errs.push("duplicated channel number "+chanNum+" for <TargetRegion>"+lastTargetRegion, "duplicate channel number");
 					else LCNNumbers.push(chanNum);
 				}
 
-				if (LCN.attr("serviceRef")) {
-					var servRef=LCN.attr("serviceRef").value();
+				if (LCN.attr(dvbi.a_serviceRef)) {
+					var servRef=LCN.attr(dvbi.a_serviceRef).value();
 					if (!isIn(knownServices,servRef)) 
 						errs.push("LCN reference to unknown service "+servRef, "LCN unknown services");
 				}
