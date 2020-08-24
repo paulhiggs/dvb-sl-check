@@ -981,9 +981,13 @@ function validateServiceList(SLtext, errs) {
 
 			// Check @href of ContentAttributes/AudioAttributes/tva:coding
 			cp=0;
-			while (conf=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_ContentAttributes)+"/"+xPath(SCHEMA_PREFIX, dvbi.e_AudioAttributes, ++cp)+"/*", SL_SCHEMA))
-				if (conf.name()===dvbi.e_Coding && conf.attr(dvbi.a_href) && !isIn(allowedAudioSchemes,conf.attr(dvbi.a_href).value())) 
-					errs.push("invalid "+dvbi.a_href.attribute(dvbi.e_AudioAttributes)+" value for ("+conf.attr(dvbi.a_href).value()+")", "audio codec");
+			while (conf=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_ContentAttributes)+"/"+xPath(SCHEMA_PREFIX, dvbi.e_AudioAttributes, ++cp)+"/*", SL_SCHEMA)) {
+				if (conf.name()===dvbi.e_Coding)
+					if (!conf.attr(dvbi.a_href))
+						NoHrefAttribute(errs, dvbi.e_Coding.elementize(), dvbi.e_ContentAttributes.elementize()+dvbi.e_AudioAttributes.elementize())	
+					else if (!isIn(allowedAudioSchemes,conf.attr(dvbi.a_href).value())) 
+						errs.push("invalid "+dvbi.a_href.attribute(dvbi.e_AudioAttributes)+" value for ("+conf.attr(dvbi.a_href).value()+")", "audio codec");
+			}
 
 			// Check @href of ContentAttributes/VideoConformancePoints
 			cp=0;
@@ -996,10 +1000,14 @@ function validateServiceList(SLtext, errs) {
 
 			// Check @href of ContentAttributes/VideoAttributes/tva:coding
 			cp=0;
-			while (conf=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_ContentAttributes)+"/"+xPath(SCHEMA_PREFIX, dvbi.e_VideoAttributes, ++cp)+"/*", SL_SCHEMA)) 
-				if (conf.name()===dvbi.e_Coding && conf.attr(dvbi.a_href) && !isIn(allowedVideoSchemes,conf.attr(dvbi.a_href).value())) 
-					errs.push("invalid "+dvbi.a_href.attribute(dvbi.e_VideoAttributes)+"@ ("+conf.attr(dvbi.a_href).value()+")", "video codec");
-
+			while (conf=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_ContentAttributes)+"/"+xPath(SCHEMA_PREFIX, dvbi.e_VideoAttributes, ++cp)+"/*", SL_SCHEMA)) {
+				if (conf.name()===dvbi.e_Coding)
+					if (!conf.attr(dvbi.a_href))
+						NoHrefAttribute(errs, dvbi.e_Coding.elementize(), dvbi.e_ContentAttributes.elementize()+dvbi.e_VideoAttributes.elementize())
+					else if (!isIn(allowedVideoSchemes,conf.attr(dvbi.a_href).value())) 
+						errs.push("invalid "+dvbi.a_href.attribute(dvbi.e_VideoAttributes)+"@ ("+conf.attr(dvbi.a_href).value()+")", "video codec");
+			}
+			
 			var Availability=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_Availability), SL_SCHEMA);
 			if (Availability) {
 				var Period, p=0;
