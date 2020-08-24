@@ -972,9 +972,12 @@ function validateServiceList(SLtext, errs) {
 
 			// Check @href of ContentAttributes/AudioConformancePoints
 			var cp=0, conf;
-			while (conf=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_ContentAttributes)+"/"+xPath(SCHEMA_PREFIX, dvbi.e_AudioConformancePoint, ++cp), SL_SCHEMA)) 
-				if (conf.attr(dvbi.a_href) && !isIn(allowedAudioConformancePoints,conf.attr(dvbi.a_href).value())) 
+			while (conf=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_ContentAttributes)+"/"+xPath(SCHEMA_PREFIX, dvbi.e_AudioConformancePoint, ++cp), SL_SCHEMA)) {
+				if (!conf.attr(dvbi.a_href))
+					NoHrefAttribute(errs, dvbi.e_AudioConformancePoint.elementize(), dvbi.e_ContentAttributes.elementize())
+				else if (!isIn(allowedAudioConformancePoints,conf.attr(dvbi.a_href).value())) 
 					errs.push("invalid "+dvbi.a_href.attribute(dvbi.e_AudioConformancePoint)+" ("+conf.attr(dvbi.a_href).value()+")", "audio conf point");
+			}
 
 			// Check @href of ContentAttributes/AudioAttributes/tva:coding
 			cp=0;
@@ -984,9 +987,12 @@ function validateServiceList(SLtext, errs) {
 
 			// Check @href of ContentAttributes/VideoConformancePoints
 			cp=0;
-			while (conf=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_ContentAttributes)+"/"+xPath(SCHEMA_PREFIX, dvbi.e_VideoConformancePoint, ++cp), SL_SCHEMA))  
-				if (conf.attr(dvbi.a_href) && !isIn(allowedVideoConformancePoints,conf.attr(dvbi.a_href).value())) 
+			while (conf=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_ContentAttributes)+"/"+xPath(SCHEMA_PREFIX, dvbi.e_VideoConformancePoint, ++cp), SL_SCHEMA)) { 
+				if (!conf.attr(dvbi.a_href))
+					NoHrefAttribute(errs, dvbi.e_VideoConformancePoint.elementize(), dvbi.e_ContentAttributes.elementize())			
+				else if (!isIn(allowedVideoConformancePoints,conf.attr(dvbi.a_href).value())) 
 					errs.push("invalid "+dvbi.a_href.attribute(dvbi.e_VideoConformancePoint)+" value ("+conf.attr(dvbi.a_href).value()+")", "video conf point");
+			}
 
 			// Check @href of ContentAttributes/VideoAttributes/tva:coding
 			cp=0;
