@@ -7,6 +7,8 @@ var app=express();
 
  - also look for TODO in the code itself
 */
+const MAX_UNSIGNED_SHORT=65535;
+const OTHER_ELEMENTS_OK="!!!";
 
 const ErrorList=require("./dvb-common/ErrorList.js");
 const dvbi=require("./dvb-common/DVB-I_definitions.js");
@@ -778,6 +780,7 @@ function InvalidCountryCode(errs, value, src, loc, errCode=null) {
 	errs.pushCode(errCode?errCode:"XX104", "invalid country code ("+value+") for "+src+" parameters in "+loc, "invalid country code");
 }
 
+
 /**
  * Add an error message an unspecifed target region is used
  *
@@ -822,6 +825,136 @@ function hasSignalledApplication(node, SCHEMA_PREFIX, SL_SCHEMA) {
     return false;
 }
 
+
+/**
+ * check that the specified child elements are in the parent element
+ *
+ * @param {string} SL_SCHEMA              Used when constructing Xpath queries
+ * @param {string} SCHEMA_PREFIX          Used when constructing Xpath queries
+ * @param {Object} parentElement          the element whose children should be checked
+ * @param {Array}  mandatoryChildElements the names of elements that are required within the element
+ * @param {Array}  optionalChildElements  the names of elements that are optional within the element
+ * @param {Class}  errs                   errors found in validaton
+ * @param {string} errCode                error code to be used for any error found 
+ * @returns {boolean} true if no errors are found (all mandatory elements are present and no extra elements are specified)
+ */
+function checkTopElements(SL_SCHEMA, SCHEMA_PREFIX,  parentElement, mandatoryChildElements, optionalChildElements, errs, errCode=null) {
+	if (!parentElement) {
+		errs.pushCode(errCode?errCode+"-0":"TE000", "checkTopElements() called with a 'null' element to check");
+		return false;
+	}
+	var rv=true, thisElem=parentElement.parent().name().elementize()+parentElement.name().elementize();
+	// check that each of the specifid childElements exists
+	mandatoryChildElements.forEach(elem => {
+		if (!parentElement.get(xPath(SCHEMA_PREFIX, elem), SL_SCHEMA)) {
+			errs.pushCode(errCode?errCode+"-1":"TE010", "Mandatory element "+elem.elementize()+" not specified in "+thisElem);
+			rv=false;
+		}
+	});
+	
+	// check that no additional child elements existance if the "Other Child Elements are OK" flag is not set
+	if (!isIn(optionalChildElements, OTHER_ELEMENTS_OK)) {
+		var c=0, child;
+		while (child=parentElement.child(c++)) {
+			var childName=child.name();
+			if (childName!='text')
+				if (!isIn(mandatoryChildElements, childName) &&!isIn(optionalChildElements, childName)) {		
+					errs.pushCode(errCode?errCode+"-2":"TE011", "Element "+childName.elementize()+" is not permitted in "+thisElem);
+					rv=false;
+				}
+		}
+	}
+	return rv;
+}
+
+
+/**
+ * check that the specified child elements are in the parent element
+ *
+ * @param {Object} parentElement      the element whose attributes should be checked
+ * @param {Array}  requiredAttributes the element names permitted within the parent
+ * @param {Array}  optionalAttributes the element names permitted within the parent
+ * @param {Class}  errs               errors found in validaton
+ * @param {string} errCode            error code prefix to be used in reports, if not present then use local codes
+ */
+function checkAttributes(parentElement, requiredAttributes, optionalAttributes, errs, errCode=null)
+{
+	if (!requiredAttributes || !parentElement) {
+		errs.pushCode("AT000", "checkAttributes() called with parentElement==null or requiredAttributes==null")
+		return;
+	}
+	
+	requiredAttributes.forEach(attributeName => {
+		if (!parentElement.attr(attributeName))
+			errs.pushCode(errCode?errCode+"-1":"AT001", (parentElement.parent()?parentElement.parent().name()+".":"")+parentElement.name()+"@"+attributeName+" is a required attribute");	
+	});
+	
+	parentElement.attrs().forEach(attribute => {
+		if (!isIn(requiredAttributes, attribute.name()) && !isIn(optionalAttributes, attribute.name()))
+			errs.pushCode(errCode?errCode+"-2":"AT002", "@"+attribute.name()+" is not permitted in "+((parentElement.parent()?parentElement.parent().name()+".":"")+parentElement.name()).elementize());
+	});
+}
+
+
+/**
+ * check if the specificed element has the named child elemeny
+ * 
+ * @param {string} SL_SCHEMA       Used when constructing Xpath queries
+ * @param {string} SCHEMA_PREFIX   Used when constructing Xpath queries
+ * @param {object} node            the node to check
+ * @param {string} elementName     the name of the child element
+ * @returns {boolean} true if an element named node.elementName exists, else false
+ */
+function hasElement(SL_SCHEMA, SCHEMA_PREFIX, node, elementName) {
+	if (!node) return false;
+	return (node.get(xPath(SCHEMA_PREFIX, elementName), SL_SCHEMA)!=null);
+}
+
+
+
+
+/**
+ * check the attributes (existance and values) of the given <DVBTriplet>
+ * 
+ * @param {object} node     the node to check
+ * @param {Class}  errs     errors found in validaton
+ * @param {string} errCode  error code prefix to be used in reports, if not present then use local codes
+ */ 
+function validateTriplet(triplet, errs, errCode=null) {
+
+	function checkTripletAttributeValule(attr, parentElemName, errs, errCode=null) {
+		if (!attr) return;
+		var val=cleanInt(attr.value());
+		if (isNaN(val) || attr.value()=="" || val<0 || val>MAX_UNSIGNED_SHORT)
+			errs.pushCode(errCode?errCode:"AtV001", "invalid value specified for "+
+				attr.name().attribute(parentElemName)+" ("+attr.value()+")")	
+	}
+
+	if (!triplet) {
+		errs.pushCode(errCode?errCode+"-1":"VT001", "valudateTriplet() called with triplet==null")
+		return;
+	}
+	checkAttributes(triplet, [dvbi.a_serviceId], [dvbi.a_origNetId, dvbi.a_tsId], errs, errCode?errCode+"-2":"VT002")
+	checkTripletAttributeValule(triplet.attr(dvbi.a_serviceId), triplet.parent().name()+"."+triplet.name(), errs, errCode?errCode+"-3":"VT003")
+	checkTripletAttributeValule(triplet.attr(dvbi.a_origNetId), triplet.parent().name()+"."+triplet.name(), errs, errCode?errCode+"-4":"VT004")
+	checkTripletAttributeValule(triplet.attr(dvbi.a_tsId), triplet.parent().name()+"."+triplet.name(), errs, errCode?errCode+"-5":"VT005")	
+}
+
+function cleanInt(x) {
+	var x = Number(x);
+	return x >= 0 ? Math.floor(x) : Math.ceil(x);
+}
+
+function validLongitude(position) {
+	var x=Number(position);
+	if (isNaN(x)) return false
+	return (x >= -180 && x <= 180)
+}
+
+function validFrequency(freq) {
+	var val=cleanInt(freq);
+	return (!isNaN(val) && val>=0)
+}
 
 /**
  * validate the service list and record any errors
@@ -1115,6 +1248,7 @@ function validateServiceList(SLtext, errs) {
 
 			var DASHDeliveryParameters=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_DASHDeliveryParameters), SL_SCHEMA);
 			if (DASHDeliveryParameters) {
+				checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, DASHDeliveryParameters, [dvbi.e_UriBasedLocation], [dvbi.e_MinimumBitRate, dvbi.e_Extension], errs, "SL051")
 				var URILoc=DASHDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_UriBasedLocation), SL_SCHEMA);
 				if (URILoc) {
 					var uriContentType=URILoc.attr(dvbi.a_contentType);
@@ -1125,8 +1259,6 @@ function validateServiceList(SLtext, errs) {
 					else 
 						errs.pushCode("SL053", dvbi.a_contentType.attribute()+" not specified for URI in service "+thisServiceId.quote(), "no "+dvbi.a_contentType.attribute());
 				}
-				else
-					errs.pushCode("SL051", dvbi.e_UriBasedLocation+" not specified for "+dvbi.e_DASHDeliveryParameters+" in service "+thisServiceId.quote(), "no "+dvbi.e_UriBasedLocation);
 				
 				var e=0, extension;
 				while (extension=DASHDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_Extension, ++e), SL_SCHEMA)) {
@@ -1138,17 +1270,82 @@ function validateServiceList(SLtext, errs) {
 						errs.pushCode("SL055", dvbi.a_extensionName.attribute()+" not specified for DASH extension in "+thisServiceId.quote(), "no "+dvbi.a_extensionName.attribute());
 				}
 			}
+			var haveDVBT=false, haveDVBS=false;
+			
+			var DVBTDeliveryParameters=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_DVBTDeliveryParameters), SL_SCHEMA);
+			if (DVBTDeliveryParameters) {
+				haveDVBT==true;
+				checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, DVBTDeliveryParameters, [dvbi.e_DVBTriplet, dvbi.e_TargetCountry], [], errs, "SL056a")
+				var DVBTtargetCountry=DVBTDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_TargetCountry), SL_SCHEMA);
+				if (DVBTtargetCountry)
+					if (!knownCountries.isISO3166code(DVBTtargetCountry.text())) 
+						InvalidCountryCode(errs, DVBTtargetCountry.text(), "DVB-T", "service "+thisServiceId.quote(), "SL056");
 
-			var DVBTtargetCountry=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_DVBTDeliveryParameters)+"/"+xPath(SCHEMA_PREFIX, dvbi.e_TargetCountry), SL_SCHEMA);
-			if (DVBTtargetCountry)
-				if (!knownCountries.isISO3166code(DVBTtargetCountry.text())) 
-					InvalidCountryCode(errs, DVBTtargetCountry.text(), "DVB-T", "service "+thisServiceId.quote(), "SL056");
+				var DVBTtriplet=DVBTDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_DVBTriplet), SL_SCHEMA);
+				if (DVBTtriplet) 
+					validateTriplet(DVBTtriplet, errs, "SL056b")
 
-			var DVBCtargetCountry=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_DVBCDeliveryParameters)+"/"+xPath(SCHEMA_PREFIX, dvbi.e_TargetCountry), SL_SCHEMA);
-			if (DVBCtargetCountry)
-				if (!knownCountries.isISO3166code(DVBCtargetCountry.text()))  
-					InvalidCountryCode(errs, DVBCtargetCountry.text(), "DVB-C", "service "+thisServiceId.quote(), "SL057");
+			}
 
+			var DVBCDeliveryParameters=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_DVBCDeliveryParameters), SL_SCHEMA);
+			if (DVBCDeliveryParameters) {
+				checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, DVBCDeliveryParameters, [dvbi.e_TargetCountry, dvbi.e_NetworkID], [dvbi.e_DVBTriplet], errs, "SL057")
+				
+				var DVBCtargetCountry=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_DVBCDeliveryParameters)+"/"+xPath(SCHEMA_PREFIX, dvbi.e_TargetCountry), SL_SCHEMA);
+				if (DVBCtargetCountry)
+					if (!knownCountries.isISO3166code(DVBCtargetCountry.text()))  
+						InvalidCountryCode(errs, DVBCtargetCountry.text(), "DVB-C", "service "+thisServiceId.quote(), "SL057a");
+				
+				var DVBCtriplet=DVBCDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_DVBTriplet), SL_SCHEMA);
+				if (DVBCtriplet) 
+					validateTriplet(DVBCtriplet, errs, "SL057b")
+				
+				var DVBCnetworkId=DVBCDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_NetworkID), SL_SCHEMA);
+				if (DVBCnetworkId) {
+					var val=parseInt(DVBCnetworkId.text());
+					if (DVBCnetworkId.text()=="" || val<0 || val>MAX_UNSIGNED_SHORT)
+						errs.pushCode("SL057c", "invalid value specified for "+
+							dvbi.e_NetworkID.elementize()+" ("+DVBCnetworkId.text()+")")
+				}
+			}
+
+			var DVBSDeliveryParameters=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_DVBSDeliveryParameters), SL_SCHEMA);
+			if (DVBSDeliveryParameters) {
+				haveDVBS=true;
+
+				checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, DVBSDeliveryParameters, [dvbi.e_DVBTriplet], [dvbi.e_OrbitalPosition, dvbi.e_Frequency, dvbi.e_Polarization], errs, "SL057e")
+
+				var DVBStriplet=DVBSDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_DVBTriplet), SL_SCHEMA);
+				if (DVBStriplet) 
+					validateTriplet(DVBStriplet, errs, "SL057f")
+				
+				//TODO: check these other DVB-S params (OrbitalPosition, Frequency, Polarization)				
+				var DVBSorbitalPosition=DVBSDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_OrbitalPosition), SL_SCHEMA);
+				if (DVBSorbitalPosition) {
+					if (!validLongitude(DVBSorbitalPosition.text()))
+						errs.pushCode("XXX4", "invalid value for "+dvbi.e_DVBSDeliveryParameters+elementize()+dvbi.OrbitalPosition.elementize()+" ("+DVBSorbitalPosition.text()+")")
+				}
+				var DVBSfrequency=DVBSDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_Frequency), SL_SCHEMA);
+				if (DVBSfrequency) {
+					if (!validFrequency(DVBSfrequency.text()))
+						errs.pushCode("XXX4", "invalid value for "+dvbi.e_DVBSDeliveryParameters+elementize()+dvbi.Frequency.elementize()+" ("+DVBSfrequency.text()+")")
+				}
+				var DVBSpolarization=DVBSDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_Polarization), SL_SCHEMA);
+				if (DVBSpolarization) {
+					if (!isIn(dvbi.DVBS_POLARIZATION_VALUES, DVBSpolarization.text()))
+						errs.pushCode("XXX3", "invalid value for "+dvbi.e_DVBSDeliveryParameters.elementize()+dvbi.e_Polarization.elementize()+" ("+DVBSpolarization.text()+")")
+				}
+			}
+			
+			var SATIPDeliveryParameters=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_SATIPDeliveryParameters), SL_SCHEMA);
+			if (SATIPDeliveryParameters) {
+				
+				checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, SATIPDeliveryParameters, [dvbi.e_QueryParameters], [], errs, "XXX2")
+				// SAT-IP Delivery Parameters can only exist if DVB-T or DVB-S delivery parameters are specified
+				if (!haveDVBT && !haveDVBS)
+					errs.pushCode("XXX1", dvbi.e_SATIPDeliveryParameters.elementize()+" can only be specified with "+dvbi.e_DVBSDeliveryParameters.elementize()+" or "+dvbi.e_DVBTDeliveryParameters.elementize())
+			}
+			
 			var OtherDeliveryParameters=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_OtherDeliveryParameters), SL_SCHEMA);
 			if (OtherDeliveryParameters) {
 				if (OtherDeliveryParamers.attr(dvbi.a_extensionName)) {
@@ -1157,6 +1354,7 @@ function validateServiceList(SLtext, errs) {
 				}
 				else errs.pushCoce("SL059", dvbi.a_extensionName.attribute()+" not specified for "+dvbi.e_OtherDeliveryParameters+" extension in "+thisServiceId.quote(), "no "+dvbi.a_extensionName.attribute());
 			}
+			
 		}
 
 		//check <Service><TargetRegion>
