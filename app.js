@@ -1109,7 +1109,6 @@ function validateServiceList(SLtext, errs) {
 				}
 			}
 			else {
-				// this should not happen as SourceType is a mandatory element within ServiceInstance
 				if (SchemaVersion(SCHEMA_NAMESPACE)==SCHEMA_v1) 
 					errs.pushCode("SL050", dvbi.e_SourceType.elementize()+" not specified in ServiceInstance of service "+thisServiceId.quote(), "no "+dvbi.e_SourceType);
 			}
