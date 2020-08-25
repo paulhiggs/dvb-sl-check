@@ -289,7 +289,7 @@ function addRegion(Region, depth, knownRegionIDs, errs) {
         errs.pushCode("AR001", "Duplicate RegionID "+regionID.quote(), "duplicate regionID");
     else knownRegionIDs.push(regionID);
 
-    if ((depth != 0) && countryCodeSpecified) 
+    if ((depth!=0) && countryCodeSpecified) 
         errs.pushCode("AR002", dvbi.a_countryCodes.attribute()+" not permitted for sub-region "+regionID.quote(), "ccode in subRegion");
 
 
@@ -305,13 +305,11 @@ function addRegion(Region, depth, knownRegionIDs, errs) {
         errs.pushCode("AR004", dvbi.e_Region.elementize()+" depth exceeded (>"+dvbi.MAX_SUBREGION_LEVELS+") for sub-region "+regionID.quote(), "region depth exceeded");
 
     var i=0, RegionChild;
-    while ((RegionChild=Region.child(i)) != null) {
-        if (RegionChild.type()==="element" && RegionChild.name()==dvbi.e_Region) {
-            // its a child Region
+    while ((RegionChild=Region.child(i++)) != null) 
+        if (RegionChild.type()==="element" && RegionChild.name()==dvbi.e_Region)      // its a child Region
             addRegion(RegionChild,depth+1,knownRegionIDs,errs);
-        }
-        i++;
-    }
+
+
 }
 
 /** 
@@ -967,8 +965,8 @@ function validateServiceList(SLtext, errs) {
 		if (uID) {
 			thisServiceId=uID.text();
 			if (!validServiceIdentifier(thisServiceId)) 
-				errs.pushCode("SL022", thisServiceId.quote()+" is not a valid identifier", "invalid tag");
-			if (!uniqueServiceIdentifier(thisServiceId,knownServices)) 
+				errs.pushCode("SL022", thisServiceId.quote()+" is not a valid service identifier", "invalid tag");
+			if (!uniqueServiceIdentifier(thisServiceId, knownServices)) 
 				errs.pushCode("SL023", thisServiceId.quote()+" is not unique", "non unique id");
 			knownServices.push(thisServiceId);			
 		}
@@ -1099,14 +1097,21 @@ function validateServiceList(SLtext, errs) {
 							}
 						break;
 					default:
-						if (SchemaVersion(SCHEMA_NAMESPACE)==SCHEMA_v1) 
-							errs.pushCode("SL048", dvbi.e_SourceType.elementize()+" "+SourceType.text().quote()+" is not valid in Service "+thisServiceId.quote(), "invalid "+dvbi.e_SourceType);
+						switch (SchemaVersion(SCHEMA_NAMESPACE)) {
+							case SCHEMA_v1:
+								errs.pushCode("SL048", dvbi.e_SourceType.elementize()+" "+SourceType.text().quote()+" is not valid in Service "+thisServiceId.quote(), "invalid "+dvbi.e_SourceType);
+								break;
+							case SCHEMA_v2:
+								if (!ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_OtherDeliveryParameters), SL_SCHEMA))
+									errs.pushCode("SL049", dvbi.e_OtherDeliveryParameters.elementize()+" must be specified with user-defined "+dvbi.e_SourceType+" "+SourceType.text().quote(), "no "+dvbi.e_OtherDeliveryParameters)
+								break;
+						}
 				}
 			}
 			else {
 				// this should not happen as SourceType is a mandatory element within ServiceInstance
 				if (SchemaVersion(SCHEMA_NAMESPACE)==SCHEMA_v1) 
-					errs.pushCode("SL049", dvbi.e_SourceType.elementize()+" not specified in ServiceInstance of service "+thisServiceId.quote(), "no "+dvbi.e_SourceType);
+					errs.pushCode("SL050", dvbi.e_SourceType.elementize()+" not specified in ServiceInstance of service "+thisServiceId.quote(), "no "+dvbi.e_SourceType);
 			}
 
 			var DASHDeliveryParameters=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_DASHDeliveryParameters), SL_SCHEMA);
