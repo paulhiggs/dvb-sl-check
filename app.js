@@ -474,15 +474,15 @@ function checkValidLogo(HowRelated,Format,MediaLocator,errs,Location,LocationTyp
         if (subElems) subElems.forEach(child => {
             if (child.name()==dvbi.e_MediaUri) {
                 hasMediaURI=true;
-                if (!child.attr(dvbi.a_contentType)) 
-                    errs.pushCode("VL021", dvbi.a_contentType.attribute()+" not specified for logo "+dvbi.e_MediaUri.elementize()+" in "+Location, "unspecified "+dvbi.a_contentType.attribute(dvbi.e_MediaUri));
-                else {
-                    var contentType=child.attr(dvbi.a_contentType).value();
+                if (child.attr(dvbi.a_contentType)) {
+                   var contentType=child.attr(dvbi.a_contentType).value();
                     if (!isJPEGmime(contentType) && !isPNGmime(contentType))
                         errs.pushCode("VL022", "invalid "+dvbi.a_contentType.attribute()+" "+contentType.quote()+" specified for "+dvbi.e_RelatedMaterial.elementize()+dvbi.e_MediaLocator.elementize()+" in "+Location, "invalid "+dvbi.a_contentType.attribute(dvbi.e_MediaUri));
                     if (Format && ((isJPEGmime(contentType) && !isJPEG) || (isPNGmime(contentType) && !isPNG))) 
-                        errs.pushCode("VL023", "conflicting media types in "+dvbi.e_Format.elementize()+" and "+dvbi.e_MediaUri.elementize()+" for "+Location, "conflicting mime types");
-                }
+                        errs.pushCode("VL023", "conflicting media types in "+dvbi.e_Format.elementize()+" and "+dvbi.e_MediaUri.elementize()+" for "+Location, "conflicting mime types");					
+				}
+				else
+                    errs.pushCode("VL021", dvbi.a_contentType.attribute()+" not specified for logo "+dvbi.e_MediaUri.elementize()+" in "+Location, "unspecified "+dvbi.a_contentType.attribute(dvbi.e_MediaUri));
             }
         });
         if (!hasMediaURI) 
@@ -503,23 +503,24 @@ function checkValidLogo(HowRelated,Format,MediaLocator,errs,Location,LocationTyp
  * @param {string} LocationType The type of element containing the <RelatedMaterial> element. Different validation rules apply to different location types
  */
 function checkSignalledApplication(HowRelated,Format,MediaLocator,errs,Location,LocationType) {
-    if (!MediaLocator) 
-		NoMediaLocator(errs, "application", Location, "SA001");
-    else {
+    if (MediaLocator) {
         var subElems=MediaLocator.childNodes(), hasMediaURI=false;
         if (subElems) subElems.forEach(child => {
             if (child.name()==dvbi.e_MediaUri) {
                 hasMediaURI=true;
-                if (!child.attr(dvbi.a_contentType)) 
-                    errs.pushCode("SA002", dvbi.a_contentType.attribute()+" not specified for "+dvbi.e_MediaUri.elementize()+" in "+Location, "unspecified "+dvbi.a_contentType.attribute(dvbi.e_MediaUri));
-                else 
-                    if (child.attr(dvbi.a_contentType).value()!=dvbi.XML_AIT_CONTENT_TYPE) 
+                if (child.attr(dvbi.a_contentType)) {
+					if (child.attr(dvbi.a_contentType).value()!=dvbi.XML_AIT_CONTENT_TYPE) 
                         errs.pushCodeW("SA003", dvbi.a_contentType.attribute()+" "+child.attr(dvbi.a_contentType).value().quote()+" is not DVB AIT for "+dvbi.e_RelatedMaterial.elementize()+dvbi.e_MediaLocator.elementize()+" in "+Location, "invalid "+dvbi.a_contentType.attribute(dvbi.e_MediaUri));
+				}
+				else
+                    errs.pushCode("SA002", dvbi.a_contentType.attribute()+" not specified for "+dvbi.e_MediaUri.elementize()+" in "+Location, "unspecified "+dvbi.a_contentType.attribute(dvbi.e_MediaUri));
             }
         });
         if (!hasMediaURI) 
 			NoMediaLocator(errs, "application", Location, "SA004");
     }
+	else
+		NoMediaLocator(errs, "application", Location, "SA001");
 }
 
 /**
@@ -552,19 +553,17 @@ function validateRelatedMaterial(RelatedMaterial, errs, Location, LocationType, 
 	var HRhref=HowRelated.attr(dvbi.a_href);
 	if (HRhref) {
 		if (LocationType==SERVICE_LIST_RM) {
-			if (!validServiceListLogo(HowRelated,SCHEMA_NAMESPACE)) 
-				InvalidHrefValue(errs, HRhref.value(), dvbi.e_RelatedMaterial.elementize(), Location, "RM010")
-			else 
+			if (validServiceListLogo(HowRelated,SCHEMA_NAMESPACE)) 
 				MediaLocator.forEach(locator => 
 					checkValidLogo(HowRelated, Format, locator, errs, Location, LocationType));
+			else
+				InvalidHrefValue(errs, HRhref.value(), dvbi.e_RelatedMaterial.elementize(), Location, "RM010")	
 		}
 		if (LocationType==SERVICE_RM) {
 			if (validContentFinishedBanner(HowRelated, SCHEMA_NAMESPACE) && (SchemaVersion(SCHEMA_NAMESPACE) == SCHEMA_v1)) 
 				errs.pushCode("RM020", dvbi.BANNER_CONTENT_FINISHED_v2.quote()+" not permitted for "+SCHEMA_NAMESPACE.quote()+" in "+Location, "invalid CS value");
 			
-			if (!(validOutScheduleHours(HowRelated, SCHEMA_NAMESPACE) || validContentFinishedBanner(HowRelated, SCHEMA_NAMESPACE) ||validServiceApplication(HowRelated) || validServiceLogo(HowRelated, SCHEMA_NAMESPACE))) 
-				InvalidHrefValue(errs, HRhref.value(), dvbi.e_RelatedMaterial.elementize(), Location, "RM021");
-			else {
+			if (validOutScheduleHours(HowRelated, SCHEMA_NAMESPACE) || validContentFinishedBanner(HowRelated, SCHEMA_NAMESPACE) ||validServiceApplication(HowRelated) || validServiceLogo(HowRelated, SCHEMA_NAMESPACE)) {
 				if (validServiceLogo(HowRelated, SCHEMA_NAMESPACE) || validOutScheduleHours(HowRelated, SCHEMA_NAMESPACE))
 					MediaLocator.forEach(locator =>
 						checkValidLogo(HowRelated, Format, locator, errs, Location, LocationType));
@@ -572,13 +571,15 @@ function validateRelatedMaterial(RelatedMaterial, errs, Location, LocationType, 
 					MediaLocator.forEach(locator =>
 						checkSignalledApplication(HowRelated, Format, locator, errs, Location, LocationType));
 			}
+			else
+				InvalidHrefValue(errs, HRhref.value(), dvbi.e_RelatedMaterial.elementize(), Location, "RM021");
 		}
 		if (LocationType==CONTENT_GUIDE_RM) {
-			if (!validContentGuideSourceLogo(HowRelated, SCHEMA_NAMESPACE)) 
-				InvalidHrefValue(errs, HRhref.value(), dvbi.e_RelatedMaterial.elementize(), Location, "RM030")
-			else 
+			if (validContentGuideSourceLogo(HowRelated, SCHEMA_NAMESPACE)) 
 				MediaLocator.forEach(locator =>
 					checkValidLogo(HowRelated, Format, locator, errs, Location, LocationType));
+			else
+				InvalidHrefValue(errs, HRhref.value(), dvbi.e_RelatedMaterial.elementize(), Location, "RM030")
 		}
 	}
 	else 
@@ -963,18 +964,16 @@ function validateServiceList(SLtext, errs) {
 
 		// check <Service><UniqueIdentifier>
 		var uID=service.get(xPath(SCHEMA_PREFIX, dvbi.e_UniqueIdentifier), SL_SCHEMA);
-		if (!uID) 
-			// this should not happen as UniqueIdentifier is a mandatory element within Service
-			errs.pushCode("SL021", dvbi.e_UniqueIdentifier+" not present for service "+s, "no "+dvbi.e_UniqueIdentifier.elementize());
-
-		else {
+		if (uID) {
 			thisServiceId=uID.text();
 			if (!validServiceIdentifier(thisServiceId)) 
 				errs.pushCode("SL022", thisServiceId.quote()+" is not a valid identifier", "invalid tag");
 			if (!uniqueServiceIdentifier(thisServiceId,knownServices)) 
 				errs.pushCode("SL023", thisServiceId.quote()+" is not unique", "non unique id");
-			knownServices.push(thisServiceId);
+			knownServices.push(thisServiceId);			
 		}
+		else // this should not happen as UniqueIdentifier is a mandatory element within Service
+			errs.pushCode("SL021", dvbi.e_UniqueIdentifier+" not present for service "+s, "no "+dvbi.e_UniqueIdentifier.elementize());
 
 		//check <Service><ServiceInstance>
 		var si=0, ServiceInstance;
@@ -992,39 +991,49 @@ function validateServiceList(SLtext, errs) {
 			// Check @href of ContentAttributes/AudioConformancePoints
 			var cp=0, conf;
 			while (conf=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_ContentAttributes)+"/"+xPath(SCHEMA_PREFIX, dvbi.e_AudioConformancePoint, ++cp), SL_SCHEMA)) {
-				if (!conf.attr(dvbi.a_href))
+				if (conf.attr(dvbi.a_href)) {
+					if (!isIn(allowedAudioConformancePoints,conf.attr(dvbi.a_href).value())) 
+						errs.pushCode("SL032", "invalid "+dvbi.a_href.attribute(dvbi.e_AudioConformancePoint)+" ("+conf.attr(dvbi.a_href).value()+")", "audio conf point");
+				}	
+				else 
 					NoHrefAttribute(errs, dvbi.e_AudioConformancePoint.elementize(), dvbi.e_ContentAttributes.elementize(), "SL031")
-				else if (!isIn(allowedAudioConformancePoints,conf.attr(dvbi.a_href).value())) 
-					errs.pushCode("SL032", "invalid "+dvbi.a_href.attribute(dvbi.e_AudioConformancePoint)+" ("+conf.attr(dvbi.a_href).value()+")", "audio conf point");
 			}
 
 			// Check @href of ContentAttributes/AudioAttributes/tva:coding
 			cp=0;
 			while (conf=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_ContentAttributes)+"/"+xPath(SCHEMA_PREFIX, dvbi.e_AudioAttributes, ++cp)+"/*", SL_SCHEMA)) {
-				if (conf.name()===dvbi.e_Coding)
-					if (!conf.attr(dvbi.a_href))
-						NoHrefAttribute(errs, dvbi.e_Coding.elementize(), dvbi.e_ContentAttributes.elementize()+dvbi.e_AudioAttributes.elementize(), "SL033")	
-					else if (!isIn(allowedAudioSchemes,conf.attr(dvbi.a_href).value())) 
-						errs.pushCode("SL034", "invalid "+dvbi.a_href.attribute(dvbi.e_AudioAttributes)+" value for ("+conf.attr(dvbi.a_href).value()+")", "audio codec");
+				if (conf.name()===dvbi.e_Coding) {
+					if (conf.attr(dvbi.a_href)) {
+						if (!isIn(allowedAudioSchemes,conf.attr(dvbi.a_href).value())) 
+							errs.pushCode("SL034", "invalid "+dvbi.a_href.attribute(dvbi.e_AudioAttributes)+" value for ("+conf.attr(dvbi.a_href).value()+")", "audio codec");
+					}
+					else 
+						NoHrefAttribute(errs, dvbi.e_Coding.elementize(), dvbi.e_ContentAttributes.elementize()+dvbi.e_AudioAttributes.elementize(), "SL033")
+				}
 			}
 
 			// Check @href of ContentAttributes/VideoConformancePoints
 			cp=0;
 			while (conf=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_ContentAttributes)+"/"+xPath(SCHEMA_PREFIX, dvbi.e_VideoConformancePoint, ++cp), SL_SCHEMA)) { 
-				if (!conf.attr(dvbi.a_href))
-					NoHrefAttribute(errs, dvbi.e_VideoConformancePoint.elementize(), dvbi.e_ContentAttributes.elementize(), "SL035")			
-				else if (!isIn(allowedVideoConformancePoints,conf.attr(dvbi.a_href).value())) 
-					errs.pushCode("SL036", "invalid "+dvbi.a_href.attribute(dvbi.e_VideoConformancePoint)+" value ("+conf.attr(dvbi.a_href).value()+")", "video conf point");
+				if (conf.attr(dvbi.a_href)) {
+					if (!isIn(allowedVideoConformancePoints,conf.attr(dvbi.a_href).value())) 
+						errs.pushCode("SL036", "invalid "+dvbi.a_href.attribute(dvbi.e_VideoConformancePoint)+" value ("+conf.attr(dvbi.a_href).value()+")", "video conf point");
+				}
+				else
+					NoHrefAttribute(errs, dvbi.e_VideoConformancePoint.elementize(), dvbi.e_ContentAttributes.elementize(), "SL035")			 
 			}
 
 			// Check @href of ContentAttributes/VideoAttributes/tva:coding
 			cp=0;
 			while (conf=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_ContentAttributes)+"/"+xPath(SCHEMA_PREFIX, dvbi.e_VideoAttributes, ++cp)+"/*", SL_SCHEMA)) {
-				if (conf.name()===dvbi.e_Coding)
-					if (!conf.attr(dvbi.a_href))
+				if (conf.name()===dvbi.e_Coding) {
+					if (conf.attr(dvbi.a_href)) {
+						if (!isIn(allowedVideoSchemes,conf.attr(dvbi.a_href).value())) 
+							errs.pushCode("SL038", "invalid "+dvbi.a_href.attribute(dvbi.e_VideoAttributes)+"@ ("+conf.attr(dvbi.a_href).value()+")", "video codec");
+					}
+					else
 						NoHrefAttribute(errs, dvbi.e_Coding.elementize(), dvbi.e_ContentAttributes.elementize()+dvbi.e_VideoAttributes.elementize(), "SL037")
-					else if (!isIn(allowedVideoSchemes,conf.attr(dvbi.a_href).value())) 
-						errs.pushCode("SL038", "invalid "+dvbi.a_href.attribute(dvbi.e_VideoAttributes)+"@ ("+conf.attr(dvbi.a_href).value()+")", "video codec");
+				}
 			}
 			
 			var Availability=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_Availability), SL_SCHEMA);
@@ -1103,9 +1112,7 @@ function validateServiceList(SLtext, errs) {
 			var DASHDeliveryParameters=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_DASHDeliveryParameters), SL_SCHEMA);
 			if (DASHDeliveryParameters) {
 				var URILoc=DASHDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_UriBasedLocation), SL_SCHEMA);
-				if (!URILoc) 
-					errs.pushCode("SL051", dvbi.e_UriBasedLocation+" not specified for "+dvbi.e_DASHDeliveryParameters+" in service "+thisServiceId.quote(), "no "+dvbi.e_UriBasedLocation);
-				else {
+				if (URILoc) {
 					var uriContentType=URILoc.attr(dvbi.a_contentType);
 					if (uriContentType) 
 						if (!validDASHcontentType(uriContentType.value())) {
@@ -1114,6 +1121,9 @@ function validateServiceList(SLtext, errs) {
 					else 
 						errs.pushCode("SL053", dvbi.a_contentType.attribute()+" not specified for URI in service "+thisServiceId.quote(), "no "+dvbi.a_contentType.attribute());
 				}
+				else
+					errs.pushCode("SL051", dvbi.e_UriBasedLocation+" not specified for "+dvbi.e_DASHDeliveryParameters+" in service "+thisServiceId.quote(), "no "+dvbi.e_UriBasedLocation);
+				
 				var e=0, extension;
 				while (extension=DASHDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_Extension, ++e), SL_SCHEMA)) {
 					if (extension.attr(dvbi.a_extensionName)) {
