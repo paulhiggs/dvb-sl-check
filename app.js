@@ -286,33 +286,40 @@ function uniqueServiceIdentifier(identifier, identifiers) {
 }
 
 function addRegion(Region, depth, knownRegionIDs, errs) {
-    var regionID=Region.attr(dvbi.a_regionID).value();
-    var countryCodeSpecified=Region.attr(dvbi.a_countryCodes);
-    if (isIn(knownRegionIDs, regionID)) 
-        errs.pushCode("AR001", "Duplicate RegionID "+regionID.quote(), "duplicate regionID");
-    else knownRegionIDs.push(regionID);
+	
+	if (!Region) {
+		errs.pushCode("AR000", "addRegion() called with Region==null")
+		return
+	}
+	checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, Region, [], [dvbi.e_RegionName, dvbi.e_Postcode, dvbi.e_WildcardPostcode, dvbi.e_PostcodeRange, dvbi.e_Coordinates, dvbi.e_Region], errs, "AR001")
+	checkAttributes(Region, [dvbi.a_regionID], [dvbi.a_countryCodes], errs, "AR002")
 
+    var regionID=Region.attr(dvbi.a_regionID)?Region.attr(dvbi.a_regionID).value():"";
+    var countryCodeSpecified=Region.attr(dvbi.a_countryCodes);
+	if (regionID!="") {
+		if (isIn(knownRegionIDs, regionID)) 
+			errs.pushCode("AR003", "Duplicate "+dvbi.a_regionId.attribute()+" "+regionID.quote(), "duplicate regionID");
+		else knownRegionIDs.push(regionID);
+	}
     if ((depth!=0) && countryCodeSpecified) 
-        errs.pushCode("AR002", dvbi.a_countryCodes.attribute()+" not permitted for sub-region "+regionID.quote(), "ccode in subRegion");
+        errs.pushCode("AR004", dvbi.a_countryCodes.attribute()+" not permitted for sub-region "+regionID.quote(), "ccode in subRegion");
 
 
     if (countryCodeSpecified) {
         var countries=countryCodeSpecified.value().split(",");
         if (countries) countries.forEach(country => {
             if (!knownCountries.isISO3166code(country)) 
-                errs.pushCode("AR003", "invalid country code ("+country+") for region "+regionID.quote(), "invalid country code");
+                errs.pushCode("AR005", "invalid country code ("+country+") for region "+regionID.quote(), "invalid country code");
         });
     }
 
     if (depth > dvbi.MAX_SUBREGION_LEVELS) 
-        errs.pushCode("AR004", dvbi.e_Region.elementize()+" depth exceeded (>"+dvbi.MAX_SUBREGION_LEVELS+") for sub-region "+regionID.quote(), "region depth exceeded");
+        errs.pushCode("AR006", dvbi.e_Region.elementize()+" depth exceeded (>"+dvbi.MAX_SUBREGION_LEVELS+") for sub-region "+regionID.quote(), "region depth exceeded");
 
     var i=0, RegionChild;
     while ((RegionChild=Region.child(i++)) != null) 
         if (RegionChild.type()==="element" && RegionChild.name()==dvbi.e_Region)      // its a child Region
             addRegion(RegionChild,depth+1,knownRegionIDs,errs);
-
-
 }
 
 /** 
@@ -1089,6 +1096,9 @@ function validateServiceList(SLtext, errs) {
 	// check <ServiceList><RegionList> and remember regionID values
 	var knownRegionIDs=[], RegionList=SL.get(xPath(SCHEMA_PREFIX, dvbi.e_RegionList), SL_SCHEMA);
 	if (RegionList) {
+		checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, RegionList, [dvbi.e_Region], [], errs, "SL006x")
+		checkAttributes(RegionList, [dvbi.a_version], [], errs, "SL007y")
+
 		// recurse the regionlist - Regions can be nested in Regions
 		var r=0, Region;
 		while (Region=RegionList.get(xPath(SCHEMA_PREFIX, dvbi.e_Region, ++r), SL_SCHEMA)) 
@@ -1275,13 +1285,23 @@ function validateServiceList(SLtext, errs) {
 				}
 
 				// TODO: Check ContentAttributes/CaptionLanguage
+				cp=0;
+				while (conf=ContentAttributes.get(xPath(SCHEMA_PREFIX, dvbi.e_CaptionLanguage, ++cp), SL_SCHEMA)) { 
+					checkAttributes(conf, [], [dvbi.a_primary, dvbi.a_translation, dvbi.a_closed, dvbi.a_supplemental], errs, "SL037")
+				}
 
 				// TODO: Check ContentAttributes/SignLanguage
+				cp=0;
+				while (conf=ContentAttributes.get(xPath(SCHEMA_PREFIX, dvbi.e_SignLanguage, ++cp), SL_SCHEMA)) { 
+					checkAttributes(conf, [], [dvbi.a_primary, dvbi.a_translation, dvbi.a_type, dvbi.a_closed], errs, "SL038")
+				}
 				
 			}
 			
 			var Availability=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_Availability), SL_SCHEMA);
 			if (Availability) {
+				checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, Availability, [dvbi.e_Period], [], errs, "SL039a")
+				checkAttributes(Availability, [], [dvbi.a_validFrom, dvbi.a_validTo], errs, "SL039b")
 				var Period, p=0;
 				while (Period=Availability.get(xPath(SCHEMA_PREFIX, dvbi.e_Period, ++p), SL_SCHEMA)) 
 					if (Period.attr(dvbi.a_validFrom) && Period.attr(dvbi.a_validTo)) {
@@ -1290,7 +1310,7 @@ function validateServiceList(SLtext, errs) {
 							to=new Date(Period.attr(dvbi.a_validTo).value());
 					
 						if (to.getTime() < fr.getTime()) 
-							errs.pushCode("SL039", "invalid availability period for service "+thisServiceId.quote()+". "+fr+">"+to, "period start>end");
+							errs.pushCode("SL039c", "invalid availability period for service "+thisServiceId.quote()+". "+fr+">"+to, "period start>end");
 					}
 			}
 
