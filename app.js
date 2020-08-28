@@ -826,25 +826,25 @@ function hasSignalledApplication(node, SCHEMA_PREFIX, SL_SCHEMA) {
  *
  * @param {string} SL_SCHEMA              Used when constructing Xpath queries
  * @param {string} SCHEMA_PREFIX          Used when constructing Xpath queries
- * @param {Object} parentElement          the element whose children should be checked
+ * @param {Object} elem                   the element whose children should be checked
  * @param {Array}  mandatoryChildElements the names of elements that are required within the element
  * @param {Array}  optionalChildElements  the names of elements that are optional within the element
  * @param {Class}  errs                   errors found in validaton
  * @param {string} errCode                error code to be used for any error found 
  * @returns {boolean} true if no errors are found (all mandatory elements are present and no extra elements are specified)
  */
-function checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, parentElement, mandatoryChildElements, optionalChildElements, errs, errCode=null) {
-	if (!parentElement) {
+function checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, elem, mandatoryChildElements, optionalChildElements, errs, errCode=null) {
+	if (!elem) {
 		errs.pushCode(errCode?errCode+"-0":"TE000", "checkTopElements() called with a 'null' element to check");
 		return false;
 	}
 	var rv=true, 
-		thisElem=((typeof parentElement.parent().name === 'function')?parentElement.parent().name().elementize():"")+parentElement.name().elementize();
+		thisElem=((typeof elem.parent().name === 'function')?elem.parent().name().elementize():"")+elem.name().elementize();
 	
 	// check that each of the specifid childElements exists
-	mandatoryChildElements.forEach(elem => {
-		if (!parentElement.get(xPath(SCHEMA_PREFIX, elem), SL_SCHEMA)) {
-			errs.pushCode(errCode?errCode+"-1":"TE010", "Mandatory element "+elem.elementize()+" not specified in "+thisElem);
+	mandatoryChildElements.forEach(elemS => {
+		if (!elem.get(xPath(SCHEMA_PREFIX, elemS), SL_SCHEMA)) {
+			errs.pushCode(errCode?errCode+"-1":"TE010", "Mandatory element "+elemS.elementize()+" not specified in "+thisElem);
 			rv=false;
 		}
 	});
@@ -852,10 +852,10 @@ function checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, parentElement, mandatoryChil
 	// check that no additional child elements existance if the "Other Child Elements are OK" flag is not set
 	if (!isIn(optionalChildElements, OTHER_ELEMENTS_OK)) {
 		var c=0, child;
-		while (child=parentElement.child(c++)) {
+		while (child=elem.child(c++)) {
 			var childName=child.name();
 			if (childName!='text')
-				if (!isIn(mandatoryChildElements, childName) &&!isIn(optionalChildElements, childName)) {		
+				if (!isIn(mandatoryChildElements, childName) && !isIn(optionalChildElements, childName)) {		
 					errs.pushCode(errCode?errCode+"-2":"TE011", "Element "+childName.elementize()+" is not permitted in "+thisElem);
 					rv=false;
 				}
@@ -863,6 +863,74 @@ function checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, parentElement, mandatoryChil
 	}
 	return rv;
 }
+
+// childElements is an 'ordered' array of objects {name, mincount, maxcount}
+function checkTopElements2(SL_SCHEMA, SCHEMA_PREFIX, elem, childElements, allowAny, errs, errCode=null) {
+	
+	function countSubElements(SL_SCHEMA, SCHEMA_PREFIX, elem, subElementName) {
+		var count=0, i=0, se;
+		while (se=elem.child(i++))
+			if (se.name()==subElementName)
+				count++;
+		return count;
+	}	
+	
+	if (!elem) {
+		errs.pushCode(errCode?errCode+"-0":"te000", "checkTopElements() called with a 'null' element to check");
+		return false;
+	}
+	
+	var thisElemLabel=((typeof elem.parent().name === 'function')?elem.parent().name().elementize():"")+elem.name().elementize();
+	
+	// first,  check the 'counts'
+	childElements.forEach( elemS => {
+		var count=countSubElements(SL_SCHEMA, SCHEMA_PREFIX, elem, elemS.name)
+		
+		if (count==0 && elemS.mincount>0)
+			errs.pushCode(errCode?errCode+"-1":"te001", "Mandatory element "+elemS.name.elementize()+" is not specified in "+thisElemLabel);
+		else if (count < elemS.mincount || count > elemS.maxcount)
+			errs.pushCode(errCode?errCode+"-2":"te002", "Cardinality error for "+(elem.name()+"."+elemS.name).elementize()+", require "+elemS.mincount+"-"+elemS.maxcount+", found "+count )
+	})
+	
+	// second, check for any 'additional' elements
+	if (!allowAny) {  // if xs:any is specified, then no point checking for additional elements
+		var c=0, child;
+		while (child=elem.child(c++)) {
+			var childName=child.name();
+			if (childName!='text') {
+				var found=false, i=0, e;
+				while (!found && i<childElements.length) {
+					if (childElements[i].name == childName)
+						found=true;
+					i++
+				}
+				if (!found)
+					errs.pushCode(errCode?errCode+"-3":"te003", "Element "+childName.elementize()+" is not permitted in "+thisElem);
+			}
+		}
+	}
+	
+	// third, check the order of the elements
+	var foundElems=[], c=0, child;
+	while (child=elem.child(c++)) {
+		if (child.name()!='text')
+			foundElems.push(child.name())
+	}
+	var kpos=0, // this is the current element we are looking for in the ordered list (childElements[kpos].name))
+	    fpos=0; // this is the element we are looking at in the found list (foundElems[fpos])
+		
+	for (kpos=0; kpos < childElements.length; kpos++) {
+		while (fpos<foundElems.lengh && childElements[kpos].name==foundElems[fpos])
+			fpos++;
+	
+	console.log(kpos, childElements[kpos].name, ":", fpos, foundElems[fpos])
+	
+		if (kpos+1 < childElements.length && childElements[kpos+1].name != foundElems[fpos])
+			errs.pushCode(errCode?errCode+"-4":"te004", "element "+foundElems[fpos].elementize()+" is not expected after "+childElements[kpos].name.elementize() )
+		
+	}
+}
+
 
 
 /**
@@ -883,9 +951,7 @@ function checkAttributes(elem, requiredAttributes, optionalAttributes, errs, err
 	
 	requiredAttributes.forEach(attributeName => {
 		if (!elem.attr(attributeName)) {
-
 			var src=(typeof elem.parent()=='object' && typeof elem.parent().name=='function' ? elem.parent().name()+"." : "")
-
 			errs.pushCode(errCode?errCode+"-1":"AT001", src+attributeName.attribute(typeof elem.name=='function'?elem.name():"")+" is a required attribute");	
 		}
 	});
@@ -894,7 +960,7 @@ function checkAttributes(elem, requiredAttributes, optionalAttributes, errs, err
 		if (!isIn(requiredAttributes, attribute.name()) && !isIn(optionalAttributes, attribute.name()))
 			errs.pushCode(errCode?errCode+"-2":"AT002", 
 			  attribute.name().attribute()+" is not permitted in "
-				+((typeof elem.parent().name === 'function')?elem.parent().name().elementize()+".":"")
+				+((typeof elem.parent().name === 'function')?elem.parent().name().elementize():"")
 				+elem.name().elementize());
 	});
 }
@@ -1084,9 +1150,22 @@ function validateServiceList(SLtext, errs) {
 		errs.pushCode("SL004", "Unsupported namespace "+SCHEMA_NAMESPACE.quote());
 		return;
 	}
+const UNBOUNDED=65535
 
-	checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, SL.root(), [dvbi.e_Name, dvbi.e_ProviderName], [dvbi.e_RelatedMaterial, dvbi.e_RegionList, dvbi.e_TargetRegion, dvbi.e_LCNTableList, dvbi.e_ContentGuideSourceList, dvbi.e_ContentGuideSource, dvbi.e_Service, OTHER_ELEMENTS_OK], errs, "SL005")
+//	checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, SL.root(), [dvbi.e_Name, dvbi.e_ProviderName], [dvbi.e_RelatedMaterial, dvbi.e_RegionList, dvbi.e_TargetRegion, dvbi.e_LCNTableList, dvbi.e_ContentGuideSourceList, dvbi.e_ContentGuideSource, dvbi.e_Service, OTHER_ELEMENTS_OK], errs, "SL005")
 	checkAttributes(SL.root(), [dvbi.a_version], ["schemaLocation"], errs, "SL006")
+
+	checkTopElements2(SL_SCHEMA, SCHEMA_PREFIX, SL.root(), [
+		{name: dvbi.e_Name, mincount: 1, maxcount: UNBOUNDED},
+		{name: dvbi.e_ProviderName, mincount: 1, maxcount: UNBOUNDED},
+		{name: dvbi.e_RelatedMaterial, mincount: 0, maxcount: UNBOUNDED},
+		{name: dvbi.e_RegionList, mincount: 0, maxcount: 1},
+		{name: dvbi.e_TargetRegion, mincount: 0, maxcount: UNBOUNDED},
+		{name: dvbi.e_LCNTableList, mincount: 0, maxcount: 1},
+		{name: dvbi.e_ContentGuideSourceList, mincount: 0, maxcount: 1},
+		{name: dvbi.e_ContentGuideSource, mincount: 0, maxcount: 1},
+		{name: dvbi.e_Service, mincount: 0, maxcount: UNBOUNDED}
+		], true, errs, "NEW00")
 
 	//check ServiceList@version
 	if (SL.root().attr(dvbi.a_version)) {
