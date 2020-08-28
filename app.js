@@ -868,31 +868,34 @@ function checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, parentElement, mandatoryChil
 /**
  * check that the specified child elements are in the parent element
  *
- * @param {Object} parentElement      the element whose attributes should be checked
+ * @param {Object} elem               the element whose attributes should be checked
  * @param {Array}  requiredAttributes the element names permitted within the parent
  * @param {Array}  optionalAttributes the element names permitted within the parent
  * @param {Class}  errs               errors found in validaton
  * @param {string} errCode            error code prefix to be used in reports, if not present then use local codes
  */
-function checkAttributes(parentElement, requiredAttributes, optionalAttributes, errs, errCode=null)
+function checkAttributes(elem, requiredAttributes, optionalAttributes, errs, errCode=null)
 {
-	if (!requiredAttributes || !parentElement) {
-		errs.pushCode("AT000", "checkAttributes() called with parentElement==null or requiredAttributes==null")
+	if (!requiredAttributes || !elem) {
+		errs.pushCode("AT000", "checkAttributes() called with elem==null or requiredAttributes==null")
 		return;
 	}
 	
 	requiredAttributes.forEach(attributeName => {
-		if (!parentElement.attr(attributeName))
-//			errs.pushCode(errCode?errCode+"-1":"AT001", (parentElement.parent()?parentElement.parent().name()+".":"")+parentElement.name()+"@"+attributeName+" is a required attribute");
-			errs.pushCode(errCode?errCode+"-1":"AT001", (parentElement.parent()?parentElement.parent().name()+".":"")+attributeName.attribute(typeof parentElement.name()=='function'?parentElement.name():"")+" is a required attribute");	
+		if (!elem.attr(attributeName)) {
+
+			var src=(typeof elem.parent()=='object' && typeof elem.parent().name=='function' ? elem.parent().name()+"." : "")
+
+			errs.pushCode(errCode?errCode+"-1":"AT001", src+attributeName.attribute(typeof elem.name=='function'?elem.name():"")+" is a required attribute");	
+		}
 	});
 	
-	parentElement.attrs().forEach(attribute => {
+	elem.attrs().forEach(attribute => {
 		if (!isIn(requiredAttributes, attribute.name()) && !isIn(optionalAttributes, attribute.name()))
 			errs.pushCode(errCode?errCode+"-2":"AT002", 
 			  attribute.name().attribute()+" is not permitted in "
-				+((typeof parentElement.parent().name === 'function')?parentElement.parent().name().elementize()+".":"")
-				+parentElement.name().elementize());
+				+((typeof elem.parent().name === 'function')?elem.parent().name().elementize()+".":"")
+				+elem.name().elementize());
 	});
 }
 
@@ -1084,7 +1087,7 @@ function validateServiceList(SLtext, errs) {
 
 	checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, SL.root(), [dvbi.e_Name, dvbi.e_ProviderName], [dvbi.e_RelatedMaterial, dvbi.e_RegionList, dvbi.e_TargetRegion, dvbi.e_LCNTableList, dvbi.e_ContentGuideSourceList, dvbi.e_ContentGuideSource, dvbi.e_Service, OTHER_ELEMENTS_OK], errs, "SL005")
 	checkAttributes(SL.root(), [dvbi.a_version], ["schemaLocation"], errs, "SL006")
-	
+
 	//check ServiceList@version
 	if (SL.root().attr(dvbi.a_version)) {
 		if (!isPositiveInteger(SL.root().attr(dvbi.a_version).value()))
