@@ -285,7 +285,9 @@ function uniqueServiceIdentifier(identifier, identifiers) {
     return !isIn(identifiers, identifier);
 }
 
-function addRegion(Region, depth, knownRegionIDs, errs) {
+
+
+function addRegion(SL_SCHEMA, SCHEMA_PREFIX, Region, depth, knownRegionIDs, errs) {
 	
 	if (!Region) {
 		errs.pushCode("AR000", "addRegion() called with Region==null")
@@ -302,7 +304,7 @@ function addRegion(Region, depth, knownRegionIDs, errs) {
 		else knownRegionIDs.push(regionID);
 	}
     if ((depth!=0) && countryCodeSpecified) 
-        errs.pushCode("AR004", dvbi.a_countryCodes.attribute()+" not permitted for sub-region "+regionID.quote(), "ccode in subRegion");
+        errs.pushCode("AR004", dvbi.a_countryCodes.attribute(Region.name())+" not permitted for sub-region "+regionID.quote(), "ccode in subRegion");
 
 
     if (countryCodeSpecified) {
@@ -319,7 +321,7 @@ function addRegion(Region, depth, knownRegionIDs, errs) {
     var i=0, RegionChild;
     while ((RegionChild=Region.child(i++)) != null) 
         if (RegionChild.type()==="element" && RegionChild.name()==dvbi.e_Region)      // its a child Region
-            addRegion(RegionChild,depth+1,knownRegionIDs,errs);
+            addRegion(SL_SCHEMA, SCHEMA_PREFIX, RegionChild, depth+1, knownRegionIDs, errs);
 }
 
 /** 
@@ -456,6 +458,7 @@ function checkValidLogo(HowRelated,Format,MediaLocator,errs,Location,LocationTyp
         if (subElems) subElems.forEach(child => {
             if (child.name()==dvbi.e_StillPictureFormat) {
                 hasStillPictureFormat=true;
+				checkAttributes(child, [dvbi.a_href], [], errs, "VL015")
                 if (!child.attr(dvbi.a_horizontalSize)) 
                     errs.pushCode("VL010", dvbi.a_horizontalSize.attribute()+" not specified for "+dvbi.e_RelatedMaterial.elementize()+dvbi.e_Format.elementize()+dvbi.e_StillPictureFormat.elementize()+" in "+Location, "no "+dvbi.a_horizontalSize.attribute());
                 if (!child.attr(dvbi.a_verticalSize)) 
@@ -467,9 +470,6 @@ function checkValidLogo(HowRelated,Format,MediaLocator,errs,Location,LocationTyp
                     }
                     if (href == dvbi.JPEG_IMAGE_CS_VALUE) isJPEG=true;
                     if (href == dvbi.PNG_IMAGE_CS_VALUE) isPNG=true;
-                }
-                else {
-					NoHrefAttribute(errs, dvbi.e_RelatedMaterial.elementize()+dvbi.e_Format.elementize(), Location, "VL015");
                 }
             }
         });
@@ -558,41 +558,42 @@ function validateRelatedMaterial(RelatedMaterial, errs, Location, LocationType, 
         errs.pushCode("RM001", dvbi.e_HowRelated.elementize()+" not specified for "+dvbi.e_RelatedMaterial.elementize()+" in "+Location, "no "+dvbi.e_HowRelated);
 		return;
     }
-	var HRhref=HowRelated.attr(dvbi.a_href);
-	if (HRhref) {
-		if (LocationType==SERVICE_LIST_RM) {
-			if (validServiceListLogo(HowRelated,SCHEMA_NAMESPACE)) 
-				MediaLocator.forEach(locator => 
-					checkValidLogo(HowRelated, Format, locator, errs, Location, LocationType));
-			else
-				InvalidHrefValue(errs, HRhref.value(), dvbi.e_RelatedMaterial.elementize(), Location, "RM010")	
-		}
-		if (LocationType==SERVICE_RM) {
-			if (validContentFinishedBanner(HowRelated, SCHEMA_NAMESPACE) && (SchemaVersion(SCHEMA_NAMESPACE) == SCHEMA_v1)) 
-				errs.pushCode("RM020", dvbi.BANNER_CONTENT_FINISHED_v2.quote()+" not permitted for "+SCHEMA_NAMESPACE.quote()+" in "+Location, "invalid CS value");
-			
-			if (validOutScheduleHours(HowRelated, SCHEMA_NAMESPACE) || validContentFinishedBanner(HowRelated, SCHEMA_NAMESPACE) ||validServiceApplication(HowRelated) || validServiceLogo(HowRelated, SCHEMA_NAMESPACE)) {
-				if (validServiceLogo(HowRelated, SCHEMA_NAMESPACE) || validOutScheduleHours(HowRelated, SCHEMA_NAMESPACE))
+	
+	checkAttributes(HowRelated, [dvbi.a_href], [], errs, "RM099")
+	if (HowRelated.attr(dvbi.a_href)) {
+		
+		switch (LocationType) {
+			case SERVICE_LIST_RM: 
+				if (validServiceListLogo(HowRelated,SCHEMA_NAMESPACE)) 
+					MediaLocator.forEach(locator => 
+						checkValidLogo(HowRelated, Format, locator, errs, Location, LocationType));
+				else
+					InvalidHrefValue(errs, HowRelated.attr(dvbi.a_href).value(), dvbi.e_RelatedMaterial.elementize(), Location, "RM010")	
+				break;
+			case SERVICE_RM:
+				if (validContentFinishedBanner(HowRelated, SCHEMA_NAMESPACE) && (SchemaVersion(SCHEMA_NAMESPACE) == SCHEMA_v1)) 
+					errs.pushCode("RM020", dvbi.BANNER_CONTENT_FINISHED_v2.quote()+" not permitted for "+SCHEMA_NAMESPACE.quote()+" in "+Location, "invalid CS value");
+				
+				if (validOutScheduleHours(HowRelated, SCHEMA_NAMESPACE) || validContentFinishedBanner(HowRelated, SCHEMA_NAMESPACE) ||validServiceApplication(HowRelated) || validServiceLogo(HowRelated, SCHEMA_NAMESPACE)) {
+					if (validServiceLogo(HowRelated, SCHEMA_NAMESPACE) || validOutScheduleHours(HowRelated, SCHEMA_NAMESPACE))
+						MediaLocator.forEach(locator =>
+							checkValidLogo(HowRelated, Format, locator, errs, Location, LocationType));
+					if (validServiceApplication(HowRelated))
+						MediaLocator.forEach(locator =>
+							checkSignalledApplication(HowRelated, Format, locator, errs, Location, LocationType));
+				}
+				else
+					InvalidHrefValue(errs, HowRelated.attr(dvbi.a_href).value(), dvbi.e_RelatedMaterial.elementize(), Location, "RM021");
+				break;
+			case CONTENT_GUIDE_RM:
+				if (validContentGuideSourceLogo(HowRelated, SCHEMA_NAMESPACE)) 
 					MediaLocator.forEach(locator =>
 						checkValidLogo(HowRelated, Format, locator, errs, Location, LocationType));
-				if (validServiceApplication(HowRelated))
-					MediaLocator.forEach(locator =>
-						checkSignalledApplication(HowRelated, Format, locator, errs, Location, LocationType));
-			}
-			else
-				InvalidHrefValue(errs, HRhref.value(), dvbi.e_RelatedMaterial.elementize(), Location, "RM021");
-		}
-		if (LocationType==CONTENT_GUIDE_RM) {
-			if (validContentGuideSourceLogo(HowRelated, SCHEMA_NAMESPACE)) 
-				MediaLocator.forEach(locator =>
-					checkValidLogo(HowRelated, Format, locator, errs, Location, LocationType));
-			else
-				InvalidHrefValue(errs, HRhref.value(), dvbi.e_RelatedMaterial.elementize(), Location, "RM030")
+				else
+					InvalidHrefValue(errs, HowRelated.attr(dvbi.a_href).value(), dvbi.e_RelatedMaterial.elementize(), Location, "RM030")
+				break;
 		}
 	}
-	else 
-		NoHrefAttribute(errs, dvbi.e_RelatedMaterial.elementize()+dvbi.e_HowRelated.elementize(), Location, "RM099");
-
 }
 
 /**
@@ -608,8 +609,7 @@ function validateRelatedMaterial(RelatedMaterial, errs, Location, LocationType, 
 function checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, elementName, elementLocation, node, errs) {
     var elementLanguages=[], i=0;
     while (elem=node.get(xPath(SCHEMA_PREFIX, elementName, ++i), SL_SCHEMA)) {
-        var langAttr=elem.attr(dvbi.a_lang);
-		var lang=langAttr?langAttr.value():"unspecified";
+		var lang=elem.attr(dvbi.a_lang)?elem.attr(dvbi.a_lang).value():"unspecified";
         if (isIn(elementLanguages, lang)) 
             errs.pushCode("XL001", "xml:lang="+lang.quote()+" already specifed for "+elementName.elementize()+" for "+elementLocation, "duplicate @xml:lang");
         else elementLanguages.push(lang);
@@ -748,17 +748,6 @@ function NoDeliveryParams(errs, source, serviceId, errCode=null) {
     errs.pushCode(errCode?errCode:"XX101", source+" delivery parameters not specified for service instance in service "+serviceId.quote(), "no delivery params");
 }
 
-/**
- * Add an error message when the @href is not specified for an element
- *
- * @param {Object} errs Errors buffer
- * @param {String} src The element missing the @href
- * @param {String} loc The location of the element
- * @param {String} errCode The error code to be reported
- */
-function NoHrefAttribute(errs, src, loc, errCode=null) {
-	errs.pushCode(errCode?errCode:"XX102", "no @href specified for "+src+" in "+loc, "no href");
-}
 
 /**
  * Add an error message when the @href contains an invalid value
@@ -894,7 +883,8 @@ function checkAttributes(parentElement, requiredAttributes, optionalAttributes, 
 	
 	requiredAttributes.forEach(attributeName => {
 		if (!parentElement.attr(attributeName))
-			errs.pushCode(errCode?errCode+"-1":"AT001", (parentElement.parent()?parentElement.parent().name()+".":"")+parentElement.name()+"@"+attributeName+" is a required attribute");	
+//			errs.pushCode(errCode?errCode+"-1":"AT001", (parentElement.parent()?parentElement.parent().name()+".":"")+parentElement.name()+"@"+attributeName+" is a required attribute");
+			errs.pushCode(errCode?errCode+"-1":"AT001", (parentElement.parent()?parentElement.parent().name()+".":"")+attributeName.attribute(typeof parentElement.name()=='function'?parentElement.name():"")+" is a required attribute");	
 	});
 	
 	parentElement.attrs().forEach(attribute => {
@@ -960,6 +950,19 @@ function validateTriplet(triplet, errs, errCode=null) {
 function cleanInt(intStr) {
 	intStr=Number(intStr);
 	return intStr >= 0 ? Math.floor(intStr) : Math.ceil(intStr);
+}
+
+
+/**
+ * determine if the value provided represents a valid positiveInteger (greater than or equal to 1)
+ *
+ * @param {String} value a string containing a longitude
+ * @returns {boolean} true if the argument represents a positiveInteger - https://www.w3.org/TR/xmlschema-2/#positiveInteger
+ */
+function isPositiveInteger(value) {
+	var x=Number(value);
+	if (isNaN(x)) return false
+	return (x >= 1)
 }
 
 /**
@@ -1081,6 +1084,12 @@ function validateServiceList(SLtext, errs) {
 
 	checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, SL.root(), [dvbi.e_Name, dvbi.e_ProviderName], [dvbi.e_RelatedMaterial, dvbi.e_RegionList, dvbi.e_TargetRegion, dvbi.e_LCNTableList, dvbi.e_ContentGuideSourceList, dvbi.e_ContentGuideSource, dvbi.e_Service, OTHER_ELEMENTS_OK], errs, "SL005")
 	checkAttributes(SL.root(), [dvbi.a_version], ["schemaLocation"], errs, "SL006")
+	
+	//check ServiceList@version
+	if (SL.root().attr(dvbi.a_version)) {
+		if (!isPositiveInteger(SL.root().attr(dvbi.a_version).value()))
+			errs.pushCode("SL008", dvbi.a_version.attribute(dvbi.e_ServiceList)+" is not a positiveInteger ("+SL.root().attr(dvbi.a_version).value()+")")
+	}
 
 	// Check that the @xml:lang values for each <Name> element are unique and only one element does not have any language specified
 	checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, dvbi.e_Name, dvbi.e_ServiceList, SL, errs);
@@ -1099,10 +1108,16 @@ function validateServiceList(SLtext, errs) {
 		checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, RegionList, [dvbi.e_Region], [], errs, "SL006x")
 		checkAttributes(RegionList, [dvbi.a_version], [], errs, "SL007y")
 
+		//check RegionList@version
+		if (RegionList.attr(dvbi.a_version)) {
+			if (!isPositiveInteger(RegionList.attr(dvbi.a_version).value()))
+				errs.pushCode("SL007z", dvbi.a_version.attribute(dvbi.e_RegionList)+" is not a positiveInteger ("+RegionList.attr(dvbi.a_version).value()+")")
+		}
+
 		// recurse the regionlist - Regions can be nested in Regions
 		var r=0, Region;
 		while (Region=RegionList.get(xPath(SCHEMA_PREFIX, dvbi.e_Region, ++r), SL_SCHEMA)) 
-			addRegion(Region, 0, knownRegionIDs, errs);
+			addRegion(SL_SCHEMA, SCHEMA_PREFIX, Region, 0, knownRegionIDs, errs);
 	}
 
 	//check <ServiceList><TargetRegion>
@@ -1181,6 +1196,12 @@ function validateServiceList(SLtext, errs) {
 		
 		checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, service, [dvbi.e_UniqueIdentifier, dvbi.e_ServiceName, dvbi.e_ProviderName], [dvbi.e_ServiceInstance, dvbi.e_TargetRegion, dvbi.e_RelatedMaterial, dvbi.e_ServiceGenre, dvbi.e_ServiceType, dvbi.e_RecordingInfo, dvbi.e_ContentGuideSource, dvbi.e_ContentGuideSourceRef, dvbi.e_ContentGuideServiceRef], errs, "SL020")
 		checkAttributes(service, [dvbi.a_version], [dvbi.a_dynamic], errs, "SL021")
+		
+		//check Service@version
+		if (service.attr(dvbi.a_version)) {
+			if (!isPositiveInteger(service.attr(dvbi.a_version).value()))
+				errs.pushCode("SL021b", dvbi.a_version.attribute(dvbi.e_Service)+" is not a positiveInteger ("+service.attr(dvbi.a_version).value()+")")
+		}
 
 		// check <Service><UniqueIdentifier>
 		var uID=service.get(xPath(SCHEMA_PREFIX, dvbi.e_UniqueIdentifier), SL_SCHEMA);
