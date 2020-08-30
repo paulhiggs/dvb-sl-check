@@ -176,11 +176,13 @@ app.use(morgan(":remote-addr :protocol :method :url :status :res[content-length]
 function isIn(values, value){
     if (typeof(values) == "string")
         return values==value;
-    
+   
     if (typeof(values) == "object") {
-        for (var x=0; x<values.length; x++) 
+/*        for (var x=0; x<values.length; x++) 
             if (values[x] == value)
-                return true;
+                return true; */
+			
+		return values.find(arrayVal => arrayVal==value)
     }
     return false;
 }
@@ -838,15 +840,13 @@ function checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, elem, mandatoryChildElements
 		errs.pushCode(errCode?errCode+"-0":"TE000", "checkTopElements() called with a 'null' element to check");
 		return false;
 	}
-	var rv=true, 
+	var initialErrorCount=errs.length, 
 		thisElem=((typeof elem.parent().name === 'function')?elem.parent().name().elementize():"")+elem.name().elementize();
 	
 	// check that each of the specifid childElements exists
 	mandatoryChildElements.forEach(elemS => {
-		if (!elem.get(xPath(SCHEMA_PREFIX, elemS), SL_SCHEMA)) {
+		if (!elem.get(xPath(SCHEMA_PREFIX, elemS), SL_SCHEMA)) 
 			errs.pushCode(errCode?errCode+"-1":"TE010", "Mandatory element "+elemS.elementize()+" not specified in "+thisElem);
-			rv=false;
-		}
 	});
 	
 	// check that no additional child elements existance if the "Other Child Elements are OK" flag is not set
@@ -854,18 +854,27 @@ function checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, elem, mandatoryChildElements
 		var c=0, child;
 		while (child=elem.child(c++)) {
 			var childName=child.name();
-			if (childName!='text')
-				if (!isIn(mandatoryChildElements, childName) && !isIn(optionalChildElements, childName)) {		
+			if (child.type()=='element')
+				if (!isIn(mandatoryChildElements, childName) && !isIn(optionalChildElements, childName)) 		
 					errs.pushCode(errCode?errCode+"-2":"TE011", "Element "+childName.elementize()+" is not permitted in "+thisElem);
-					rv=false;
-				}
 		}
 	}
-	return rv;
+	return errs.length==initialErrorCount;
 }
 
-// childElements is an 'ordered' array of objects {name, mincount, maxcount}
-function checkTopElements2(SL_SCHEMA, SCHEMA_PREFIX, elem, childElements, allowAny, errs, errCode=null) {
+
+/**
+ * check that the specified child elements are in the parent element with the correct cardinality and order
+ *
+ * @param {string} SL_SCHEMA     Used when constructing Xpath queries
+ * @param {string} SCHEMA_PREFIX Used when constructing Xpath queries
+ * @param {Object} elem          the element whose children should be checked
+ * @param {Array}  childElements an 'ordered' array of objects {name, minoccurs, maxoccurs} representing the child elements
+ * @param {Class}  errs          errors found in validaton
+ * @param {string} errCode       error code to be used for any error found 
+ * @returns {boolean} true if no errors are found (all mandatory elements are present and no extra elements are specified)
+ */
+function checkTopElements2(SL_SCHEMA, SCHEMA_PREFIX, elem, childElements, errs, errCode=null) {
 	
 	function countSubElements(SL_SCHEMA, SCHEMA_PREFIX, elem, subElementName) {
 		var count=0, i=0, se;
@@ -879,56 +888,101 @@ function checkTopElements2(SL_SCHEMA, SCHEMA_PREFIX, elem, childElements, allowA
 		errs.pushCode(errCode?errCode+"-0":"te000", "checkTopElements() called with a 'null' element to check");
 		return false;
 	}
-	
+	var initialErrorCount=errs.length;
 	var thisElemLabel=((typeof elem.parent().name === 'function')?elem.parent().name().elementize():"")+elem.name().elementize();
-	
+	var allowAny=false, // true if any 'xs:any' is permitted
+	    allowedChildren=[]; // the element names passed to the function
+
 	// first,  check the 'counts'
 	childElements.forEach( elemS => {
-		var count=countSubElements(SL_SCHEMA, SCHEMA_PREFIX, elem, elemS.name)
-		
-		if (count==0 && elemS.mincount>0)
-			errs.pushCode(errCode?errCode+"-1":"te001", "Mandatory element "+elemS.name.elementize()+" is not specified in "+thisElemLabel);
-		else if (count < elemS.mincount || count > elemS.maxcount)
-			errs.pushCode(errCode?errCode+"-2":"te002", "Cardinality error for "+(elem.name()+"."+elemS.name).elementize()+", require "+elemS.mincount+"-"+elemS.maxcount+", found "+count )
+		if (elemS.name==OTHER_ELEMENTS_OK)
+			allowAny=true
+		else {
+			allowedChildren.push(elemS.name)
+			var count=countSubElements(SL_SCHEMA, SCHEMA_PREFIX, elem, elemS.name)
+			
+			if (count==0 && elemS.minoccurs>0)
+				errs.pushCode(errCode?errCode+"-1":"te001", "Mandatory element "+elemS.name.elementize()+" is not specified in "+thisElemLabel, 'missing element');
+			else if (count < elemS.minoccurs || count > elemS.maxoccurs)
+				errs.pushCode(errCode?errCode+"-2":"te002", "Cardinality error for "+(elem.name()+"."+elemS.name).elementize()+", require "+elemS.minoccurs+"-"+elemS.maxoccurs+", found "+count, "excess elements")
+		}
 	})
 	
-	// second, check for any 'additional' elements
+	// second, check for any 'additional' elements 
 	if (!allowAny) {  // if xs:any is specified, then no point checking for additional elements
 		var c=0, child;
 		while (child=elem.child(c++)) {
-			var childName=child.name();
-			if (childName!='text') {
-				var found=false, i=0, e;
-				while (!found && i<childElements.length) {
-					if (childElements[i].name == childName)
-						found=true;
-					i++
-				}
-				if (!found)
-					errs.pushCode(errCode?errCode+"-3":"te003", "Element "+childName.elementize()+" is not permitted in "+thisElem);
-			}
+			if (child.type()=='element') 
+				if (!isIn(allowedChildren, child.name()))
+					errs.pushCode(errCode?errCode+"-3":"te003", "Element "+child.name().elementize()+" is not permitted in "+thisElem, "extra element");
 		}
 	}
 	
 	// third, check the order of the elements
-	var foundElems=[], c=0, child;
+	var foundElements=[], c=0, child;
 	while (child=elem.child(c++)) {
-		if (child.name()!='text')
-			foundElems.push(child.name())
+		if (child.type()=='element')
+			foundElements.push(child.name())
 	}
+
 	var kpos=0, // this is the current element we are looking for in the ordered list (childElements[kpos].name))
 	    fpos=0; // this is the element we are looking at in the found list (foundElems[fpos])
+
+	while (kpos<childElements.length && fpos<foundElements.length) {
+
+		// if we are at an xs:any in the known element, skip over found elements until we get to the next known element
+		if (childElements[kpos].name==OTHER_ELEMENTS_OK) {   	
+			while (fpos<foundElements.length && !isIn(allowedChildren, foundElements[fpos]))  
+				fpos++
+		}
 		
-	for (kpos=0; kpos < childElements.length; kpos++) {
-		while (fpos<foundElems.lengh && childElements[kpos].name==foundElems[fpos])
+		// look for first mismatching found element
+		while (childElements[kpos].name==foundElements[fpos] && fpos<foundElements.length)  
 			fpos++;
 	
-	console.log(kpos, childElements[kpos].name, ":", fpos, foundElems[fpos])
 	
-		if (kpos+1 < childElements.length && childElements[kpos+1].name != foundElems[fpos])
-			errs.pushCode(errCode?errCode+"-4":"te004", "element "+foundElems[fpos].elementize()+" is not expected after "+childElements[kpos].name.elementize() )
+		if (fpos<foundElements.length && kpos != childElements.length) {
 		
+			console.log("stop", kpos, childElements[kpos].name, ":", kpos+1, childElements[kpos+1].name, ":", fpos, foundElements[fpos])
+		
+			if (foundElements[fpos]!=childElements[kpos+1].name && childElements[kpos+1].minoccurs>0 && childElements[kpos+1].name!=OTHER_ELEMENTS_OK)
+				// the element we found at fpos does not match what is expected
+				errs.pushCode(errCode?errCode+"-4":"te004", "element "+(foundElements[fpos]?foundElements[fpos].elementize():"fpos="+fpos)+" is not expected after "+(childElements[kpos]?childElements[kpos].name.elementize():"kpos"), "element sequence")
+			
+			
+			
+		}
+					
+		kpos++
 	}
+
+	
+	
+/*
+	for (kpos=0; kpos<childElements.length && fpos<foundElements.length; kpos++) {
+		while (fpos<foundElements.length && childElements[kpos].name==foundElements[fpos])  // look for first mismatching found element
+			fpos++;
+
+//	console.log("stop1-mismatch", kpos, childElements[kpos].name, ":", fpos, foundElements[fpos])
+
+		if (childElements[kpos].name==OTHER_ELEMENTS_OK) {   	// if we are at an xs:any in the known element
+			while (foundElements[fpos] && !isIn(allowedChildren, foundElements[fpos]))  // skip over found elements until we get to the next known element
+				fpos++
+		}
+	
+	console.log("stop2-skip any", kpos, childElements[kpos].name, ":", fpos, foundElements[fpos])
+	
+		if ((fpos<foundElements.length && !isIn(allowedChildren, foundElements[fpos])) || ((kpos+1)<childElements.length && childElements[kpos+1].minoccurs!=0 && childElements[kpos+1].name!=foundElements[fpos])) {
+			errs.pushCode(errCode?errCode+"-4":"te004", "element "+(foundElements[fpos]?foundElements[fpos].elementize():"fpos="+fpos)+" is not expected after "+(childElements[kpos]?childElements[kpos].name.elementize():"kpos"), "element sequence")
+			console.log("err")
+			
+			if (!isIn(allowedChildren, foundElements[fpos])) fpos++
+		}
+		else 
+			console.log("ok")
+	}
+*/
+	return errs.length==initialErrorCount
 }
 
 
@@ -1156,16 +1210,17 @@ const UNBOUNDED=65535
 	checkAttributes(SL.root(), [dvbi.a_version], ["schemaLocation"], errs, "SL006")
 
 	checkTopElements2(SL_SCHEMA, SCHEMA_PREFIX, SL.root(), [
-		{name: dvbi.e_Name, mincount: 1, maxcount: UNBOUNDED},
-		{name: dvbi.e_ProviderName, mincount: 1, maxcount: UNBOUNDED},
-		{name: dvbi.e_RelatedMaterial, mincount: 0, maxcount: UNBOUNDED},
-		{name: dvbi.e_RegionList, mincount: 0, maxcount: 1},
-		{name: dvbi.e_TargetRegion, mincount: 0, maxcount: UNBOUNDED},
-		{name: dvbi.e_LCNTableList, mincount: 0, maxcount: 1},
-		{name: dvbi.e_ContentGuideSourceList, mincount: 0, maxcount: 1},
-		{name: dvbi.e_ContentGuideSource, mincount: 0, maxcount: 1},
-		{name: dvbi.e_Service, mincount: 0, maxcount: UNBOUNDED}
-		], true, errs, "NEW00")
+		{name: dvbi.e_Name, minoccurs: 1, maxoccurs: UNBOUNDED},
+		{name: dvbi.e_ProviderName, minoccurs: 1, maxoccurs: UNBOUNDED},
+		{name: dvbi.e_RelatedMaterial, minoccurs: 0, maxoccurs: UNBOUNDED},
+		{name: dvbi.e_RegionList, minoccurs: 0, maxoccurs: 1},
+		{name: dvbi.e_TargetRegion, minoccurs: 0, maxoccurs: UNBOUNDED},
+		{name: dvbi.e_LCNTableList, minoccurs: 0, maxoccurs: 1},
+		{name: dvbi.e_ContentGuideSourceList, minoccurs: 0, maxoccurs: 1},
+		{name: dvbi.e_ContentGuideSource, minoccurs: 0, maxoccurs: 1},
+		{name: dvbi.e_Service, minoccurs: 0, maxoccurs: UNBOUNDED}, 
+		{name: OTHER_ELEMENTS_OK, minoccurs: 0, maxoccurs: UNBOUNDED}
+		], errs, "NEW00")
 
 	//check ServiceList@version
 	if (SL.root().attr(dvbi.a_version)) {
@@ -1370,7 +1425,7 @@ const UNBOUNDED=65535
 								checkAttributes(child, [dvbi.a_href], [], errs, "SL037")
 								if (child.attr(dvbi.a_href)) {
 									if (!isIn(allowedVideoSchemes, child.attr(dvbi.a_href).value())) 
-										errs.pushCode("SL038", "invalid "+dvbi.a_href.attribute(dvbi.e_VideoAttributes)+"@ ("+child.attr(dvbi.a_href).value()+")", "video codec");
+										errs.pushCode("SL038", "invalid "+dvbi.a_href.attribute(dvbi.e_VideoAttributes)+" ("+child.attr(dvbi.a_href).value()+")", "video codec");
 								}
 								break;
 						}
