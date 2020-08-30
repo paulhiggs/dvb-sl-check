@@ -917,7 +917,7 @@ function checkTopElements2(SL_SCHEMA, SCHEMA_PREFIX, elem, childElements, errs, 
 					errs.pushCode(errCode?errCode+"-3":"te003", "Element "+child.name().elementize()+" is not permitted in "+thisElem, "extra element");
 		}
 	}
-	
+/*	
 	// third, check the order of the elements
 	var foundElements=[], c=0, child;
 	while (child=elem.child(c++)) {
@@ -930,32 +930,54 @@ function checkTopElements2(SL_SCHEMA, SCHEMA_PREFIX, elem, childElements, errs, 
 
 	while (kpos<childElements.length && fpos<foundElements.length) {
 
+		
 		// if we are at an xs:any in the known element, skip over found elements until we get to the next known element
 		if (childElements[kpos].name==OTHER_ELEMENTS_OK) {   	
-			while (fpos<foundElements.length && !isIn(allowedChildren, foundElements[fpos]))  
+			while (fpos<foundElements.length && !isIn(allowedChildren, foundElements[fpos])) {
 				fpos++
+			}
 		}
 		
-		// look for first mismatching found element
-		while (childElements[kpos].name==foundElements[fpos] && fpos<foundElements.length)  
+		// skip over matching elements
+		while (childElements[kpos].name==foundElements[fpos] && fpos<foundElements.length)  {
 			fpos++;
-	
-	
-		if (fpos<foundElements.length && kpos != childElements.length) {
-		
-			console.log("stop", kpos, childElements[kpos].name, ":", kpos+1, childElements[kpos+1]?childElements[kpos+1].name:"kpos+1", ":", fpos, foundElements[fpos])
-		
-			if (childElements[kpos+1] && foundElements[fpos]!=childElements[kpos+1].name && childElements[kpos+1].minoccurs>0 && childElements[kpos+1].name!=OTHER_ELEMENTS_OK && !isIn(allowedChildren, foundElements[fpos]))
-				// the element we found at fpos does not match what is expected
-				errs.pushCode(errCode?errCode+"-4":"te004", "element "+(foundElements[fpos]?foundElements[fpos].elementize():"fpos="+fpos)+" is not expected after "+(childElements[kpos]?childElements[kpos].name.elementize():"kpos"), "element sequence")
-			
-			
-			
 		}
+	
+	
+		console.log("scan k", kpos, childElements.length, "f", fpos, foundElements.length)
+	
+		if (fpos<foundElements.length) {
 					
-		kpos++
-	}
+			console.log("stop", kpos, childElements[kpos].name, ":", kpos+1, childElements[kpos+1]?childElements[kpos+1].name:"kpos+1", ":", fpos, foundElements[fpos])
+			
+		
+			
+			if (childElements[kpos] && childElements[kpos].name==OTHER_ELEMENTS_OK && foundElements[fpos]!=childElements[kpos])
+			
+			
+			if (kpos==0 && fpos==0 && childElements[kpos].name!=foundElements[fpos] && childElements[kpos].minoccurs>0 ) {
+				
+				var message="element "+(foundElements[fpos]?foundElements[fpos].elementize():"fpos="+fpos)+" is not expected as first child"
+				
+				errs.pushCode(errCode?errCode+"-5":"te005", message, "element sequence")
+				console.log(message)
+				fpos++
+			}
+			else if (childElements[kpos+1] && foundElements[fpos]!=childElements[kpos+1].name &&  childElements[kpos+1].name!=OTHER_ELEMENTS_OK && !isIn(allowedChildren, foundElements[fpos])) {
+				// the element we found at fpos does not match what is expected
+				
+				var message="element "+(foundElements[fpos]?foundElements[fpos].elementize():"fpos="+fpos)+" is not expected after "+(childElements[kpos]?childElements[kpos].name.elementize():"kpos")
+				
+				errs.pushCode(errCode?errCode+"-4":"te004", message, "element sequence")
+				console.log(message)
+				fpos++
+			
+			}
 
+		}
+		
+	}
+*/
 	
 	
 /*
@@ -1206,9 +1228,9 @@ function validateServiceList(SLtext, errs) {
 	}
 const UNBOUNDED=65535
 
-//	checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, SL.root(), [dvbi.e_Name, dvbi.e_ProviderName], [dvbi.e_RelatedMaterial, dvbi.e_RegionList, dvbi.e_TargetRegion, dvbi.e_LCNTableList, dvbi.e_ContentGuideSourceList, dvbi.e_ContentGuideSource, dvbi.e_Service, OTHER_ELEMENTS_OK], errs, "SL005")
+	checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, SL.root(), [dvbi.e_Name, dvbi.e_ProviderName], [dvbi.e_RelatedMaterial, dvbi.e_RegionList, dvbi.e_TargetRegion, dvbi.e_LCNTableList, dvbi.e_ContentGuideSourceList, dvbi.e_ContentGuideSource, dvbi.e_Service, OTHER_ELEMENTS_OK], errs, "SL005")
 	checkAttributes(SL.root(), [dvbi.a_version], ["schemaLocation"], errs, "SL006")
-
+/*
 	checkTopElements2(SL_SCHEMA, SCHEMA_PREFIX, SL.root(), [
 		{name: dvbi.e_Name, minoccurs: 1, maxoccurs: UNBOUNDED},
 		{name: dvbi.e_ProviderName, minoccurs: 1, maxoccurs: UNBOUNDED},
@@ -1221,7 +1243,7 @@ const UNBOUNDED=65535
 		{name: dvbi.e_Service, minoccurs: 0, maxoccurs: UNBOUNDED}, 
 		{name: OTHER_ELEMENTS_OK, minoccurs: 0, maxoccurs: UNBOUNDED}
 		], errs, "NEW00")
-
+*/
 	//check ServiceList@version
 	if (SL.root().attr(dvbi.a_version)) {
 		if (!isPositiveInteger(SL.root().attr(dvbi.a_version).value()))
