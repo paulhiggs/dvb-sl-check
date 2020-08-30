@@ -943,9 +943,9 @@ function checkTopElements2(SL_SCHEMA, SCHEMA_PREFIX, elem, childElements, errs, 
 	
 		if (fpos<foundElements.length && kpos != childElements.length) {
 		
-			console.log("stop", kpos, childElements[kpos].name, ":", kpos+1, childElements[kpos+1].name, ":", fpos, foundElements[fpos])
+			console.log("stop", kpos, childElements[kpos].name, ":", kpos+1, childElements[kpos+1]?childElements[kpos+1].name:"kpos+1", ":", fpos, foundElements[fpos])
 		
-			if (foundElements[fpos]!=childElements[kpos+1].name && childElements[kpos+1].minoccurs>0 && childElements[kpos+1].name!=OTHER_ELEMENTS_OK)
+			if (childElements[kpos+1] && foundElements[fpos]!=childElements[kpos+1].name && childElements[kpos+1].minoccurs>0 && childElements[kpos+1].name!=OTHER_ELEMENTS_OK && !isIn(allowedChildren, foundElements[fpos]))
 				// the element we found at fpos does not match what is expected
 				errs.pushCode(errCode?errCode+"-4":"te004", "element "+(foundElements[fpos]?foundElements[fpos].elementize():"fpos="+fpos)+" is not expected after "+(childElements[kpos]?childElements[kpos].name.elementize():"kpos"), "element sequence")
 			
