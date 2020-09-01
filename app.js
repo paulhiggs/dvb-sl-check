@@ -122,8 +122,8 @@ const SCHEMA_v1=1,
 /**
  * determine the schema version (and hence the specificaion version) in use 
  *
- * @param {String] namespace the namespace used in defining the schema
- * @return {Integer} representation of the schema version or error code if unknown 
+ * @param {String] namespace  The namespace used in defining the schema
+ * @return {Integer} Representation of the schema version or error code if unknown 
  */
 function SchemaVersion(namespace) {
 	if (namespace == dvbi.A177v1_Namespace)
@@ -137,9 +137,10 @@ function SchemaVersion(namespace) {
 
 /**
  * constructs an XPath based on the provided arguments
- * @param {string} SCHEMA_PREFIX Used when constructing Xpath queries
- * @param {string} elementName the name of the element to be searched for
- * @param {int} index the instance of the named element to be searched for (if specified)
+ *
+ * @param {string} SCHEMA_PREFIX   Used when constructing Xpath queries
+ * @param {string} elementName     The name of the element to be searched for
+ * @param {int} index              The instance of the named element to be searched for (if specified)
  * @returns {string} the XPath selector
  */
 function xPath(SCHEMA_PREFIX, elementName, index=null) {
@@ -147,31 +148,13 @@ function xPath(SCHEMA_PREFIX, elementName, index=null) {
 }
 
 
-morgan.token("protocol", function getProtocol(req) {
-    return req.protocol;
-});
-morgan.token("parseErr",function getParseErr(req) {
-    if (req.parseErr) return "("+req.parseErr+")";
-    return "";
-});
-morgan.token("agent",function getAgent(req) {
-    return "("+req.headers["user-agent"]+")";
-});
-morgan.token("slLoc",function getCheckedLocation(req) {
-	if (req.files && req.files.SLfile) return "["+req.files.SLfile.name+"]";
-    if (req.query.SLurl) return "["+req.query.SLurl+"]";
-	return "[*]";
-});
-
-
-app.use(morgan(":remote-addr :protocol :method :url :status :res[content-length] - :response-time ms :agent :parseErr :slLoc"));
 
 /**
  * determines if a value is in a set of values - simular to 
  *
  * @param {String or Array} values The set of values to check existance in
- * @param {String} value The value to check for existance
- * @return {boolean} if value is in the set of values
+ * @param {String} value           The value to check for existance
+ * @return {boolean} true if value is in the set of values
  */
 function isIn(values, value){
     if (typeof(values) == "string")
@@ -191,15 +174,12 @@ function isIn(values, value){
 /* 
  * convert characters in the string to HTML entities
  *
- * @param {string} str that should be displayed in HTML
- * @return {string} a string with ENTITY representations of < and >
+ * @param {string} str String that should be displayed in HTML
+ * @return {string} A string with ENTITY representations of < and >
  */
 function HTMLize(str) {
 	return str.replace(/</g,"&lt;").replace(/>/g,"&gt;");              
 }
-
-
-
 
 
 /*
@@ -216,7 +196,7 @@ function loadSchema(into, schemafilename) {
 /**
  * loads necessary classification schemes for validation
  *
- * @param {boolean} useURLs use network locations as teh source rather than local files
+ * @param {boolean} useURLs use network locations as the source rather than local files
  */
 function loadDataFiles(useURLs) {
 	console.log("loading classification schemes...");
@@ -263,12 +243,11 @@ function loadDataFiles(useURLs) {
 }
 
 
-
 /** 
  * determines if the identifer provided complies with the requirements for a service identifier
  * at this stage only IETF RFC 4151 TAG URIs are permitted
  *
- * @param {String} identifier The service identifier
+ * @param {String} identifier  The service identifier
  * @return {boolean} true if the service identifier complies with the specification otherwise false
  */ 
 function validServiceIdentifier(identifier){
@@ -279,8 +258,8 @@ function validServiceIdentifier(identifier){
 /** 
  * determines if the identifer provided is unique against a list of known identifiers
  *
- * @param {String} identifier The service identifier
- * @param (Array} identifiers The list of known service identifiers
+ * @param {String} identifier  The service identifier
+ * @param (Array} identifiers  The list of known service identifiers
  * @return {boolean} true if the service identifier is unique otherwise false
  */
 function uniqueServiceIdentifier(identifier, identifiers) {
@@ -288,7 +267,16 @@ function uniqueServiceIdentifier(identifier, identifiers) {
 }
 
 
-
+/**
+ * parses the region element, checks the values and adds it and its children (through recursion) to the linear list of region ids
+ *
+ * @param {String} SL_SCHEMA      Used when constructing Xpath queries
+ * @param {String} SCHEMA_PREFIX  Used when constructing Xpath queries
+ * @param {Object} Region         The <Region> element to process
+ * @param {integer} depth         The current depth in the hierarchial structure of regions
+ * @param {Array} knownRegionIDs  The list of region IDs that have been found
+ * @param {Object} errs           The class where errors and warnings relating to the serivce list processing are stored 
+ */
 function addRegion(SL_SCHEMA, SCHEMA_PREFIX, Region, depth, knownRegionIDs, errs) {
 	
 	if (!Region) {
@@ -308,7 +296,6 @@ function addRegion(SL_SCHEMA, SCHEMA_PREFIX, Region, depth, knownRegionIDs, errs
     if ((depth!=0) && countryCodeSpecified) 
         errs.pushCode("AR004", dvbi.a_countryCodes.attribute(Region.name())+" not permitted for sub-region "+regionID.quote(), "ccode in subRegion");
 
-
     if (countryCodeSpecified) {
         var countries=countryCodeSpecified.value().split(",");
         if (countries) countries.forEach(country => {
@@ -326,25 +313,27 @@ function addRegion(SL_SCHEMA, SCHEMA_PREFIX, Region, depth, knownRegionIDs, errs
             addRegion(SL_SCHEMA, SCHEMA_PREFIX, RegionChild, depth+1, knownRegionIDs, errs);
 }
 
+
 /** 
  * determines if the identifer provided refers to a valid application launching method
  *
- * @param {String} HowRelated The service identifier
+ * @param {String} HowRelated  The service identifier
  * @return {boolean} true if this is a valid application launching method else false
  */
 function validServiceApplication(HowRelated) {
     // return true if val is a valid CS value for Service Related Applications (A177 5.2.3)
     // urn:dvb:metadata:cs:LinkedApplicationCS:2019
-    var val= HowRelated.attr(dvbi.a_href) ? HowRelated.attr(dvbi.a_href).value() : null;
+    var val=HowRelated.attr(dvbi.a_href)?HowRelated.attr(dvbi.a_href).value():null;
     return val==dvbi.APP_IN_PARALLEL
         || val==dvbi.APP_IN_CONTROL
         || val==dvbi.APP_OUTSIDE_AVAILABILITY;
 }
 
+
 /** 
  * determines if the identifer provided refers to a valid DASH media type (single MPD or MPD playlist)
  *
- * @param {String} contentType The contentType for the file
+ * @param {String} contentType  The contentType for the file
  * @return {boolean} true if this is a valid MPD or playlist identifier
  */
 function validDASHcontentType(contentType) {
@@ -353,72 +342,77 @@ function validDASHcontentType(contentType) {
         || contentType==dvbi.CONTENT_TYPE_DVB_PLAYLIST;
 }
 
+
 /** 
  * determines if the identifer provided refers to a valid banner for out-of-servce-hours presentation
  *
- * @param {String} HowRelated The banner identifier
- * @param {String} namespace The namespace being used in the XML document
+ * @param {String} HowRelated  The banner identifier
+ * @param {String} namespace   The namespace being used in the XML document
  * @return {boolean} true if this is a valid banner for out-of-servce-hours presentation else false
  */
 function validOutScheduleHours(HowRelated, namespace) {
     // return true if val is a valid CS value for Out of Service Banners (A177 5.2.5.3)
-    var val= HowRelated.attr(dvbi.a_href) ? HowRelated.attr(dvbi.a_href).value() : null;
+    var val=HowRelated.attr(dvbi.a_href)?HowRelated.attr(dvbi.a_href).value():null;
     return (SchemaVersion(namespace)==SCHEMA_v1 && val==dvbi.BANNER_OUTSIDE_AVAILABILITY_v1)
 		|| (SchemaVersion(namespace)==SCHEMA_v2 && val==dvbi.BANNER_OUTSIDE_AVAILABILITY_v2);
 }
+
 
 /** 
  * determines if the identifer provided refers to a valid banner for content-finished presentation
  *
  * @since DVB A177v2
- * @param {String} HowRelated The banner identifier
- * @param {String} namespace The namespace being used in the XML document
+ * @param {String} HowRelated  The banner identifier
+ * @param {String} namespace   The namespace being used in the XML document
  * @return {boolean} true if this is a valid banner for content-finished presentation else false
  */
 function validContentFinishedBanner(HowRelated, namespace) {
     // return true if val is a valid CS value for Content Finished Banner (A177 5.2.7.3)
-    var val= HowRelated.attr(dvbi.a_href) ? HowRelated.attr(dvbi.a_href).value() : null;
+    var val=HowRelated.attr(dvbi.a_href)?HowRelated.attr(dvbi.a_href).value():null;
     return (SchemaVersion(namespace)==SCHEMA_v2 && val==dvbi.BANNER_CONTENT_FINISHED_v2);
 }
+
 
 /** 
  * determines if the identifer provided refers to a valid service list logo
  *
- * @param {String} HowRelated The logo identifier
- * @param {String} namespace The namespace being used in the XML document
+ * @param {String} HowRelated  The logo identifier
+ * @param {String} namespace   The namespace being used in the XML document
  * @return {boolean} true if this is a valid logo for a service list else false
  */
 function validServiceListLogo(HowRelated, namespace) {
     // return true if val is a valid CS value Service List Logo (A177 5.2.6.1)
-    var val= HowRelated.attr(dvbi.a_href) ? HowRelated.attr(dvbi.a_href).value() : null;
+    var val=HowRelated.attr(dvbi.a_href)?HowRelated.attr(dvbi.a_href).value():null;
 	return (SchemaVersion(namespace)==SCHEMA_v1 && val==dvbi.LOGO_SERVICE_LIST_v1)
 		|| (SchemaVersion(namespace)==SCHEMA_v2 && val==dvbi.LOGO_SERVICE_LIST_v2);
 }
 
+
 /** 
- * determines if the identifer provided refers to a valid service  logo
+ * determines if the identifer provided refers to a valid service logo
  *
- * @param {String} HowRelated The logo identifier
- * @param {String} namespace The namespace being used in the XML document
+ * @param {String} HowRelated  The logo identifier
+ * @param {String} namespace   The namespace being used in the XML document
  * @return {boolean} true if this is a valid logo for a service  else false
  */
 function validServiceLogo(HowRelated, namespace) {
     // return true if val is a valid CS value Service Logo (A177 5.2.6.2)
-	var val= HowRelated.attr(dvbi.a_href) ? HowRelated.attr(dvbi.a_href).value() : null;
+	var val=HowRelated.attr(dvbi.a_href)?HowRelated.attr(dvbi.a_href).value():null;
     return (SchemaVersion(namespace)==SCHEMA_v1 && val==dvbi.LOGO_SERVICE_v1)
 		|| (SchemaVersion(namespace)==SCHEMA_v2 && val==dvbi.LOGO_SERVICE_v2);
 }
 
+
 /** 
  * determines if the identifer provided refers to a valid content guide source logo
  *
- * @param {String} HowRelated The logo identifier
- * @param {String} namespace The namespace being used in the XML document
+ * @param {String} HowRelated  The logo identifier
+ * @param {String} namespace   The namespace being used in the XML document
  * @return {boolean} true if this is a valid logo for a content guide source else false
  */
 function validContentGuideSourceLogo(HowRelated, namespace) {
     // return true if val is a valid CS value Service Logo (A177 5.2.6.3)
-    var val= HowRelated.attr(dvbi.a_href) ? HowRelated.attr(dvbi.a_href).value() : null;
+    var val=HowRelated.attr(dvbi.a_href)?HowRelated.attr(dvbi.a_href).value():null;
     return (SchemaVersion(namespace)==SCHEMA_v1 && val==dvbi.LOGO_CG_PROVIDER_v1)
 		|| (SchemaVersion(namespace)==SCHEMA_v2 && val==dvbi.LOGO_CG_PROVIDER_v2);
 }
@@ -433,21 +427,21 @@ function validContentGuideSourceLogo(HowRelated, namespace) {
 function validExtensionName(ext) {
 	const ExtensionRegex=/[A-Za-z\d][A-Za-z\d:\-/\.]*[A-Za-z\d]/g;
     var s=ext.match(ExtensionRegex);
-    return s?s[0] === ext:false;
+    return s?s[0]===ext:false;
 }
 
 
 /**
  * verifies if the specified logo is valid according to specification
  *
- * @param {Object} HowRelated the <HowRelated> subelement (a libxmls ojbect tree) of the <RelatedMaterial> element
- * @param {Object} Format the <Format> subelement (a libxmls ojbect tree) of the <RelatedMaterial> element
- * @param {Object} MediaLocator the <MediaLocator> subelement (a libxmls ojbect tree) of the <RelatedMaterial> element
- * @param {Object} errs The class where errors and warnings relating to the serivce list processing are stored 
- * @param {string} Location The printable name used to indicate the location of the <RelatedMaterial> element being checked. used for error reporting
- * @param {string} LocationType The type of element containing the <RelatedMaterial> element. Different validation rules apply to different location types
+ * @param {Object} HowRelated    The <HowRelated> subelement (a libxmls ojbect tree) of the <RelatedMaterial> element
+ * @param {Object} Format        The <Format> subelement (a libxmls ojbect tree) of the <RelatedMaterial> element
+ * @param {Object} MediaLocator  The <MediaLocator> subelement (a libxmls ojbect tree) of the <RelatedMaterial> element
+ * @param {Object} errs          The class where errors and warnings relating to the serivce list processing are stored 
+ * @param {string} Location      The printable name used to indicate the location of the <RelatedMaterial> element being checked. used for error reporting
+ * @param {string} LocationType  The type of element containing the <RelatedMaterial> element. Different validation rules apply to different location types
 */
-function checkValidLogo(HowRelated,Format,MediaLocator,errs,Location,LocationType) {
+function checkValidLogo(HowRelated, Format, MediaLocator, errs, Location, LocationType) {
     // irrespective of the HowRelated@href, all logos have specific requirements
     var isJPEG=false, isPNG=false;
 
@@ -502,17 +496,18 @@ function checkValidLogo(HowRelated,Format,MediaLocator,errs,Location,LocationTyp
         errs.pushCode("VL025", dvbi.e_MediaLocator+" not specified for "+dvbi.e_RelatedMaterial.elementize()+" in "+Location, "no "+dvbi.e_MediaLocator);
 }
 
+
 /**
  * verifies if the specified application is valid according to specification
  *
- * @param {Object} HowRelated the <HowRelated> subelement (a libxmls ojbect tree) of the <RelatedMaterial> element
- * @param {Object} Format the <Format> subelement (a libxmls ojbect tree) of the <RelatedMaterial> element
- * @param {Object} MediaLocator the <MediaLocator> subelement (a libxmls ojbect tree) of the <RelatedMaterial> element
- * @param {Object} errs The class where errors and warnings relating to the serivce list processing are stored 
- * @param {string} Location The printable name used to indicate the location of the <RelatedMaterial> element being checked. used for error reporting
- * @param {string} LocationType The type of element containing the <RelatedMaterial> element. Different validation rules apply to different location types
+ * @param {Object} HowRelated    The <HowRelated> subelement (a libxmls ojbect tree) of the <RelatedMaterial> element
+ * @param {Object} Format        The <Format> subelement (a libxmls ojbect tree) of the <RelatedMaterial> element
+ * @param {Object} MediaLocator  The <MediaLocator> subelement (a libxmls ojbect tree) of the <RelatedMaterial> element
+ * @param {Object} errs          The class where errors and warnings relating to the serivce list processing are stored 
+ * @param {string} Location      The printable name used to indicate the location of the <RelatedMaterial> element being checked. used for error reporting
+ * @param {string} LocationType  The type of element containing the <RelatedMaterial> element. Different validation rules apply to different location types
  */
-function checkSignalledApplication(HowRelated,Format,MediaLocator,errs,Location,LocationType) {
+function checkSignalledApplication(HowRelated, Format, MediaLocator, errs, Location, LocationType) {
     if (MediaLocator) {
         var subElems=MediaLocator.childNodes(), hasMediaURI=false;
         if (subElems) subElems.forEach(child => {
@@ -533,14 +528,15 @@ function checkSignalledApplication(HowRelated,Format,MediaLocator,errs,Location,
 		NoMediaLocator(errs, "application", Location, "SA001");
 }
 
+
 /**
  * verifies if the specified RelatedMaterial element is valid according to specification (contents and location)
  *
- * @param {Object} RelatedMaterial the <RelatedMaterial> element (a libxmls ojbect tree) to be checked
- * @param {Object} errs The class where errors and warnings relating to the serivce list processing are stored 
- * @param {string} Location The printable name used to indicate the location of the <RelatedMaterial> element being checked. used for error reporting
- * @param {string} LocationType The type of element containing the <RelatedMaterial> element. Different validation rules apply to different location types
- * @param {string} SCHEMA_NAMESPACE The namespace of XML document
+ * @param {Object} RelatedMaterial   The <RelatedMaterial> element (a libxmls ojbect tree) to be checked
+ * @param {Object} errs              The class where errors and warnings relating to the serivce list processing are stored 
+ * @param {string} Location          The printable name used to indicate the location of the <RelatedMaterial> element being checked. used for error reporting
+ * @param {string} LocationType      The type of element containing the <RelatedMaterial> element. Different validation rules apply to different location types
+ * @param {string} SCHEMA_NAMESPACE  The namespace of XML document
  */
 function validateRelatedMaterial(RelatedMaterial, errs, Location, LocationType, SCHEMA_NAMESPACE) {
     var HowRelated=null, Format=null, MediaLocator=[];
@@ -598,15 +594,16 @@ function validateRelatedMaterial(RelatedMaterial, errs, Location, LocationType, 
 	}
 }
 
+
 /**
  * checks that all the @xml:lang values for an element are unique
  *
- * @param {String} SL_SCHEMA Used when constructing Xpath queries
- * @param {String} SCHEMA_PREFIX Used when constructing Xpath queries
- * @param {String} elementName the multilingual XML element to check
- * @param {String} elementLocation the descriptive location of the element being checked (for reporting)
- * @param {Object} node The XML tree node containing the element being checked
- * @param {Object} errs The class where errors and warnings relating to the serivce list processing are stored 
+ * @param {String} SL_SCHEMA        Used when constructing Xpath queries
+ * @param {String} SCHEMA_PREFIX    Used when constructing Xpath queries
+ * @param {String} elementName      The multilingual XML element to check
+ * @param {String} elementLocation  The descriptive location of the element being checked (for reporting)
+ * @param {Object} node             The XML tree node containing the element being checked
+ * @param {Object} errs             The class where errors and warnings relating to the serivce list processing are stored 
  */
 function checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, elementName, elementLocation, node, errs) {
     var elementLanguages=[], i=0;
@@ -624,10 +621,11 @@ function checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, elementName, elementLocation, n
     }
 }
 
+
 /**
  * checks of the object provided is empty, either contains no values or properties
  *
- * @param {Object} obj the item (array, string, object) to be checked
+ * @param {Object} obj  The item (array, string, object) to be checked
  * @returns {boolean} true if the object being checked is empty
  */
 function isEmpty(obj) {
@@ -642,10 +640,10 @@ function isEmpty(obj) {
 /**
  * constructs HTML output of the errors found in the service list analysis
  *
- * @param {boolean} URLmode if true ask for a URL to a service list, if false ask for a file
- * @param {Object} res the Express result 
- * @param {string} lastURL the url of the service list - used to keep the form intact
- * @param {Object} o the errors and warnings found during the service list validation
+ * @param {boolean} URLmode  If true ask for a URL to a service list, if false ask for a file
+ * @param {Object} res       The Express result 
+ * @param {string} lastURL   The url of the service list - used to keep the form intact
+ * @param {Object} o         The errors and warnings found during the service list validation
  */
 function drawForm(URLmode, res, lastInput, o) {
 	
@@ -737,14 +735,13 @@ function drawForm(URLmode, res, lastInput, o) {
 }
 
 
-
 /**
  * Add an error message for missing <xxxDeliveryParameters>
  *
- * @param {Object} errs Errors buffer
- * @param {String} source The missing source type
- * @param {String} serviceId The serviceId whose instance is missing delivery parameters
- * @param {String} errCode The error code to be reported
+ * @param {Object} errs       Errors buffer
+ * @param {String} source     The missing source type
+ * @param {String} serviceId  The serviceId whose instance is missing delivery parameters
+ * @param {String} errCode    The error code to be reported
  */
 function NoDeliveryParams(errs, source, serviceId, errCode=null) {
     errs.pushCode(errCode?errCode:"XX101", source+" delivery parameters not specified for service instance in service "+serviceId.quote(), "no delivery params");
@@ -754,24 +751,25 @@ function NoDeliveryParams(errs, source, serviceId, errCode=null) {
 /**
  * Add an error message when the @href contains an invalid value
  *
- * @param {Object} errs Errors buffer
- * @param {String} value The invalid value for the href attribute
- * @param {String} src The element missing the @href
- * @param {String} loc The location of the element
- * @param {String} errCode The error code to be reported
+ * @param {Object} errs     Errors buffer
+ * @param {String} value    The invalid value for the href attribute
+ * @param {String} src      The element missing the @href
+ * @param {String} loc      The location of the element
+ * @param {String} errCode  The error code to be reported
  */
 function InvalidHrefValue(errs, value, src, loc, errCode=null) {
 	errs.pushCode(errCode?errCode:"XX103", "invalid "+dvbi.a_href.attribute()+"="+value.quote()+" specified for "+src+" in "+loc, "invalid href");
 }
 
+
 /**
  * Add an error message an incorrect country code is specified in transmission parameters
  *
- * @param {Object} errs Errors buffer
- * @param {String} value The invalid country code
- * @param {String} src The transmission mechanism
- * @param {String} loc The location of the element
- * @param {String} errCode The error code to be reported
+ * @param {Object} errs     Errors buffer
+ * @param {String} value    The invalid country code
+ * @param {String} src      The transmission mechanism
+ * @param {String} loc      The location of the element
+ * @param {String} errCode  The error code to be reported
  */
 function InvalidCountryCode(errs, value, src, loc, errCode=null) {
 	errs.pushCode(errCode?errCode:"XX104", "invalid country code ("+value+") for "+src+" parameters in "+loc, "invalid country code");
@@ -781,11 +779,10 @@ function InvalidCountryCode(errs, value, src, loc, errCode=null) {
 /**
  * Add an error message an unspecifed target region is used
  *
- * @param {Object} errs Errors buffer
- * @param {String} region The unspecified target region
- * @param {String} loc The location of the element
- * @param {String} errCode The error code to be reported
- * @param {String} errCode The error code to be reported
+ * @param {Object} errs     Errors buffer
+ * @param {String} region   The unspecified target region
+ * @param {String} loc      The location of the element
+ * @param {String} errCode  The error code to be reported
  */
 function UnspecifiedTargetRegion(errs, region, loc, errCode=null) {
 	errs.pushCode(errCode?errCode:"XX105", loc+" has an unspecified "+dvbi.e_TargetRegion.elementize()+region, "target region");	
@@ -795,24 +792,25 @@ function UnspecifiedTargetRegion(errs, region, loc, errCode=null) {
 /**
  * Add an error message when the MediaLocator does not contain a MediaUri sub-element
  *
- * @param {Object} errs Errors buffer
- * @param {String} src The type of element with the <MediaLocator>
- * @param {String} loc The location of the element
- * @param {String} errCode The error code to be reported
+ * @param {Object} errs     Errors buffer
+ * @param {String} src      The type of element with the <MediaLocator>
+ * @param {String} loc      The location of the element
+ * @param {String} errCode  The error code to be reported
  */
 function NoMediaLocator(errs, src, loc, errCode=null) {
 	errs.pushCode(errCode?errCode:"XX106", dvbi.e_MediaUri.elementize()+" not specified for "+src+" "+dvbi.e_MediaLocator.elementize()+" in "+loc, "no "+dvbi.e_MediaUri);
 }
 
+
 /**
  * check if the node provided contains an RelatedMaterial element for a signalled application
  *
- * @param {Object} node The XML tree node (either a <Service> or a <ServiceInstance>) to be checked
- * @param {string} SCHEMA_PREFIX Used when constructing Xpath queries
- * @param {string} SL_SCHEMA Used when constructing Xpath queries
- * @returns {boolean}  true if the node contains a <RelatedMaterial> element which signals an application else false
+ * @param {string} SL_SCHEMA      Used when constructing Xpath queries
+ * @param {string} SCHEMA_PREFIX  Used when constructing Xpath queries
+ * @param {Object} node           The XML tree node (either a <Service> or a <ServiceInstance>) to be checked
+ * @returns {boolean} true if the node contains a <RelatedMaterial> element which signals an application else false
  */
-function hasSignalledApplication(node, SCHEMA_PREFIX, SL_SCHEMA) {
+function hasSignalledApplication(SL_SCHEMA, SCHEMA_PREFIX, node) {
 	var i=0, elem;
     while (elem=node.get(xPath(SCHEMA_PREFIX, dvbi.e_RelatedMaterial, ++i), SL_SCHEMA)) {
         var hr=elem.get(xPath(SCHEMA_PREFIX, dvbi.e_HowRelated), SL_SCHEMA);
@@ -866,14 +864,15 @@ function checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, elem, mandatoryChildElements
 /**
  * check that the specified child elements are in the parent element with the correct cardinality and order
  *
- * @param {string} SL_SCHEMA     Used when constructing Xpath queries
- * @param {string} SCHEMA_PREFIX Used when constructing Xpath queries
- * @param {Object} elem          the element whose children should be checked
- * @param {Array}  childElements an 'ordered' array of objects {name, minoccurs, maxoccurs} representing the child elements
- * @param {Class}  errs          errors found in validaton
- * @param {string} errCode       error code to be used for any error found 
+ * @param {string} SL_SCHEMA      Used when constructing Xpath queries
+ * @param {string} SCHEMA_PREFIX  Used when constructing Xpath queries
+ * @param {Object} elem           The element whose children should be checked
+ * @param {Array}  childElements  An 'ordered' array of objects {name, minoccurs, maxoccurs} representing the child elements
+ * @param {Class}  errs           Errors found in validaton
+ * @param {string} errCode        Error code to be used for any error found 
  * @returns {boolean} true if no errors are found (all mandatory elements are present and no extra elements are specified)
  */
+const UNBOUNDED=65535
 function checkTopElements2(SL_SCHEMA, SCHEMA_PREFIX, elem, childElements, errs, errCode=null) {
 	
 	function countSubElements(SL_SCHEMA, SCHEMA_PREFIX, elem, subElementName) {
@@ -917,7 +916,7 @@ function checkTopElements2(SL_SCHEMA, SCHEMA_PREFIX, elem, childElements, errs, 
 					errs.pushCode(errCode?errCode+"-3":"te003", "Element "+child.name().elementize()+" is not permitted in "+thisElem, "extra element");
 		}
 	}
-/*	
+	
 	// third, check the order of the elements
 	var foundElements=[], c=0, child;
 	while (child=elem.child(c++)) {
@@ -930,17 +929,21 @@ function checkTopElements2(SL_SCHEMA, SCHEMA_PREFIX, elem, childElements, errs, 
 
 	while (kpos<childElements.length && fpos<foundElements.length) {
 
-		
 		// if we are at an xs:any in the known element, skip over found elements until we get to the next known element
 		if (childElements[kpos].name==OTHER_ELEMENTS_OK) {   	
 			while (fpos<foundElements.length && !isIn(allowedChildren, foundElements[fpos])) {
 				fpos++
 			}
+			kpos++
 		}
 		
 		// skip over matching elements
 		while (childElements[kpos].name==foundElements[fpos] && fpos<foundElements.length)  {
-			fpos++;
+			var incK=false;
+			while (childElements[kpos].name==foundElements[fpos] && fpos<foundElements.length)  {
+				fpos++; incK=true;
+			}
+			if (incK) kpos++;
 		}
 	
 	
@@ -977,7 +980,7 @@ function checkTopElements2(SL_SCHEMA, SCHEMA_PREFIX, elem, childElements, errs, 
 		}
 		
 	}
-*/
+
 	
 	
 /*
@@ -1012,11 +1015,11 @@ function checkTopElements2(SL_SCHEMA, SCHEMA_PREFIX, elem, childElements, errs, 
 /**
  * check that the specified child elements are in the parent element
  *
- * @param {Object} elem               the element whose attributes should be checked
- * @param {Array}  requiredAttributes the element names permitted within the parent
- * @param {Array}  optionalAttributes the element names permitted within the parent
- * @param {Class}  errs               errors found in validaton
- * @param {string} errCode            error code prefix to be used in reports, if not present then use local codes
+ * @param {Object} elem                The element whose attributes should be checked
+ * @param {Array}  requiredAttributes  The element names permitted within the parent
+ * @param {Array}  optionalAttributes  The element names permitted within the parent
+ * @param {Class}  errs                Errors found in validaton
+ * @param {string} errCode             Error code prefix to be used in reports, if not present then use local codes
  */
 function checkAttributes(elem, requiredAttributes, optionalAttributes, errs, errCode=null)
 {
@@ -1045,10 +1048,10 @@ function checkAttributes(elem, requiredAttributes, optionalAttributes, errs, err
 /**
  * check if the specificed element has the named child element
  * 
- * @param {string} SL_SCHEMA       Used when constructing Xpath queries
- * @param {string} SCHEMA_PREFIX   Used when constructing Xpath queries
- * @param {object} node            the node to check
- * @param {string} elementName     the name of the child element
+ * @param {string} SL_SCHEMA        Used when constructing Xpath queries
+ * @param {string} SCHEMA_PREFIX    Used when constructing Xpath queries
+ * @param {object} node             The node to check
+ * @param {string} elementName      The name of the child element
  * @returns {boolean} true if an element named node.elementName exists, else false
  */
 function hasElement(SL_SCHEMA, SCHEMA_PREFIX, node, elementName) {
@@ -1057,14 +1060,12 @@ function hasElement(SL_SCHEMA, SCHEMA_PREFIX, node, elementName) {
 }
 
 
-
-
 /**
  * check the attributes (existance and values) of the given <DVBTriplet>
  * 
- * @param {object} node     the node to check
- * @param {Class}  errs     errors found in validaton
- * @param {string} errCode  error code prefix to be used in reports, if not present then use local codes
+ * @param {object} node      The node to check
+ * @param {Class}  errs      Errors found in validaton
+ * @param {string} errCode   Error code prefix to be used in reports, if not present then use local codes
  */ 
 function validateTriplet(triplet, errs, errCode=null) {
 
@@ -1086,10 +1087,11 @@ function validateTriplet(triplet, errs, errCode=null) {
 	checkTripletAttributeValue(triplet.attr(dvbi.a_tsId), triplet.parent().name()+"."+triplet.name(), errs, errCode?errCode+"-5":"VT005")	
 }
 
+
 /**
  * extract only an integer value from the given argument, anthing that is non-integer characters will cause failure
  *
- * @param {String} intStr a string containing a integer value
+ * @param {String} intStr  A string containing a integer value
  * @returns {integer} the integer representation of string
  */
 function cleanInt(intStr) {
@@ -1101,7 +1103,7 @@ function cleanInt(intStr) {
 /**
  * determine if the value provided represents a valid positiveInteger (greater than or equal to 1)
  *
- * @param {String} value a string containing a longitude
+ * @param {String}  Value a string containing a longitude
  * @returns {boolean} true if the argument represents a positiveInteger - https://www.w3.org/TR/xmlschema-2/#positiveInteger
  */
 function isPositiveInteger(value) {
@@ -1110,10 +1112,11 @@ function isPositiveInteger(value) {
 	return (x >= 1)
 }
 
+
 /**
  * determine if the value provided represents a valid longitude value (i.e. -180.0 -> +180.0)
  *
- * @param {String} intStr a string containing a longitude
+ * @param {String} intStr  A string containing a longitude
  * @returns {boolean} true if the argument represents a longitudal angle
  */
 function validLongitude(position) {
@@ -1125,7 +1128,7 @@ function validLongitude(position) {
 /**
  * determine if the value provided represents a valid transmission frequency
  *
- * @param {String} intStr a string containing a frequency
+ * @param {String} intStr  A string containing a frequency
  * @returns {boolean} true if the argument represents a frequency (anything greter than 0Hz)
  */
 function validFrequency(freq) {
@@ -1137,14 +1140,13 @@ function validFrequency(freq) {
 /**
  * perform any validation on a ContentTypeSourceType element
  * 
- * @param {string} SL_SCHEMA        Used when constructing Xpath queries
- * @param {string} SCHEMA_PREFIX    Used when constructing Xpath queries
- * @param {string} SCHEMA_NAMESPACE The namespace of XML document
- * @param {object} source           the node of the element to check
- * @param {object} loc			    the 'location' in the XML document of the element being checked, 
-                                    if unspecified then this is set to be the name of the parent element
- * @param {Class}  errs             errors found in validaton
- * @param {string} errCode          error code prefix to be used in reports, if not present then use local codes
+ * @param {string} SL_SCHEMA         Used when constructing Xpath queries
+ * @param {string} SCHEMA_PREFIX     Used when constructing Xpath queries
+ * @param {string} SCHEMA_NAMESPACE  The namespace of XML document
+ * @param {object} source            The node of the element to check
+ * @param {object} loc			     The 'location' in the XML document of the element being checked, if unspecified then this is set to be the name of the parent element
+ * @param {Class}  errs              Errors found in validaton
+ * @param {string} errCode           Error code prefix to be used in reports, if not present then use local codes
  */
 function validateAContentGuideSource(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, source, loc=null, errs, errCode=null) {
 
@@ -1171,11 +1173,12 @@ function validateAContentGuideSource(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE,
 		validateRelatedMaterial(CGrm, errs, loc, CONTENT_GUIDE_RM, SCHEMA_NAMESPACE);
 }
 
+
 /**
  * validate the service list and record any errors
  *
- * @param {String} SLtext the service list text to be validated
- * @param {Class} errs errors found in validaton
+ * @param {String} SLtext  The service list text to be validated
+ * @param {Class} errs     Errors found in validaton
  */
 function validateServiceList(SLtext, errs) {
 	var SL=null;
@@ -1226,7 +1229,6 @@ function validateServiceList(SLtext, errs) {
 		errs.pushCode("SL004", "Unsupported namespace "+SCHEMA_NAMESPACE.quote());
 		return;
 	}
-const UNBOUNDED=65535
 
 	checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, SL.root(), [dvbi.e_Name, dvbi.e_ProviderName], [dvbi.e_RelatedMaterial, dvbi.e_RegionList, dvbi.e_TargetRegion, dvbi.e_LCNTableList, dvbi.e_ContentGuideSourceList, dvbi.e_ContentGuideSource, dvbi.e_Service, OTHER_ELEMENTS_OK], errs, "SL005")
 	checkAttributes(SL.root(), [dvbi.a_version], ["schemaLocation"], errs, "SL006")
@@ -1532,8 +1534,8 @@ const UNBOUNDED=65535
 							else {
 								// no xxxxDeliveryParameters is signalled
 								// check for appropriate Service.RelatedMaterial or Service.ServiceInstance.RelatedMaterial
-								if (!hasSignalledApplication(service, SCHEMA_PREFIX, SL_SCHEMA) 
-									&& !hasSignalledApplication(ServiceInstance, SCHEMA_PREFIX, SL_SCHEMA)) 
+								if (!hasSignalledApplication(SL_SCHEMA, SCHEMA_PREFIX, service) 
+									&& !hasSignalledApplication(SL_SCHEMA, SCHEMA_PREFIX, ServiceInstance)) 
 									errs.pushCode("SL047", "No Application is signalled for "+dvbi.e_SourceType+"="+dvbi.DVBAPPLICATION_SOURCE_TYPE.quote()+" in Service "+thisServiceId.quote(), "no application");
 
 							}
@@ -1788,10 +1790,11 @@ const UNBOUNDED=65535
 	}
 }
 
+
 /**
  * checks is the service list URL is provided in an argument to the query
  * 
- * @param {Object} req The request from Express
+ * @param {Object} req  The request from Express
  * @returns true if the SLurl parameter is specified containing the URL to a service list
  */
 function checkQuery(req) {
@@ -1804,10 +1807,11 @@ function checkQuery(req) {
     return true;
 }
 
+
 /**
  * checks if the service list file name is provided in an argument to the query
  * 
- * @param {Object} req The request from Express
+ * @param {Object} req  The request from Express
  * @returns true if the SLfile parameter is specified containing the file name a service list
  */
 function checkFile(req) {
@@ -1820,13 +1824,14 @@ function checkFile(req) {
     return true;
 }
 
+
 /**
  * Process the service list specificed for errors and display them
  *
- * @param {Object} req The request from Express
- * @param {Object} res The HTTP response to be sent to the client
+ * @param {Object} req  The request from Express
+ * @param {Object} res  The HTTP response to be sent to the client
  */ 
-function processQuery(req,res) {
+function processQuery(req, res) {
     if (isEmpty(req.query)) {
         drawForm(true, res);  
     } else if (!checkQuery(req)) {
@@ -1838,9 +1843,8 @@ function processQuery(req,res) {
 	
 		var xhttp=new XmlHttpRequest();
 		xhttp.onreadystatechange=function() {
-			if (this.readyState==this.DONE && this.status==200) {
+			if (this.readyState==this.DONE && this.status==200) 
 				validateServiceList(xhttp.responseText.replace(/(\r\n|\n|\r|\t)/gm,""), errs);
-			}
 			else             
 				errs.pushCode("PR102", "retrieval of URL ("+xhttp.settings.url+") failed");
 		};
@@ -1857,10 +1861,10 @@ function processQuery(req,res) {
 /**
  * Process the service list specificed by a file name for errors and display them
  *
- * @param {Object} req The request from Express
- * @param {Object} res The HTTP response to be sent to the client
+ * @param {Object} req  The request from Express
+ * @param {Object} res  The HTTP response to be sent to the client
  */ 
-function processFile(req,res) {
+function processFile(req, res) {
     if (isEmpty(req.query)) {
         drawForm(false, res);    
     } else if (!checkFile(req)) {
@@ -1876,19 +1880,19 @@ function processFile(req,res) {
         catch (err) {
             errs.pushCode("PR101", "retrieval of FILE ("+req.query.SLfile+") failed");
         }
-		if (SLxml) {
+		if (SLxml) 
 			validateServiceList(SLxml.toString().replace(/(\r\n|\n|\r|\t)/gm,""), errs);
-		}
 
         drawForm(false, res, req.query.SLfile, {errors:errs});
     }
     res.end();
 }
 
+
 /**
  * synchronously read a file if it exists
  * 
- * @param {string} filename the name of the file to read
+ * @param {string} filename  The name of the file to read
  * @returns the contents of the file or "null" if the file does not exist
  */
 function readmyfile(filename) {
@@ -1900,9 +1904,31 @@ function readmyfile(filename) {
     return null;
 }
 
+
 app.use(express.static(__dirname));
 app.set('view engine', 'ejs');
 app.use(fileupload());
+
+
+morgan.token("protocol", function getProtocol(req) {
+    return req.protocol;
+});
+morgan.token("parseErr",function getParseErr(req) {
+    if (req.parseErr) return "("+req.parseErr+")";
+    return "";
+});
+morgan.token("agent",function getAgent(req) {
+    return "("+req.headers["user-agent"]+")";
+});
+morgan.token("slLoc",function getCheckedLocation(req) {
+	if (req.files && req.files.SLfile) return "["+req.files.SLfile.name+"]";
+    if (req.query.SLurl) return "["+req.query.SLurl+"]";
+	return "[*]";
+});
+
+app.use(morgan(":remote-addr :protocol :method :url :status :res[content-length] - :response-time ms :agent :parseErr :slLoc"));
+
+
 
 // parse command line options
 const optionDefinitions=[
