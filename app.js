@@ -1498,26 +1498,32 @@ function validateServiceList(SLtext, errs) {
 			// delivery parameters also need to be specified
 			var SourceType=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_SourceType), SL_SCHEMA);
 			if (SourceType) {
+				let v1Params=false;
 				switch (SourceType.text()) {
 					case dvbi.DVBT_SOURCE_TYPE:
 						if (!ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_DVBTDeliveryParameters), SL_SCHEMA) ) 
 							NoDeliveryParams(errs, "DVB-T", thisServiceId, "SL084"); 
+						v1Params=true
 						break;
 					case dvbi.DVBS_SOURCE_TYPE:
 						if (!ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_DVBSDeliveryParameters), SL_SCHEMA) ) 
 							NoDeliveryParams(errs, "DVB-S", thisServiceId, "SL085");
+						v1Params=true
 						break;
 					case dvbi.DVBC_SOURCE_TYPE:
 						if (!ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_DVBCDeliveryParameters), SL_SCHEMA) ) 
 							NoDeliveryParams(errs, "DVB-C", thisServiceId, "SL086");
+						v1Params=true
 						break;
 					case dvbi.DVBDASH_SOURCE_TYPE:
 						if (!ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_DASHDeliveryParameters), SL_SCHEMA) ) 
 							NoDeliveryParams(errs, "DVB-DASH", thisServiceId, "SL087");
+						v1Params=true
 						break;
 					case dvbi.DVBIPTV_SOURCE_TYPE:
 						if (!ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_MulticastTSDeliveryParameters), SL_SCHEMA) && !ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_RTSPDeliveryParameters), SL_SCHEMA) ) 
 							NoDeliveryParams(errs, "Multicast or RTSP", thisServiceId, "SL088");
+						v1Params=true
 						break;
 					case dvbi.DVBAPPLICATION_SOURCE_TYPE:
 						// there should not be any <xxxxDeliveryParameters> elements and there should be either a Service.RelatedMaterial or Service.ServiceInstance.RelatedMaterial signalling a service related application
@@ -1527,15 +1533,16 @@ function validateServiceList(SLtext, errs) {
 							|| ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_DASHDeliveryParameters), SL_SCHEMA)
 							|| ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_SATIPDeliveryParametersDeliveryParameters), SL_SCHEMA)
 							|| ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_MulticastTSDeliveryParameters), SL_SCHEMA)
-							|| ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_RTSPDeliveryParameters), SL_SCHEMA) ) 
+							|| ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_RTSPDeliveryParameters), SL_SCHEMA) ) {
 								errs.pushCode("SL089", "Delivery parameters are not permitted for Application service instance in Service "+thisServiceId.quote(), "invalid application");
+								v1Params=true
+							}
 							else {
 								// no xxxxDeliveryParameters is signalled
 								// check for appropriate Service.RelatedMaterial or Service.ServiceInstance.RelatedMaterial
 								if (!hasSignalledApplication(SL_SCHEMA, SCHEMA_PREFIX, service) 
 									&& !hasSignalledApplication(SL_SCHEMA, SCHEMA_PREFIX, ServiceInstance)) 
 									errs.pushCode("SL090", "No Application is signalled for "+dvbi.e_SourceType+"="+dvbi.DVBAPPLICATION_SOURCE_TYPE.quote()+" in Service "+thisServiceId.quote(), "no application");
-
 							}
 						break;
 					default:
@@ -1549,23 +1556,25 @@ function validateServiceList(SLtext, errs) {
 								break;
 						}
 				}
+				if (v1Params && SchemaVersion(SCHEMA_NAMESPACE) == SCHEMA_v2)
+					errs.pushCodeW("SL093", dvbi.e_SourceType.elementize()+" is deprecated in this version")
 			}
 			else {
 				if (SchemaVersion(SCHEMA_NAMESPACE)==SCHEMA_v1) 
-					errs.pushCode("SL093", dvbi.e_SourceType.elementize()+" not specified in "+dvbi.e_ServiceInstance.elementize()+" of service "+thisServiceId.quote(), "no "+dvbi.e_SourceType);
+					errs.pushCode("SL094", dvbi.e_SourceType.elementize()+" not specified in "+dvbi.e_ServiceInstance.elementize()+" of service "+thisServiceId.quote(), "no "+dvbi.e_SourceType);
 			}
 
 			var DASHDeliveryParameters=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_DASHDeliveryParameters), SL_SCHEMA);
 			if (DASHDeliveryParameters) {
-				checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, DASHDeliveryParameters, [dvbi.e_UriBasedLocation], [dvbi.e_MinimumBitRate, dvbi.e_Extension], errs, "SL094")
+				checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, DASHDeliveryParameters, [dvbi.e_UriBasedLocation], [dvbi.e_MinimumBitRate, dvbi.e_Extension], errs, "SL095")
 				var URILoc=DASHDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_UriBasedLocation), SL_SCHEMA);
 				if (URILoc) {
-					checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, URILoc, [dvbi.e_URI], [], errs, "SL095")
-					checkAttributes(URILoc, [dvbi.a_contentType], [], errs, "SL096")
+					checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, URILoc, [dvbi.e_URI], [], errs, "SL096")
+					checkAttributes(URILoc, [dvbi.a_contentType], [], errs, "SL097")
 					var uriContentType=URILoc.attr(dvbi.a_contentType);
 					if (uriContentType) 
 						if (!validDASHcontentType(uriContentType.value()))
-							errs.pushCode("SL097", dvbi.a_contentType.attribute()+"="+uriContentType.value().quote()+" in service "+thisServiceId.quote()+" is not valid", "no "+dvbi.a_contentType.attribute()+" for DASH");	
+							errs.pushCode("SL098", dvbi.a_contentType.attribute()+"="+uriContentType.value().quote()+" in service "+thisServiceId.quote()+" is not valid", "no "+dvbi.a_contentType.attribute()+" for DASH");	
 				}
 				
 				// TODO: validate <DASHDeliveryParameters><MinimumBitRate>
