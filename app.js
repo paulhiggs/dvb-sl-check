@@ -1,7 +1,6 @@
 // node.js - https://nodejs.org/en/
 // express framework - https://expressjs.com/en/4x/api.html
 const express=require("express");
-var app=express();
 
 /* TODO:
 
@@ -641,12 +640,13 @@ function isEmpty(obj) {
 /**
  * constructs HTML output of the errors found in the service list analysis
  *
- * @param {boolean} URLmode  If true ask for a URL to a service list, if false ask for a file
- * @param {Object} res       The Express result 
- * @param {string} lastURL   The url of the service list - used to keep the form intact
- * @param {Object} o         The errors and warnings found during the service list validation
+ * @param {boolean} URLmode    If true ask for a URL to a service list, if false ask for a file
+ * @param {Object}  res        The Express result 
+ * @param {string}  lastInput  The url of the service list - used to keep the form intact
+ * @param {string}  error      a single error message to display on the form, genrrally related to loading the content to validate
+ * @param {Object}  errors     the errors and warnings found during the content guide validation
  */
-function drawForm(URLmode, res, lastInput, o) {
+function drawForm(URLmode, res, lastInput=null, error=null, errors=null) {
 	
 	const FORM_TOP="<html><head><title>DVB-I Service List Validator</title></head><body>";
 
@@ -666,71 +666,70 @@ function drawForm(URLmode, res, lastInput, o) {
 	else res.write(sprintf(ENTRY_FORM_FILE, lastInput ? lastInput : ""));
 
     res.write(RESULT_WITH_INSTRUCTION);
-	if (o) {
-        if (o.error) 
-            res.write("<p>"+o.error+"</p>");
-        var resultsShown=false;
-        if (o.errors) {
-            var tableHeader=false;
-            for (var i in o.errors.counts) {
-                if (o.errors.counts[i]!=0) {
-                    if (!tableHeader) {
-                        res.write(SUMMARY_FORM_HEADER);
-                        tableHeader=true;
-                    }
-                    res.write("<tr><td>"+HTMLize(i)+"</td><td>"+o.errors.counts[i]+"</td></tr>");
-                    resultsShown=true;
-                }
-            }
-            for (var i in o.errors.countsWarn) {
-                if (o.errors.countsWarn[i]!=0) {
-                    if (!tableHeader) {
-                        res.write(SUMMARY_FORM_HEADER);
-                        tableHeader=true;
-                    }
-                    res.write("<tr><td><i>"+HTMLize(i)+"</i></td><td>"+o.errors.countsWarn[i]+"</td></tr>");
-                    resultsShown=true;
-                }
-            }
-            if (tableHeader) res.write("</table>");
 
-            tableHeader=false;
-            o.errors.messages.forEach(function(value) {
-                if (!tableHeader) {
-                    res.write("<table><tr><th>code</th><th>errors</th></tr>");
-                    tableHeader=true;                    
-                }
-				var t=value.replace(/</g,"&lt;").replace(/>/g,"&gt;");
-				if (value.includes(o.errors.delim)) {
-					var x=value.split(o.errors.delim);
-					res.write("<tr><td>"+x[0]+"</td><td>"+HTMLize(x[1])+"</td></tr>");	
+	if (error) 
+		res.write("<p>"+error+"</p>");
+	var resultsShown=false;
+	if (errors) {
+		var tableHeader=false;
+		for (var i in errors.counts) {
+			if (errors.counts[i]!=0) {
+				if (!tableHeader) {
+					res.write(SUMMARY_FORM_HEADER);
+					tableHeader=true;
 				}
-				else 
-					res.write("<tr><td></td><td>"+HTMLize(t)+"</td></tr>");
-                resultsShown=true;
-            });
-            if (tableHeader) res.write("</table>");
-            
-            tableHeader=false;
-            o.errors.messagesWarn.forEach(function(value) {
-                if (!tableHeader) {
-                    res.write("<table><tr><th>code</th><th>warnings</th></tr>");
-                    tableHeader=true;                    
-                }
-				var t=value.replace(/</g,"&lt;").replace(/>/g,"&gt;");
-				if (value.includes(o.errors.delim)) {
-					var x=value.split(o.errors.delim);
-					res.write("<tr><td>"+x[0]+"</td><td>"+HTMLize(x[1])+"</td></tr>");	
+				res.write("<tr><td>"+HTMLize(i)+"</td><td>"+errors.counts[i]+"</td></tr>");
+				resultsShown=true;
+			}
+		}
+		for (var i in errors.countsWarn) {
+			if (errors.countsWarn[i]!=0) {
+				if (!tableHeader) {
+					res.write(SUMMARY_FORM_HEADER);
+					tableHeader=true;
 				}
-				else 
-					res.write("<tr><td></td><td>"+HTMLize(t)+"</td></tr>");
+				res.write("<tr><td><i>"+HTMLize(i)+"</i></td><td>"+errors.countsWarn[i]+"</td></tr>");
+				resultsShown=true;
+			}
+		}
+		if (tableHeader) res.write("</table>");
 
-                resultsShown=true;
-            });
-            if (tableHeader) res.write("</table>");        
-        }
-        if (!resultsShown) res.write("no errors or warnings");
-    }	
+		tableHeader=false;
+		errors.messages.forEach(function(value) {
+			if (!tableHeader) {
+				res.write("<table><tr><th>code</th><th>errors</th></tr>");
+				tableHeader=true;                    
+			}
+			var t=value.replace(/</g,"&lt;").replace(/>/g,"&gt;");
+			if (value.includes(errors.delim)) {
+				var x=value.split(errors.delim);
+				res.write("<tr><td>"+x[0]+"</td><td>"+HTMLize(x[1])+"</td></tr>");	
+			}
+			else 
+				res.write("<tr><td></td><td>"+HTMLize(t)+"</td></tr>");
+			resultsShown=true;
+		});
+		if (tableHeader) res.write("</table>");
+		
+		tableHeader=false;
+		errors.messagesWarn.forEach(function(value) {
+			if (!tableHeader) {
+				res.write("<table><tr><th>code</th><th>warnings</th></tr>");
+				tableHeader=true;                    
+			}
+			var t=value.replace(/</g,"&lt;").replace(/>/g,"&gt;");
+			if (value.includes(errors.delim)) {
+				var x=value.split(errors.delim);
+				res.write("<tr><td>"+x[0]+"</td><td>"+HTMLize(x[1])+"</td></tr>");	
+			}
+			else 
+				res.write("<tr><td></td><td>"+HTMLize(t)+"</td></tr>");
+
+			resultsShown=true;
+		});
+		if (tableHeader) res.write("</table>");        
+	}
+	if (!error && !resultsShown) res.write("no errors or warnings");
 	
     res.write(FORM_BOTTOM);        
 }
@@ -1842,7 +1841,7 @@ function processQuery(req, res) {
     if (isEmpty(req.query)) {
         drawForm(true, res);  
     } else if (!checkQuery(req)) {
-        drawForm(true, res, req.query.SLurl, {error:"URL not specified"});
+        drawForm(true, res, req.query.SLurl, "URL not specified");
         res.status(400);
     }
     else {
@@ -1858,7 +1857,7 @@ function processQuery(req, res) {
 		xhttp.open("GET", req.query.SLurl, false);
 		xhttp.send();
 		
-        drawForm(true, res, req.query.SLurl, {errors:errs});
+        drawForm(true, res, req.query.SLurl, null, errs);
     }
     res.end()
 }
@@ -1875,7 +1874,7 @@ function processFile(req, res) {
     if (isEmpty(req.query)) {
         drawForm(false, res);    
     } else if (!checkFile(req)) {
-        drawForm(false, res, req.query.SLfile, {error:"File not specified"});
+        drawForm(false, res, req.query.SLfile, "File not specified");
         res.status(400);
     }
     else {
@@ -1890,7 +1889,7 @@ function processFile(req, res) {
 		if (SLxml) 
 			validateServiceList(SLxml.toString().replace(/(\r\n|\n|\r|\t)/gm,""), errs);
 
-        drawForm(false, res, req.query.SLfile, {errors:errs});
+        drawForm(false, res, req.query.SLfile, null, errors:errs);
     }
     res.end();
 }
@@ -1911,6 +1910,7 @@ function readmyfile(filename) {
     return null;
 }
 
+var app=express();
 
 app.use(express.static(__dirname));
 app.set('view engine', 'ejs');
