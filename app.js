@@ -1,50 +1,50 @@
 // node.js - https://nodejs.org/en/
 // express framework - https://expressjs.com/en/4x/api.html
-const express=require("express");
+const express=require("express")
 
 /* TODO:
 
  - also look for TODO in the code itself
 */
-const MAX_UNSIGNED_SHORT=65535;
-const OTHER_ELEMENTS_OK="!!!";
+const MAX_UNSIGNED_SHORT=65535
+const OTHER_ELEMENTS_OK="!!!"
 
-const ErrorList=require("./dvb-common/ErrorList.js");
-const dvbi=require("./dvb-common/DVB-I_definitions.js");
-const tva=require("./dvb-common/TVA_definitions.js");
-const {isJPEGmime, isPNGmime}=require("./dvb-common/MIME_checks.js");
-const {isTAGURI}=require("./dvb-common/URI_checks.js");
-const {loadCS}=require("./dvb-common/CS_handler.js");
+const ErrorList=require("./dvb-common/ErrorList.js")
+const dvbi=require("./dvb-common/DVB-I_definitions.js")
+const tva=require("./dvb-common/TVA_definitions.js")
+const {isJPEGmime, isPNGmime}=require("./dvb-common/MIME_checks.js")
+const {isTAGURI}=require("./dvb-common/URI_checks.js")
+const {loadCS}=require("./dvb-common/CS_handler.js")
 
-const ISOcountries=require("./dvb-common/ISOcountries.js");
-const IANAlanguages=require("./dvb-common/IANAlanguages.js");
+const ISOcountries=require("./dvb-common/ISOcountries.js")
+const IANAlanguages=require("./dvb-common/IANAlanguages.js")
 
 // libxmljs - https://github.com/libxmljs/libxmljs
-const libxml=require("libxmljs");
+const libxml=require("libxmljs")
 
 //TODO: validation against schema; package.json: 		"xmllint": "0.1.1",
-//const xmllint=require("xmllint");
+//const xmllint=require("xmllint")
 
 // morgan - https://github.com/expressjs/morgan
 const morgan=require("morgan")
 
 // file upload for express - https://github.com/richardgirges/express-fileupload
-const fileupload=require("express-fileupload");
+const fileupload=require("express-fileupload")
 
 
-const fs=require("fs"), path=require("path");
-//const request=require("request");
+const fs=require("fs"), path=require("path")
+//const request=require("request")
 
 // command line arguments - https://github.com/75lb/command-line-args
-const commandLineArgs=require('command-line-args');
+const commandLineArgs=require('command-line-args')
 
-var XmlHttpRequest=require("xmlhttprequest").XMLHttpRequest;
+var XmlHttpRequest=require("xmlhttprequest").XMLHttpRequest
 
-const https=require("https");
-const DEFAULT_HTTP_SERVICE_PORT=3010;
-const keyFilename=path.join(".","selfsigned.key"), certFilename=path.join(".","selfsigned.crt");
+const https=require("https")
+const DEFAULT_HTTP_SERVICE_PORT=3010
+const keyFilename=path.join(".","selfsigned.key"), certFilename=path.join(".","selfsigned.crt")
 
-const { parse }=require("querystring");
+const {parse}=require("querystring")
 
 // https://github.com/alexei/sprintf.js
 var sprintf=require("sprintf-js").sprintf,
@@ -61,11 +61,11 @@ const TVA_ContentCSFilename=path.join("dvb-common/tva","ContentCS.xml"),
       DVB_AudioConformanceCSFilename=path.join("dvb-common/dvb","AudioConformancePointsCS.xml"),
       DVB_VideoConformanceCSFilename=path.join("dvb-common/dvb","VideoConformancePointsCS.xml"),
       ISO3166_Filename=path.join("dvb-common","iso3166-countries.json"),
-      DVBI_RecordingInfoCSFilename=path.join("dvb-common/dvbi","DVBRecordingInfoCS-2019.xml");
+      DVBI_RecordingInfoCSFilename=path.join("dvb-common/dvbi","DVBRecordingInfoCS-2019.xml")
 
 // curl from https://www.iana.org/assignments/language-subtag-registry/language-subtag-registry
 const IANA_Subtag_Registry_Filename=path.join("./dvb-common","language-subtag-registry");
-const IANA_Subtag_Registry_URL="https://www.iana.org/assignments/language-subtag-registry/language-subtag-registry";
+const IANA_Subtag_Registry_URL="https://www.iana.org/assignments/language-subtag-registry/language-subtag-registry"
 
 const COMMON_REPO_RAW="https://raw.githubusercontent.com/paulhiggs/dvb-common/master/",
       DVB_METADATA="https://dvb.org/metadata/",
@@ -80,17 +80,17 @@ const COMMON_REPO_RAW="https://raw.githubusercontent.com/paulhiggs/dvb-common/ma
       DVB_AudioConformanceCSURL=DVB_METADATA + "cs/2017/" + "AudioConformancePointsCS.xml",
       DVB_VideoConformanceCSURL=DVB_METADATA + "cs/2017/" + "VideoConformancePointsCS.xml",
       ISO3166_URL=COMMON_REPO_RAW + "iso3166-countries.json",
-	  DVBI_RecordingInfoCSURL=COMMON_REPO_RAW + "dvbi/" + "DVBRecordingInfoCS-2019.xml";
+	  DVBI_RecordingInfoCSURL=COMMON_REPO_RAW + "dvbi/" + "DVBRecordingInfoCS-2019.xml"
 
 const SERVICE_LIST_RM="service list",
       SERVICE_RM="service",
-      CONTENT_GUIDE_RM="content guide";
+      CONTENT_GUIDE_RM="content guide"
 
 var allowedGenres=[], allowedServiceTypes=[], allowedAudioSchemes=[], allowedVideoSchemes=[], 
-	allowedAudioConformancePoints=[], allowedVideoConformancePoints=[], RecordingInfoCSvalules=[];
+	allowedAudioConformancePoints=[], allowedVideoConformancePoints=[], RecordingInfoCSvalules=[]
 
-var knownCountries=new ISOcountries(false, true);
-var knownLanguages=new IANAlanguages();
+var knownCountries=new ISOcountries(false, true)
+var knownLanguages=new IANAlanguages()
 
 /*
 //TODO: validation against schema
@@ -109,9 +109,9 @@ var TVAschema, MPEG7schema, XMLschema;
 /*
  * formatters
  */
-String.prototype.quote=function(using='"') {return using+this+using};
-String.prototype.elementize=function() {return '<'+this+'>'};
-String.prototype.attribute=function(elemName="") {return elemName+'@'+this};
+String.prototype.quote=function(using='"') {return using+this+using}
+String.prototype.elementize=function() {return '<'+this+'>'}
+String.prototype.attribute=function(elemName="") {return elemName+'@'+this}
 
 
 const SCHEMA_v1=1,
@@ -507,17 +507,21 @@ function checkValidLogo(HowRelated, Format, MediaLocator, errs, Location, Locati
  * @param {string} LocationType  The type of element containing the <RelatedMaterial> element. Different validation rules apply to different location types
  */
 function checkSignalledApplication(HowRelated, Format, MediaLocator, errs, Location, LocationType) {
+	
+	function validApplicationType(val) {
+		return val==dvbi.XML_AIT_CONTENT_TYPE || val==dvbi.HTML5_APP || val==dvbi.XHTML_APP
+	}
+	
     if (MediaLocator) {
         var subElems=MediaLocator.childNodes(), hasMediaURI=false;
         if (subElems) subElems.forEach(child => {
             if (child.name()==dvbi.e_MediaUri) {
                 hasMediaURI=true;
                 if (child.attr(dvbi.a_contentType)) {
-					if (child.attr(dvbi.a_contentType).value()!=dvbi.XML_AIT_CONTENT_TYPE) 
+					if (!validApplicationType(child.attr(dvbi.a_contentType).value)) 
                         errs.pushCodeW("SA003", dvbi.a_contentType.attribute()+" "+child.attr(dvbi.a_contentType).value().quote()+" is not DVB AIT for "+dvbi.e_RelatedMaterial.elementize()+dvbi.e_MediaLocator.elementize()+" in "+Location, "invalid "+dvbi.a_contentType.attribute(dvbi.e_MediaUri));
 				}
-				else
-                    errs.pushCode("SA002", dvbi.a_contentType.attribute()+" not specified for "+dvbi.e_MediaUri.elementize()+" in "+Location, "unspecified "+dvbi.a_contentType.attribute(dvbi.e_MediaUri));
+				else errs.pushCode("SA002", dvbi.a_contentType.attribute()+" not specified for "+dvbi.e_MediaUri.elementize()+" in "+Location, "unspecified "+dvbi.a_contentType.attribute(dvbi.e_MediaUri));
             }
         });
         if (!hasMediaURI) 
