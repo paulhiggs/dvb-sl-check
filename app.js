@@ -1893,7 +1893,7 @@ function processFile(req, res) {
 		if (SLxml) 
 			validateServiceList(SLxml.toString().replace(/(\r\n|\n|\r|\t)/gm,""), errs);
 
-        drawForm(false, res, req.query.SLfile, null, errors:errs);
+        drawForm(false, res, req.query.SLfile, null, errs);
     }
     res.end();
 }
