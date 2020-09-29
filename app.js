@@ -1940,7 +1940,6 @@ morgan.token("slLoc",function getCheckedLocation(req) {
 app.use(morgan(":remote-addr :protocol :method :url :status :res[content-length] - :response-time ms :agent :parseErr :slLoc"));
 
 
-
 // parse command line options
 const optionDefinitions=[
   {name: 'urls', alias: 'u', type: Boolean, defaultValue: false},
@@ -1985,7 +1984,6 @@ app.get("*", function(req,res) {
 
 
 // start the HTTP server
-
 var http_server=app.listen(options.port, function() {
     console.log("HTTP listening on port number", http_server.address().port);
 });
@@ -1999,6 +1997,9 @@ var https_options={
 };
 
 if (https_options.key && https_options.cert) {
+	if (options.sport==options.port)
+		options.sport=options.port+1;
+	
     var https_server=https.createServer(https_options, app);
     https_server.listen(options.sport, function(){
         console.log("HTTPS listening on port number", https_server.address().port);
