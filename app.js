@@ -147,7 +147,6 @@ function xPath(SCHEMA_PREFIX, elementName, index=null) {
 }
 
 
-
 /**
  * determines if a value is in a set of values - simular to 
  *
@@ -159,14 +158,30 @@ function isIn(values, value){
     if (typeof(values) == "string")
         return values==value;
    
-    if (typeof(values) == "object") {
-/*        for (var x=0; x<values.length; x++) 
-            if (values[x] == value)
-                return true; */
-			
+    if (typeof(values) == "object") 	
 		return values.find(arrayVal => arrayVal==value)
-    }
+    
     return false;
+}
+
+
+/**
+ * check a language code and log its result
+ *
+ * @param {string} lang      the language to check
+ * @param {string} location  the 'location' of the element containing the language value
+ * @param {Object} errs      the class where errors and warnings relating to the serivce list processing are stored 
+ * @param {String} errCode   the error code to be reported
+ */
+function checkLanguage(lang, location, errs, errCode) {
+	switch (knownLanguages.isKnown(lang)) {
+		case knownLanguages.languageUnknown:
+			errs.pushCode(errCode?errCode+"-1":"CL001", (location?location+" ":"language ")+"value "+lang.quote()+" is invalid", "invalid language");
+			break;
+		case knownLanguages.languageRedundant:
+			errs.pushCodeW(errCode?errCode+"-2":"CL002", (location?location+" ":"language ")+"value "+lang.quote()+" is redundant", "redundant language");
+			break;	
+	}
 }
 
 
@@ -442,30 +457,38 @@ function validExtensionName(ext) {
 */
 function checkValidLogo(HowRelated, Format, MediaLocator, errs, Location, LocationType) {
     // irrespective of the HowRelated@href, all logos have specific requirements
-    var isJPEG=false, isPNG=false;
-
     if (!HowRelated)
         return;
-    
+
+    var isJPEG=false, isPNG=false;    
     // if <Format> is specified, then it must be per A177 5.2.6.1, 5.2.6.2 or 5.2.6.3 -- which are all the same
     if (Format) {
         var subElems=Format.childNodes(), hasStillPictureFormat=false;
         if (subElems) subElems.forEach(child => {
             if (child.name()==dvbi.e_StillPictureFormat) {
                 hasStillPictureFormat=true;
-				checkAttributes(child, [dvbi.a_href], [], errs, "VL015")
+				checkAttributes(child, [dvbi.a_href], [dvbi.a_horizontalSize, dvbi.a_verticalSize], errs, "VL015")
                 if (!child.attr(dvbi.a_horizontalSize)) 
                     errs.pushCode("VL010", dvbi.a_horizontalSize.attribute()+" not specified for "+tva.e_RelatedMaterial.elementize()+tva.e_Format.elementize()+dvbi.e_StillPictureFormat.elementize()+" in "+Location, "no "+dvbi.a_horizontalSize.attribute());
                 if (!child.attr(dvbi.a_verticalSize)) 
                     errs.pushCode("VL011", dvbi.a_verticalSize.attribute()+" not specified for "+tva.e_RelatedMaterial.elementize()+tva.e_Format.elementize()+dvbi.e_StillPictureFormat.elementize()+" in "+Location, "no "+dvbi.a_verticalSize.attribute());
                 if (child.attr(dvbi.a_href)) {
                     var href=child.attr(dvbi.a_href).value();
-                    if (href!=dvbi.JPEG_IMAGE_CS_VALUE && href!=dvbi.PNG_IMAGE_CS_VALUE) {
+					switch (href) {
+						case dvbi.JPEG_IMAGE_CS_VALUE:
+							isJPEG=true
+							break
+						case dvbi.PNG_IMAGE_CS_VALUE:
+							isPNG=true
+							break
+						default:
+							InvalidHrefValue(errs, href, tva.e_RelatedMaterial.elementize()+tva.e_Format.elementize()+dvbi.e_StillPictureFormat.elementize(), Location, "VL012")
+					}
+    /*              if (href!=dvbi.JPEG_IMAGE_CS_VALUE && href!=dvbi.PNG_IMAGE_CS_VALUE)
 						InvalidHrefValue(errs, href, tva.e_RelatedMaterial.elementize()+tva.e_Format.elementize()+dvbi.e_StillPictureFormat.elementize(), Location, "VL012")
-                    }
                     if (href == dvbi.JPEG_IMAGE_CS_VALUE) isJPEG=true;
-                    if (href == dvbi.PNG_IMAGE_CS_VALUE) isPNG=true;
-                }
+                    if (href == dvbi.PNG_IMAGE_CS_VALUE) isPNG=true; */
+                } 
             }
         });
         if (!hasStillPictureFormat) 
@@ -614,14 +637,12 @@ function checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, elementName, elementLocation, n
     while (elem=node.get(xPath(SCHEMA_PREFIX, elementName, ++i), SL_SCHEMA)) {
 		var lang=elem.attr(dvbi.a_lang)?elem.attr(dvbi.a_lang).value():"unspecified";
         if (isIn(elementLanguages, lang)) 
-            errs.pushCode(errCode?errcode+"-1":"XL001", "xml:lang="+lang.quote()+" already specifed for "+elementName.elementize()+" for "+elementLocation, "duplicate @xml:lang");
+            errs.pushCode(errCode?errCode+"-1":"XL001", "xml:lang="+lang.quote()+" already specifed for "+elementName.elementize()+" for "+elementLocation, "duplicate @xml:lang");
         else elementLanguages.push(lang);
 
         //if lang is specified, validate the format and value of the attribute against BCP47 (RFC 5646)
-		if (lang!="unspecified") {
-			if (!knownLanguages.isKnown(lang)) 
-				errs.pushCode(errCode?errcode+"-2":"XL002", "xml:lang value "+lang.quote()+" is invalid", "invalid @xml:lang");
-		}
+		if (lang!="unspecified") 
+			checkLanguage(lang, "xml:lang", errs, errCode?errCode+"-2":"XL002")
     }
 }
 
@@ -1040,7 +1061,7 @@ function checkAttributes(elem, requiredAttributes, optionalAttributes, errs, err
 		if (!isIn(requiredAttributes, attribute.name()) && !isIn(optionalAttributes, attribute.name()))
 			errs.pushCode(errCode?errCode+"-2":"AT002", 
 			  attribute.name().attribute()+" is not permitted in "
-				+((typeof elem.parent().name === 'function')?elem.parent().name().elementize():"")
+				+((typeof elem.parent().name==='function')?elem.parent().name().elementize():"")
 				+elem.name().elementize());
 	});
 }
@@ -1172,6 +1193,37 @@ function validateAContentGuideSource(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE,
 	var rm=0, CGrm;
 	while (CGrm=source.get(xPath(SCHEMA_PREFIX, tva.e_RelatedMaterial, ++rm), SL_SCHEMA))
 		validateRelatedMaterial(CGrm, errs, loc, CONTENT_GUIDE_RM, SCHEMA_NAMESPACE);
+}
+
+
+/**
+ * verifies if the specified ContentProtection element is valid according to specification (contents and location)
+ *
+ * @param {Object} ContentProtection   The <ContentProtection> element (a libxmls ojbect tree) to be checked
+ * @param {Object} errs                The class where errors and warnings relating to the serivce list processing are stored 
+ * @param {string} Location            The printable name used to indicate the location of the <ContentProtection> element being checked. used for error reporting
+ * @param {string} SL_SCHEMA         Used when constructing Xpath queries
+ * @param {string} SCHEMA_PREFIX     Used when constructing Xpath queries
+ * @param {string} SCHEMA_NAMESPACE  The namespace of XML document
+ */
+function validateContentProtection(ContentProtection, errs, Location, SCHEMA_NAMESPACE) {
+	checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, ContentProtection, [], [dvbi.e_CASystemId, dvbi.e_DRMSystemId], errs, "CP001")
+	
+	var ca=0, CASystemId
+	while (CASystemId=ContentProtection.get(xPath(SCHEMA_PREFIX, dvbi.e_CASystemId, ++ca), SL_SCHEMA)) {
+		checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, CASystemId, [dvbi.e_CASystemId], errs, "CP010")
+		checkAttributes(CASystemId, [], [dvbi.cpsIndex], errs, "CP011")
+	}
+	
+	var dr=0, DRMSystemId
+	while (DRMSystemId=ContentProtection.get(xPath(SCHEMA_PREFIX, dvbi.e_DRMSystemId, ++dr), SL_SCHEMA)) {
+		checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, DRMSystemId, [dvbi.e_DRMSystemId], errs, "CP020")
+		checkAttributes(DRMSystemId, [dvbi.a_encryptionScheme], [dvbi.cpsIndex], errs, "CP021")
+		
+		var scheme=DRMSystemId.attr(dvbi.a_encryptionScheme).value()
+		if (scheme && !isIn(dvbi.ENCRYPTION_VALID_TYPES, scheme)) 
+			errs.pushCode("CP022", scheme.quote()+"is not valid for "+dvbi.a_encryptionScheme.attribute(ContentProtection.name()))
+	}
 }
 
 
@@ -1392,9 +1444,12 @@ function validateServiceList(SLtext, errs) {
 			while (RelatedMaterial=ServiceInstance.get(xPath(SCHEMA_PREFIX, tva.e_RelatedMaterial, ++rm), SL_SCHEMA)) 
 				validateRelatedMaterial(RelatedMaterial, errs, "service instance of "+thisServiceId.quote(), SERVICE_RM, SCHEMA_NAMESPACE);
 
+			var cp=0, ContentProtection;
+			while (ContentProtection=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_ContentProtection, ++cp), SL_SCHEMA))
+				validateContentProtection(ContentProtection, errs, "service instance of "+thisServiceId.quote(), SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE)
+
 			var ContentAttributes=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_ContentAttributes), SL_SCHEMA)
 			if (ContentAttributes) {
-
 				checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, ContentAttributes, [], [tva.e_AudioAttributes, dvbi.e_AudioConformancePoint, tva.e_VideoAttributes, dvbi.e_VideoConformancePoint, tva.e_CaptionLanguage, tva.e_SignLanguage], errs, "SL040")
 
 				// Check @href of ContentAttributes/AudioAttributes/tva:coding
@@ -1402,6 +1457,8 @@ function validateServiceList(SLtext, errs) {
 				while (conf=ContentAttributes.get(xPath(SCHEMA_PREFIX, tva.e_AudioAttributes, ++cp), SL_SCHEMA)) {
 					checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, conf, [], [tva.e_Coding, tva.e_NumOfChannels, tva.e_MixType, tva.e_AudioLanguage, tva.e_SampleFrequency, tva.e_BitsPerSample, tva.e_BitRate], errs, "SL041")
 					
+					
+					// TODO: check other elements in the AudioAttributes
 					var ch=0, child; 
 					while (child=conf.child(ch++)) {
 						switch (child.name()) {
@@ -1443,6 +1500,7 @@ function validateServiceList(SLtext, errs) {
 				while (conf=ContentAttributes.get(xPath(SCHEMA_PREFIX, tva.e_VideoAttributes, ++cp), SL_SCHEMA)) {
 					checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, conf, [], [tva.e_Coding, tva.e_Scan, tva.e_HorizontalSize, tva.e_VerticalSize, tva.e_AspectRatio, tva.e_Color, tva.e_FrameRate, tva.e_BitRate, tva.e_PictureFormat], errs, "SL073")
 					
+					// TODO: check other elements in the VideoAttributes
 					var ch=0, child; 
 					while (child=conf.child(ch++)) {
 						switch (child.name()) {
@@ -1452,6 +1510,22 @@ function validateServiceList(SLtext, errs) {
 									if (!isIn(allowedVideoSchemes, child.attr(dvbi.a_href).value())) 
 										errs.pushCode("SL074", "invalid "+dvbi.a_href.attribute(tva.e_VideoAttributes)+" ("+child.attr(dvbi.a_href).value()+")", "video codec");
 								}
+								break;
+							case tva.e_Scan:
+								break;
+							case tva.e_HorizontalSize:
+								break;
+							case tva.e_VerticalSize:
+								break;
+							case tva.e_AspectRatio:
+								break;
+							case tva.e_Color:
+								break;
+							case tva.e_FrameRate:
+								break;
+							case tva.e_BitRate:
+								break;
+							case tva.e_PictureFormat:
 								break;
 						}
 					}
@@ -1471,16 +1545,14 @@ function validateServiceList(SLtext, errs) {
 				cp=0;
 				while (conf=ContentAttributes.get(xPath(SCHEMA_PREFIX, tva.e_CaptionLanguage, ++cp), SL_SCHEMA)) { 
 					checkAttributes(conf, [], [tva.a_primary, tva.a_translation, tva.a_closed, tva.a_supplemental], errs, "SL077")
-					if (!knownLanguages.isKnown(conf.text()))
-						errs.pushCode("SL078", "invalid "+tva.e_CaptionLanguage.elementize()+" "+conf.text().quote(), "invalid language")
+					checkLanguage(conf.text(), tva.e_CaptionLanguage.elementize(), errs, "SL078")
 				}
 
 				// TODO: Check ContentAttributes/SignLanguage
 				cp=0;
 				while (conf=ContentAttributes.get(xPath(SCHEMA_PREFIX, tva.e_SignLanguage, ++cp), SL_SCHEMA)) { 
 					checkAttributes(conf, [], [tva.a_primary, tva.a_translation, tva.a_type, tva.a_closed], errs, "SL079")
-					if (!knownLanguages.isKnown(conf.text()))
-						errs.pushCode("SL080", "invalid "+tva.e_SignLanguage.elementize()+" "+conf.text().quote(), "invalid language")
+					checkLanguage(conf.text(), tva.e_SignLanguage.elementize(), errs, "SL080")
 				}
 				
 			}
