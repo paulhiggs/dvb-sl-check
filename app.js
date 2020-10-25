@@ -1551,7 +1551,7 @@ function validateServiceList(SLtext, errs) {
 					checkLanguage(conf.text(), tva.e_CaptionLanguage.elementize(), errs, "SL078")
 				}
 
-				// TODO: Check ContentAttributes/SignLanguage
+				// Check ContentAttributes/SignLanguage
 				cp=0;
 				while (conf=ContentAttributes.get(xPath(SCHEMA_PREFIX, tva.e_SignLanguage, ++cp), SL_SCHEMA)) { 
 					checkAttributes(conf, [], [tva.a_primary, tva.a_translation, tva.a_type, tva.a_closed], errs, "SL079")
@@ -1578,10 +1578,11 @@ function validateServiceList(SLtext, errs) {
 			}
 
 
-			// TODO:  <ServiceInstance><SubscriptionPackage>
+			// <ServiceInstance><SubscriptionPackage>
+			checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, dvbi.e_SubscriptionPackage, ServiceInstance.name().elementize(), ServiceInstance, errs, "SLb001")
 			var sp=0, SubscriptionPackage;
 			while (SubscriptionPackage=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_SubscriptionPackage, ++sp))) {
-				
+				// nothing to do here
 			}
 					
 			// <ServiceInstance><FTAContentManagement>
