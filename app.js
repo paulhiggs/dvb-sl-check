@@ -446,6 +446,22 @@ function validExtensionName(ext) {
 
 
 /**
+ * check if the argument is in the correct format for a TV-Anytime FrameRateType
+ *    <pattern value="([0-9]{1,3}(.[0-9]{1,3})?)|([0-9]{1,3}/1.001)"/>
+ *
+ * @param {string} str  the signalled frameRate
+ * @returns {boolean} true if the signalled frameRate is a valid TV-Anytime FrameRateType, else false
+ */
+function validFrameRate(str) {
+	const FrameRateRegex1=/\d{1,3}(\.\d{1,3})?/;
+	const FrameRateRegex2=/\d{1,3}\/1\.001/;
+	var s1=str.match(FrameRateRegex1), s2=str.match(FrameRateRegex2)
+	
+	return ((s2 && s2[0]===str) || (s1 && s1[0]===str))
+}
+
+
+/**
  * verifies if the specified logo is valid according to specification
  *
  * @param {Object} HowRelated    The <HowRelated> subelement (a libxmls ojbect tree) of the <RelatedMaterial> element
@@ -1125,13 +1141,26 @@ function cleanInt(intStr) {
 /**
  * determine if the value provided represents a valid positiveInteger (greater than or equal to 1)
  *
- * @param {String}  Value a string containing a longitude
+ * @param {String}  Value a string containing a integer
  * @returns {boolean} true if the argument represents a positiveInteger - https://www.w3.org/TR/xmlschema-2/#positiveInteger
  */
 function isPositiveInteger(value) {
 	var x=Number(value);
 	if (isNaN(x)) return false
 	return (x >= 1)
+}
+
+
+/**
+ * determine if the value provided represents a valid unsignedShort (between 0 and 65535)
+ *
+ * @param {String}  Value a string containing a integer
+ * @returns {boolean} true if the argument represents a positiveInteger - https://www.w3.org/TR/xmlschema-2/#unsignedShort
+ */
+function isUnsignedShort(value) {
+	var x=Number(value);
+	if (isNaN(x)) return false
+	return (x>=0 && x<=MAX_UNSIGNED_SHORT)
 }
 
 
@@ -1515,18 +1544,32 @@ function validateServiceList(SLtext, errs) {
 								}
 								break;
 							case tva.e_Scan:
+								if (!isIn(tva.SCAN_TYPES, child.text()))
+									errs.pushCode("SLc001", "invalid "+tva.e_Scan.elementize()+" value "+child.text().quote(), "video atributes")
 								break;
 							case tva.e_HorizontalSize:
+								if (!isUnsignedShort(child.text()))
+									errs.pushCode("SLc002", "invalid "+tva.e_HorizontalSize.elementize()+" value "+child.text().quote(), "video attributes")
 								break;
 							case tva.e_VerticalSize:
+								if (!isUnsignedShort(child.text()))
+									errs.pushCode("SLc002", "invalid "+tva.e_VerticalSize.elementize()+" value "+child.text().quote(), "video attributes")
 								break;
 							case tva.e_AspectRatio:
 								break;
 							case tva.e_Color:
+								checkAttributes(child, [tva.a_type], [], errs, "SLc003")
+								if (child.attr(tva.a_type)) {
+									if (!isIn(tva.COLOR_TYPES,child.text()))
+										errs.pushCode("SLc004", "invalid "+tva.e_Color.elementize()+" value "+child.text().quote(), "video attributes")
+								}
 								break;
 							case tva.e_FrameRate:
+								if (!validFrameRate(child.text()))
+									errs.pushCode("SLc005", "invalid "+tva.e_FrameRate.elementize()+" value "+child.text().quote(), "video attributes")
 								break;
 							case tva.e_BitRate:
+								checkAttributes(child, [], [tva.a_variable, tva.a_minimum, tva.a_average, tva.a_maximum], errs, "SLc006")
 								break;
 							case tva.e_PictureFormat:
 								break;
