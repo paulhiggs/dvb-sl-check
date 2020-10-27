@@ -1760,7 +1760,7 @@ function validateServiceList(SLtext, errs) {
 							case tva.e_PictureFormat:
 								checkAttributes(child, [dvbi.a_href], [], errs, "SL074h")
 								if (child.attr(dvbi.a_href)) 
-									if (!isIn(allowedVideoConformancePoints, child.attr(dvbi.a_href).value())) 
+									if (!isIn(allowedPictureFormats, child.attr(dvbi.a_href).value())) 
 										errs.pushCode("SL074i", "invalid "+dvbi.a_href.attribute(tva.e_PictureFormat)+" value ("+child.attr(dvbi.a_href).value()+")", tva.e_PictureFormat);
 								break;
 						}
