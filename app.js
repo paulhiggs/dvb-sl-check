@@ -6,7 +6,10 @@ const express=require("express")
 
  - also look for TODO in the code itself
 */
-const MAX_UNSIGNED_SHORT=65535
+const MAX_UNSIGNED_SHORT=65535, 
+      MAX_UNSIGNED_INT=  4294967295,
+	  MAX_UNSIGNED_LONG= 18446744073709551615
+	  
 const OTHER_ELEMENTS_OK="!!!"
 
 const ErrorList=require("./dvb-common/ErrorList.js")
@@ -678,6 +681,80 @@ function isEmpty(obj) {
 }
 
 
+// TODO:
+function isURL(arg) {
+	return true;
+}
+
+/**
+ * checks of the specified argument matches an RTSP URL
+ *  <restriction base="anyURI"><pattern value="rtsp://.*"/></restriction>
+ *
+ * @param {string} arg  The value whose format is to be checked
+ * @returns {boolean} true if the argument is an RTSP URL
+ */
+function isRTSPURL(arg) {
+	if (!(arg && isURL(arg))) return false;
+    var s=arg.match(/rtsp:\/\/.*/g);
+    return s?s[0]===arg:false;	
+}
+
+/**
+ * determine if the value provided represents a valid unsignedShort (between 0 and 65535)
+ *
+ * @param {String}  Value a string containing a integer
+ * @returns {boolean} true if the argument represents a positiveInteger - https://www.w3.org/TR/xmlschema-2/#unsignedShort
+ */
+function isUnsignedShort(arg){
+	if (!arg || arg=="") return false;
+	var val=parseInt(arg);
+	return !(isNaN(val) || val<0 || val>MAX_UNSIGNED_SHORT)
+}
+/*function isUnsignedShort(value) {
+	var x=Number(value);
+	if (isNaN(x)) return false
+	return (x>=0 && x<=MAX_UNSIGNED_SHORT)
+}*/
+
+
+/**
+ * determine if the value provided represents a valid nonNegativeInteger 
+ *
+ * @param {String}  Value a string containing a integer
+ * @returns {boolean} true if the argument represents a positiveInteger - https://www.w3.org/TR/xmlschema-2/#unsignedShort
+ */
+function isNonNegativeInteger(arg) {
+	if (!arg || arg=="") return false;
+    var s=arg.match(/\d+/g);
+    return s?s[0]===arg:false;	
+}
+
+
+/**
+ * determine if the value provided represents a valid unsignedInteger
+ *
+ * @param {String}  Value a string containing a integer
+ * @returns {boolean} true if the argument represents a positiveInteger - https://www.w3.org/TR/xmlschema-2/#unsignedInt
+ */
+function isUnsignedInt(arg) {
+	if (!arg || arg=="") return false;
+	var val=parseInt(arg);
+	return !(isNaN(val) || val<0 || val>MAX_UNSIGNED_INT)
+}
+
+/**
+ * determine if the value provided represents a valid unsignedLong
+ *
+ * @param {String}  Value a string containing a integer
+ * @returns {boolean} true if the argument represents a positiveInteger - https://www.w3.org/TR/xmlschema-2/#unsignedInt
+ */
+function isUnsignedLong(arg) {
+	if (!arg || arg=="") return false;
+	var val=parseInt(arg);
+	return !(isNaN(val) || val<0 || val>MAX_UNSIGNED_LONG)
+}
+
+
 /**
  * constructs HTML output of the errors found in the service list analysis
  *
@@ -1109,8 +1186,7 @@ function validateTriplet(triplet, errs, errCode=null) {
 
 	function checkTripletAttributeValue(attr, parentElemName, errs, errCode=null) {
 		if (!attr) return;
-		var val=cleanInt(attr.value());
-		if (isNaN(val) || attr.value()=="" || val<0 || val>MAX_UNSIGNED_SHORT)
+		if (!isUnsignedShort(attr.value()))
 			errs.pushCode(errCode?errCode:"AtV001", "invalid value specified for "+
 				attr.name().attribute(parentElemName)+" ("+attr.value()+")")	
 	}
@@ -1148,19 +1224,6 @@ function isPositiveInteger(value) {
 	var x=Number(value);
 	if (isNaN(x)) return false
 	return (x >= 1)
-}
-
-
-/**
- * determine if the value provided represents a valid unsignedShort (between 0 and 65535)
- *
- * @param {String}  Value a string containing a integer
- * @returns {boolean} true if the argument represents a positiveInteger - https://www.w3.org/TR/xmlschema-2/#unsignedShort
- */
-function isUnsignedShort(value) {
-	var x=Number(value);
-	if (isNaN(x)) return false
-	return (x>=0 && x<=MAX_UNSIGNED_SHORT)
 }
 
 
@@ -1255,6 +1318,46 @@ function validateContentProtection(ContentProtection, errs, Location, SCHEMA_NAM
 	}
 }
 
+/**
+ * validate an element against a TV-Anytime BitrateType
+ *
+ * @param {object} child       The node of the element to check
+ * @param {Class}  errs        Errors found in validaton
+ * @param {string} errCode     Error code prefix to be used in reports, if not present then use local codes
+ *
+ */
+function checkBitRate(child, errs, errCode=null) {
+	
+	function attributeError(errs, errCode, child, attributeName) {
+		errs.pushCode(errCode, "invalid value "+child.attr(attributeName).value().quote()+" for "+attributeName.attribute(child.name()), child.name()+" error")
+	}
+	
+	checkAttributes(child, [], [tva.a_variable, tva.a_minimum, tva.a_average, tva.a_maximum], errs, errCode?errCode+"-01":"BR001")
+	
+	// check the value is a nonNegativeInteger
+	if (!isNonNegativeInteger(child.text()))
+		errs.pushCode(errCode?errCode+"-02":"BR002", "invalid value "+child.text().quote()+" for "+child.name().elementize(), child.name()+" error")
+	
+	// check any @variable attribute is a boolean
+	if (child.attr(tva.a_variable))
+		if (!isIn(["true", "false"], child.attr(tva.a_variable).value()))
+			atributeError(errs, errCode?errCode+"-03":"BR003", child, tva.a_variable)
+	
+	// check any @minimum attribute is an unsignedLong
+	if (child.attr(tva.a_minimum))
+		if (!isUnsignedLong(child.attr(tva.a_minimum).value()))
+			atributeError(errs, errCode?errCode+"-04":"BR004", child, tva.a_minimum)
+		
+	// check any @average attribute is an unsignedLong
+	if (child.attr(tva.a_average))
+		if (!isUnsignedLong(child.attr(tva.a_average).value()))
+			atributeError(errs, errCode?errCode+"-05":"BR005", child, tva.a_average)
+		
+	// check any @maximum attribute is an unsignedLong
+	if (child.attr(tva.a_maximum))
+		if (!isUnsignedLong(child.attr(tva.a_maximum).value()))
+			atributeError(errs, errCode?errCode+"-05":"BR005", child, tva.a_maximum)
+}
 
 /**
  * validate the service list and record any errors
@@ -1512,6 +1615,7 @@ function validateServiceList(SLtext, errs) {
 							case tva.e_BitsPerSample:
 								break;
 							case tva.e_BitRate:
+								checkBitRate(chile, errs, "SLc006")
 								break;
 						}
 					}
@@ -1569,7 +1673,7 @@ function validateServiceList(SLtext, errs) {
 									errs.pushCode("SLc005", "invalid "+tva.e_FrameRate.elementize()+" value "+child.text().quote(), "video attributes")
 								break;
 							case tva.e_BitRate:
-								checkAttributes(child, [], [tva.a_variable, tva.a_minimum, tva.a_average, tva.a_maximum], errs, "SLc006")
+								checkBitRate(child, errs, "SLc006")
 								break;
 							case tva.e_PictureFormat:
 								break;
@@ -1815,9 +1919,76 @@ function validateServiceList(SLtext, errs) {
 					errs.pushCode("SL116", dvbi.e_SATIPDeliveryParameters.elementize()+" can only be specified with "+dvbi.e_DVBSDeliveryParameters.elementize()+" or "+dvbi.e_DVBTDeliveryParameters.elementize())
 			}
 
-			// TODO: <ServiceInstance><RTSPDeliveryParameters>
+			// <ServiceInstance><RTSPDeliveryParameters>
+			var RTSPDeliveryParameters=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_RTSPDeliveryParameters), SL_SCHEMA)
+			if (RTSPDeliveryParameters) {
+				checkTopElements(SL_SCHEMA, SL_PREFIX, RTSPDeliveryParameters, [dvbi.e_RTSPURL], [dvbi.e_DVBTriplet, dvbi.e_MinimumBitRate], errs, "SLx100")
+				
+				var Triplet=RTSPDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_DVBTriplet), SL_SCHEMA)
+				if (Triplet) 
+					validateTriplet(Triplet, errs, "SLx101")
+				
+				var RTSPURL=RTSPDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_RTSPURL), SL_SCHEMA)
+				if (RTSPURL) {
+					checkAttributes(RTSPURL, [], [dvbi.a_RTSPControlURL], errs, "SLx111")
+					if (!isRTSPURL(RTSPURL.text()))
+						errs.pushCode("SLx112", RTSPURL.text().quote()+" is not a valid RTSP URL", "invalid URL")
+				}
+
+				var MinimumBitRate=RTSPDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_MinimumBitRate), SL_SCHEMA)
+				if (MinimumBitRate) {
+					if (!isUnsignedInt(MinimumBitRate.text()))
+						errs.pushCode("SLx112", MinimumBitRate.text().quote()+" is not valid for "+dvbi.e_MinimumBitRate.elementize(), "invalid value")
+				}				
+			}
 			
 			// TODO: <ServiceInstance><MulticastTSDeliveryParameters>
+			var MulticastTSDeliveryParameters=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_MulticastTSDeliveryParameters), SL_SCHEMA)
+			if (MulticastTSDeliveryParameters) {
+				checkTopElements(SL_SCHEMA, SL_PREFIX, MulticastTSDeliveryParameters, [dvbi.e_IPMulticastAddress], [dvbi.e_DVBTriplet, dvbi.e_MinimumBitRate], errs, "SLx121")
+				
+				var Triplet=MulticastTSDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_DVBTriplet), SL_SCHEMA)
+				if (Triplet) 
+					validateTriplet(Triplet, errs, "SLx122")
+				
+				var IPMulticastAddress=MulticastTSDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_IPMulticastAddress), SL_SCHEMA)
+				if (IPMulticastAddress) {
+					checkTopElements(SL_SCHEMA, SL_PREFIX, IPMulticastAddress, [], [dvbi.e_FECBaseLayer, dvbi.e_FECEnhancementLayer, dvbi.e_CNAME, dvbi.e_ssrc, dvbi.e_RTPRetransmission], errs, "SLx123")
+					
+					var FECBaseLayer=IPMulticastAddress.get(xPath(SCHEMA_PREFIX, dvbi.e_FECBaseLayer), SL_SCHEMA)
+					if (FECBaseLayer) {
+						// TODO:
+					}
+					
+					var el=0, FECEnhancementLayer;
+					while (FECEnhancementLayer=IPMulticastAddress.get(xPath(SCHEMA_PREFIX, dvbi.e_FECEnhancementLayer, ++el), SL_SCHEMA)) {
+						// TODO: (should be the same check as FECBaseLayer)
+					}
+					
+					var CNAME=IPMulticastAddress.get(xPath(SCHEMA_PREFIX, dvbi.e_CNAME), SL_SCHEMA)
+					if (CNAME) {
+						// TODO:
+					}
+					
+					var ssrc=IPMulticastAddress.get(xPath(SCHEMA_PREFIX, dvbi.e_ssrc), SL_SCHEMA)
+					if (ssrc) {
+					if (!isUnsignedInt(ssrc.text()))
+						errs.pushCode("SLx142", ssrc.text().quote()+" is not valid for "+dvbi.e_ssrc.elementize(), "invalid value")
+						
+					}
+					
+					var RTPRetransmission=IPMulticastAddress.get(xPath(SCHEMA_PREFIX, dvbi.e_RTPRetransmission), SL_SCHEMA)
+					if (RTPRetransmission) {
+						// TODO:
+					}
+				}
+				
+				var MinimumBitRate=MulticastTSDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_MinimumBitRate), SL_SCHEMA)
+				if (MinimumBitRate) {
+					if (!isUnsignedInt(MinimumBitRate.text()))
+						errs.pushCode("SLx134", MinimumBitRate.text().quote()+" is not valid for "+dvbi.e_MinimumBitRate.elementize(), "invalid value")
+				}
+			}
 			
 			// <ServiceInstance><OtherDeliveryParameters>			
 			var OtherDeliveryParameters=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_OtherDeliveryParameters), SL_SCHEMA);
@@ -2156,6 +2327,4 @@ if (https_options.key && https_options.cert) {
         console.log("HTTPS listening on port number", https_server.address().port);
     });
 }
-
-
 
