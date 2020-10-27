@@ -1435,6 +1435,37 @@ function checkFECLayerAddressType(layerParams, errs, errcode=null) {
 
 
 /**
+ * validate an element against a TVA AspectRatioType
+ *
+ * @param {object} node    The node of the element to check
+ * @param {Class}  errs           Errors found in validaton
+ * @param {string} errCode        Error code prefix to be used in reports, if not present then use local codes
+ *
+ */
+function checkAspectRatioType(node, errs, errcode=null) {
+	
+	function isRatioType(arg) {
+		const RatioRegex=/\d+:\d+/g;
+		var s=arg.match(RatioRegex);
+		return s?s[0]===arg:false;
+	}
+	
+	if (!node) {
+		errs.pushCode(errcode?errcode+"-00":"AR000", "checkAspectRatioType() called with node==null", "args")
+		return
+	}
+	checkAttributes(node, [], [tva.a_type], errs, errcode?errcode+"-01":"AR001")
+	
+	if (node.attr(tva.a_type)) {
+		if (!isIn(tva.ALLOWED_ASPECT_RATIO_TYPES, node.attr(tva.a_type).value()))
+			errs.pushCode(errcode?errcode+"-02":"AR002", "invalid value "+node.attr(tva.a_type).value().quote()+" specified for "+tva.a_type.attribute(node.name()), "invalid value")
+	}
+	
+	if (!isRatioType(node.text()))
+		errs.pushCode(errcode?errcode+"-03":"AR003", node.text.quote()+" is not a valid aspect ratio", "invalid value")
+}
+
+/**
  * validate the service list and record any errors
  *
  * @param {String} SLtext  The service list text to be validated
@@ -1741,7 +1772,7 @@ function validateServiceList(SLtext, errs) {
 									errs.pushCode("SL074c", "invalid "+tva.e_VerticalSize.elementize()+" value "+child.text().quote(), "video attributes")
 								break;
 							case tva.e_AspectRatio:
-								// TODO:
+								checkAspectRatioType(child, errs, "SL074d")
 								break;
 							case tva.e_Color:
 								checkAttributes(child, [tva.a_type], [], errs, "SLc003")
