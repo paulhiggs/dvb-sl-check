@@ -55,6 +55,7 @@ var sprintf=require("sprintf-js").sprintf,
 
 const TVA_ContentCSFilename=path.join("dvb-common/tva","ContentCS.xml"),
       TVA_FormatCSFilename=path.join("dvb-common/tva","FormatCS.xml"),
+      TVA_PictureFormatCSFilename=path.join("dvb-common/tva","PictureFormatCS.xml"),
       DVBI_ContentSubjectFilename=path.join("dvb-common/dvbi","DVBContentSubjectCS-2019.xml"),
       DVBI_ServiceTypeCSFilename=path.join("dvb-common/dvbi","DVBServiceTypeCS-2019.xml"),
       DVB_AudioCodecCSFilename=path.join("dvb-common/dvb","AudioCodecCS.xml"),
@@ -74,6 +75,7 @@ const COMMON_REPO_RAW="https://raw.githubusercontent.com/paulhiggs/dvb-common/ma
       DVB_METADATA="https://dvb.org/metadata/",
       TVA_ContentCSURL=COMMON_REPO_RAW + "tva/" + "ContentCS.xml",
       TVA_FormatCSURL=COMMON_REPO_RAW + "tva/" + "FormatCS.xml",
+      TVA_PictureFormatCSURL=COMMON_REPO_RAW + "tva/" + "PictureFormatCS.xml",
       DVBI_ContentSubjectURL=COMMON_REPO_RAW + "dvbi/" + "DVBContentSubjectCS-2019.xml",
       DVBI_ServiceTypeCSURL=COMMON_REPO_RAW + "dvbi/" + "DVBServiceTypeCS-2019.xml",
       DVB_AudioCodecCSURL=DVB_METADATA + "cs/2007/" + "AudioCodecCS.xml",
@@ -90,7 +92,8 @@ const SERVICE_LIST_RM="service list",
       CONTENT_GUIDE_RM="content guide"
 
 var allowedGenres=[], allowedServiceTypes=[], allowedAudioSchemes=[], allowedVideoSchemes=[], 
-	allowedAudioConformancePoints=[], allowedVideoConformancePoints=[], RecordingInfoCSvalules=[]
+	allowedAudioConformancePoints=[], allowedVideoConformancePoints=[], RecordingInfoCSvalules=[],
+	allowedPictureFormats=[]
 
 var knownCountries=new ISOcountries(false, true)
 var knownLanguages=new IANAlanguages()
@@ -221,6 +224,9 @@ function loadDataFiles(useURLs) {
 	loadCS(allowedGenres, useURLs, TVA_ContentCSFilename, TVA_ContentCSURL);
 	loadCS(allowedGenres, useURLs, TVA_FormatCSFilename, TVA_FormatCSURL);
 	loadCS(allowedGenres, useURLs, DVBI_ContentSubjectFilename, DVBI_ContentSubjectURL);
+
+	loadCS(allowedPictureFormats, useURLs, TVA_PictureFormatCSFilename, TVA_PictureFormatCSURL);
+
     
     allowedServiceTypes=[];
 	loadCS(allowedServiceTypes, useURLs, DVBI_ServiceTypeCSFilename, DVBI_ServiceTypeCSURL);
@@ -584,6 +590,11 @@ function checkSignalledApplication(HowRelated, Format, MediaLocator, errs, Locat
  * @param {string} SCHEMA_NAMESPACE  The namespace of XML document
  */
 function validateRelatedMaterial(RelatedMaterial, errs, Location, LocationType, SCHEMA_NAMESPACE) {
+	if (!RelatedMaterial) {
+		errs.pushCode("RM000", "validateRelatedMaterial() called with RelatedMaterial==null", "invalid args")
+		return;
+	}
+	
     var HowRelated=null, Format=null, MediaLocator=[];
     var elem=RelatedMaterial.child(0);
     while (elem) {
@@ -601,8 +612,8 @@ function validateRelatedMaterial(RelatedMaterial, errs, Location, LocationType, 
         errs.pushCode("RM001", tva.e_HowRelated.elementize()+" not specified for "+tva.e_RelatedMaterial.elementize()+" in "+Location, "no "+tva.e_HowRelated);
 		return;
     }
-	
-	checkAttributes(HowRelated, [dvbi.a_href], [], errs, "RM099")
+	checkAttributes(HowRelated, [dvbi.a_href], [], errs, "RM002")
+
 	if (HowRelated.attr(dvbi.a_href)) {
 		
 		switch (LocationType) {
@@ -652,6 +663,10 @@ function validateRelatedMaterial(RelatedMaterial, errs, Location, LocationType, 
  * @param {String} errCode          The error code to be reported
  */
 function checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, elementName, elementLocation, node, errs, errCode=null) {
+	if (!node) {
+		errs.pushCode(errCode?errCode+"-0":"XL000", "checkXMLLangs() called with node==null", "invalid args")
+		return;
+	}
     var elementLanguages=[], i=0, elem;
     while (elem=node.get(xPath(SCHEMA_PREFIX, elementName, ++i), SL_SCHEMA)) {
 		var lang=elem.attr(dvbi.a_lang)?elem.attr(dvbi.a_lang).value():"unspecified";
@@ -731,6 +746,19 @@ function isNonNegativeInteger(arg) {
 
 
 /**
+ * determine if the value provided represents a valid positiveInteger (greater than or equal to 1)
+ *
+ * @param {String}  Value a string containing a integer
+ * @returns {boolean} true if the argument represents a positiveInteger - https://www.w3.org/TR/xmlschema-2/#positiveInteger
+ */
+function isPositiveInteger(value) {
+	var x=Number(value);
+	if (isNaN(x)) return false
+	return (x >= 1)
+}
+
+
+/**
  * determine if the value provided represents a valid unsignedInteger
  *
  * @param {String}  Value a string containing a integer
@@ -741,6 +769,7 @@ function isUnsignedInt(arg) {
 	var val=parseInt(arg);
 	return !(isNaN(val) || val<0 || val>MAX_UNSIGNED_INT)
 }
+
 
 /**
  * determine if the value provided represents a valid unsignedLong
@@ -1215,19 +1244,6 @@ function cleanInt(intStr) {
 
 
 /**
- * determine if the value provided represents a valid positiveInteger (greater than or equal to 1)
- *
- * @param {String}  Value a string containing a integer
- * @returns {boolean} true if the argument represents a positiveInteger - https://www.w3.org/TR/xmlschema-2/#positiveInteger
- */
-function isPositiveInteger(value) {
-	var x=Number(value);
-	if (isNaN(x)) return false
-	return (x >= 1)
-}
-
-
-/**
  * determine if the value provided represents a valid longitude value (i.e. -180.0 -> +180.0)
  *
  * @param {String} intStr  A string containing a longitude
@@ -1358,6 +1374,65 @@ function checkBitRate(child, errs, errCode=null) {
 		if (!isUnsignedLong(child.attr(tva.a_maximum).value()))
 			atributeError(errs, errCode?errCode+"-05":"BR005", child, tva.a_maximum)
 }
+
+
+/**
+ * check if the specified value contains an IP address (v4 or v6) or a domain name
+ *
+ * @param {string} arg    contains an IP address (v4 or v6) or a domain name
+ * @returns true is the arg contains an IP address (v4 or v6) or a domain name, else false 
+ */
+function isIPorDomain(arg) {
+	// TODO:
+	return true
+}
+
+/**
+ * validate an element against a DVB FECLayerAddressType
+ *
+ * @param {object} layerParams    The node of the element to check
+ * @param {Class}  errs           Errors found in validaton
+ * @param {string} errCode        Error code prefix to be used in reports, if not present then use local codes
+ *
+ */
+function checkFECLayerAddressType(layerParams, errs, errcode=null) {
+	checkAttributes(layerParams, [], [dvbi.a_Address, dvbi.a_Source, dvbi.a_Port, dvbi.a_MaxBitrate, dvbi.a_RTSPControlURL, dvbi.a_PayloadTypeNumber, dvbi.a_TransportProtocol], errs, errcode?errcode+"-01":"LA001")
+	
+	if (layerParams.attr(dvbi.a_Address)) {
+		if (!isIPorDomain(layerParams.attr(dvbi.a_Address).value()))
+			errs.pushCode(errcode?errcode+"-02":"LA002", "Invalid value "+layerParams.attr(dvbi.a_Address).value().quote()+" for "+dvbi.a_Address.attribute(layerParams.name()), "invalid value")
+	}
+	
+	if (layerParams.attr(dvbi.a_Source)) {
+		if (!isIPorDomain(layerParams.attr(dvbi.a_Source).value()))
+			errs.pushCode(errcode?errcode+"-03":"LA003", "Invalid value "+layerParams.attr(dvbi.a_Source).value().quote()+" for "+dvbi.a_Source.attribute(layerParams.name()), "invalid value")
+	}
+	
+	if (layerParams.attr(dvbi.a_Port)) {
+		if (!isUnsignedShort(layerParams.attr(dvbi.a_Port).value()))
+			errs.pushCode(errcode?errcode+"-04":"LA004", "Invalid value "+layerParams.attr(dvbi.a_Port).value().quote()+" for "+dvbi.a_Port.attribute(layerParams.name()), "invalid value")		
+	}
+	
+	if (layerParams.attr(dvbi.a_MaxBitrate)) {
+		if (!isPositiveInteger(layerParams.attr(dvbi.a_MaxBitrate).value()))
+			errs.pushCode(errcode?errcode+"-05":"LA005", "Invalid value "+layerParams.attr(dvbi.a_MaxBitrate).value().quote()+" for "+dvbi.a_MaxBitrate.attribute(layerParams.name()), "invalid value")					
+	}
+	
+	if (layerParams.attr(dvbi.a_RTSPControlURL)) {
+		// TODO:
+	}
+	
+	if (layerParams.attr(dvbi.a_PayloadTypeNumber)) {
+		if (!isUnsignedInt(layerParams.attr(dvbi.a_MaxBitrate).value()))
+			errs.pushCode(errcode?errcode+"-05":"LA005", "Invalid value "+layerParams.attr(dvbi.a_MaxBitrate).value().quote()+" for "+dvbi.a_MaxBitrate.attribute(layerParams.name()), "invalid value")			
+	}
+	
+	if (layerParams.attr(dvbi.a_TransportProtocol)) {
+		if (!isIn(dvbi.ALLOWED_TRANSPORT_PROTOCOLS, layerParams.attr(dvbi.a_TransportProtocol).value()))
+			errs.pushCode(errcode?errcode+"-06":"LA006", "Invalid value "+val.quote()+" for "+dvbi.a_TransportProtocol.attribute(layerParams.name()), "invalid value")
+	}
+}
+
 
 /**
  * validate the service list and record any errors
@@ -1592,8 +1667,6 @@ function validateServiceList(SLtext, errs) {
 				while (conf=ContentAttributes.get(xPath(SCHEMA_PREFIX, tva.e_AudioAttributes, ++cp), SL_SCHEMA)) {
 					checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, conf, [], [tva.e_Coding, tva.e_NumOfChannels, tva.e_MixType, tva.e_AudioLanguage, tva.e_SampleFrequency, tva.e_BitsPerSample, tva.e_BitRate], errs, "SL041")
 					
-					
-					// TODO: check other elements in the AudioAttributes
 					var ch=0, child; 
 					while (child=conf.child(ch++)) {
 						switch (child.name()) {
@@ -1605,17 +1678,25 @@ function validateServiceList(SLtext, errs) {
 								}
 								break;
 							case tva.e_NumOfChannels:
+								if (!isUnsignedShort(child.text()))
+									errs.pushCode("SL044", "invalid value "+child.text().quote()+" for "+child.name().elementize()+" in "+conf.name().elementize(), "invalid value")
 								break;
 							case tva.e_MixType:
+								// TODO:
 								break;
 							case tva.e_AudioLanguage:
+								// TODO:
 								break;
 							case tva.e_SampleFrequency:
+								if (!isUnsignedInt(child.text()))
+									errs.pushCode("SL047", "invalid value "+child.text().quote()+" for "+child.name().elementize()+" in "+conf.name().elementize(), "invalid value")
 								break;
 							case tva.e_BitsPerSample:
+								if (!isUnsignedShort(child.text()))
+									errs.pushCode("SL048", "invalid value "+child.text().quote()+" for "+child.name().elementize()+" in "+conf.name().elementize(), "invalid value")
 								break;
 							case tva.e_BitRate:
-								checkBitRate(chile, errs, "SLc006")
+								checkBitRate(chile, errs, "SL048")
 								break;
 						}
 					}
@@ -1649,33 +1730,38 @@ function validateServiceList(SLtext, errs) {
 								break;
 							case tva.e_Scan:
 								if (!isIn(tva.SCAN_TYPES, child.text()))
-									errs.pushCode("SLc001", "invalid "+tva.e_Scan.elementize()+" value "+child.text().quote(), "video atributes")
+									errs.pushCode("SL074a", "invalid "+tva.e_Scan.elementize()+" value "+child.text().quote(), "video atributes")
 								break;
 							case tva.e_HorizontalSize:
 								if (!isUnsignedShort(child.text()))
-									errs.pushCode("SLc002", "invalid "+tva.e_HorizontalSize.elementize()+" value "+child.text().quote(), "video attributes")
+									errs.pushCode("SL074b", "invalid "+tva.e_HorizontalSize.elementize()+" value "+child.text().quote(), "video attributes")
 								break;
 							case tva.e_VerticalSize:
 								if (!isUnsignedShort(child.text()))
-									errs.pushCode("SLc002", "invalid "+tva.e_VerticalSize.elementize()+" value "+child.text().quote(), "video attributes")
+									errs.pushCode("SL074c", "invalid "+tva.e_VerticalSize.elementize()+" value "+child.text().quote(), "video attributes")
 								break;
 							case tva.e_AspectRatio:
+								// TODO:
 								break;
 							case tva.e_Color:
 								checkAttributes(child, [tva.a_type], [], errs, "SLc003")
 								if (child.attr(tva.a_type)) {
 									if (!isIn(tva.COLOR_TYPES,child.text()))
-										errs.pushCode("SLc004", "invalid "+tva.e_Color.elementize()+" value "+child.text().quote(), "video attributes")
+										errs.pushCode("SL074e", "invalid "+tva.e_Color.elementize()+" value "+child.text().quote(), "video attributes")
 								}
 								break;
 							case tva.e_FrameRate:
 								if (!validFrameRate(child.text()))
-									errs.pushCode("SLc005", "invalid "+tva.e_FrameRate.elementize()+" value "+child.text().quote(), "video attributes")
+									errs.pushCode("SL074f", "invalid "+tva.e_FrameRate.elementize()+" value "+child.text().quote(), "video attributes")
 								break;
 							case tva.e_BitRate:
-								checkBitRate(child, errs, "SLc006")
+								checkBitRate(child, errs, "SL074g")
 								break;
 							case tva.e_PictureFormat:
+								checkAttributes(child, [dvbi.a_href], [], errs, "SL074h")
+								if (child.attr(dvbi.a_href)) 
+									if (!isIn(allowedVideoConformancePoints, child.attr(dvbi.a_href).value())) 
+										errs.pushCode("SL074i", "invalid "+dvbi.a_href.attribute(tva.e_PictureFormat)+" value ("+child.attr(dvbi.a_href).value()+")", tva.e_PictureFormat);
 								break;
 						}
 					}
@@ -1942,7 +2028,7 @@ function validateServiceList(SLtext, errs) {
 				}				
 			}
 			
-			// TODO: <ServiceInstance><MulticastTSDeliveryParameters>
+			// <ServiceInstance><MulticastTSDeliveryParameters>
 			var MulticastTSDeliveryParameters=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_MulticastTSDeliveryParameters), SL_SCHEMA)
 			if (MulticastTSDeliveryParameters) {
 				checkTopElements(SL_SCHEMA, SL_PREFIX, MulticastTSDeliveryParameters, [dvbi.e_IPMulticastAddress], [dvbi.e_DVBTriplet, dvbi.e_MinimumBitRate], errs, "SLx121")
@@ -1956,14 +2042,13 @@ function validateServiceList(SLtext, errs) {
 					checkTopElements(SL_SCHEMA, SL_PREFIX, IPMulticastAddress, [], [dvbi.e_FECBaseLayer, dvbi.e_FECEnhancementLayer, dvbi.e_CNAME, dvbi.e_ssrc, dvbi.e_RTPRetransmission], errs, "SLx123")
 					
 					var FECBaseLayer=IPMulticastAddress.get(xPath(SCHEMA_PREFIX, dvbi.e_FECBaseLayer), SL_SCHEMA)
-					if (FECBaseLayer) {
-						// TODO:
-					}
+					if (FECBaseLayer) 
+						checkFECLayerAddressType(FECBaseLayer, errs, "SLx126")
+
 					
 					var el=0, FECEnhancementLayer;
-					while (FECEnhancementLayer=IPMulticastAddress.get(xPath(SCHEMA_PREFIX, dvbi.e_FECEnhancementLayer, ++el), SL_SCHEMA)) {
-						// TODO: (should be the same check as FECBaseLayer)
-					}
+					while (FECEnhancementLayer=IPMulticastAddress.get(xPath(SCHEMA_PREFIX, dvbi.e_FECEnhancementLayer, ++el), SL_SCHEMA)) 
+						checkFECLayerAddressType(FECEnhancementLayer, errs, "SLx127")
 					
 					var CNAME=IPMulticastAddress.get(xPath(SCHEMA_PREFIX, dvbi.e_CNAME), SL_SCHEMA)
 					if (CNAME) {
@@ -1972,9 +2057,8 @@ function validateServiceList(SLtext, errs) {
 					
 					var ssrc=IPMulticastAddress.get(xPath(SCHEMA_PREFIX, dvbi.e_ssrc), SL_SCHEMA)
 					if (ssrc) {
-					if (!isUnsignedInt(ssrc.text()))
-						errs.pushCode("SLx142", ssrc.text().quote()+" is not valid for "+dvbi.e_ssrc.elementize(), "invalid value")
-						
+						if (!isUnsignedInt(ssrc.text()))
+							errs.pushCode("SLx142", ssrc.text().quote()+" is not valid for "+dvbi.e_ssrc.elementize(), "invalid value")
 					}
 					
 					var RTPRetransmission=IPMulticastAddress.get(xPath(SCHEMA_PREFIX, dvbi.e_RTPRetransmission), SL_SCHEMA)
