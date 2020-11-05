@@ -59,7 +59,9 @@ const TVA_ContentCSFilename=path.join("dvb-common/tva","ContentCS.xml"),
       DVBI_ContentSubjectFilename=path.join("dvb-common/dvbi","DVBContentSubjectCS-2019.xml"),
       DVBI_ServiceTypeCSFilename=path.join("dvb-common/dvbi","DVBServiceTypeCS-2019.xml"),
       DVB_AudioCodecCSFilename=path.join("dvb-common/dvb","AudioCodecCS.xml"),
+      DVB_AudioCodecCS2020Filename=path.join("dvb-common/dvb","AudioCodecCS-2020.xml"),
       DVB_VideoCodecCSFilename=path.join("dvb-common/dvb","VideoCodecCS.xml"),
+      DVB_VideoCodecCS2020Filename=path.join("dvb-common/dvb","VideoCodecCS-2020.xml"),
       MPEG7_AudioCodingFormatCSFilename=path.join("dvb-common/tva","AudioCodingFormatCS.xml"),
       MPEG7_VisualCodingFormatCSFilename=path.join("dvb-common/tva","VisualCodingFormatCS.xml"),
       DVB_AudioConformanceCSFilename=path.join("dvb-common/dvb","AudioConformancePointsCS.xml"),
@@ -79,7 +81,9 @@ const COMMON_REPO_RAW="https://raw.githubusercontent.com/paulhiggs/dvb-common/ma
       DVBI_ContentSubjectURL=COMMON_REPO_RAW + "dvbi/" + "DVBContentSubjectCS-2019.xml",
       DVBI_ServiceTypeCSURL=COMMON_REPO_RAW + "dvbi/" + "DVBServiceTypeCS-2019.xml",
       DVB_AudioCodecCSURL=DVB_METADATA + "cs/2007/" + "AudioCodecCS.xml",
+      DVB_AudioCodecCS2020URL=DVB_METADATA + "cs/2007/" + "AudioCodecCS-2020.xml",
       DVB_VideoCodecCSURL=DVB_METADATA + "cs/2007/" + "VideoCodecCS.xml",
+      DVB_VideoCodecCS2020URL=DVB_METADATA + "cs/2007/" + "VideoCodecCS-2020.xml",
       MPEG7_AudioCodingFormatCSURL=COMMON_REPO_RAW + "tva/" + "AudioCodingFormatCS.xml",
       MPEG7_VisualCodingFormatCSURL=COMMON_REPO_RAW + "tva/" + "VisualCodingFormatCS.xml",
       DVB_AudioConformanceCSURL=DVB_METADATA + "cs/2017/" + "AudioConformancePointsCS.xml",
@@ -122,6 +126,7 @@ String.prototype.attribute=function(elemName="") {return elemName+'@'+this}
 
 const SCHEMA_v1=1,
       SCHEMA_v2=2,
+	  SCHEMA_v3=3,
 	  SCHEMA_unknown= -1;
 	  
 /**
@@ -135,7 +140,9 @@ function SchemaVersion(namespace) {
 		return SCHEMA_v1;
 	else if (namespace == dvbi.A177v2_Namespace)
 		return SCHEMA_v2;
-
+	else if (namespace == dvbi.A177v3_Namespace)
+		return SCHEMA_v3;
+	
 	return SCHEMA_unknown;
 }
 
@@ -226,18 +233,19 @@ function loadDataFiles(useURLs) {
 	loadCS(allowedGenres, useURLs, DVBI_ContentSubjectFilename, DVBI_ContentSubjectURL);
 
 	loadCS(allowedPictureFormats, useURLs, TVA_PictureFormatCSFilename, TVA_PictureFormatCSURL);
-
-    
+   
     allowedServiceTypes=[];
 	loadCS(allowedServiceTypes, useURLs, DVBI_ServiceTypeCSFilename, DVBI_ServiceTypeCSURL);
 
     allowedAudioSchemes=[]; allowedAudioConformancePoints=[];
 	loadCS(allowedAudioSchemes, useURLs, DVB_AudioCodecCSFilename, DVB_AudioCodecCSURL);
+	loadCS(allowedAudioSchemes, useURLs, DVB_AudioCodecCS2020Filename, DVB_AudioCodecCS2020URL);  // TODO: for now just add these as permitted values - might become 2007 OR 2020 later
 	loadCS(allowedAudioSchemes, useURLs, MPEG7_AudioCodingFormatCSFilename, MPEG7_AudioCodingFormatCSURL);
 	loadCS(allowedAudioConformancePoints, useURLs, DVB_AudioConformanceCSFilename, DVB_AudioConformanceCSURL);
 	
     allowedVideoSchemes=[]; allowedVideoConformancePoints=[];
 	loadCS(allowedVideoSchemes, useURLs, DVB_VideoCodecCSFilename, DVB_VideoCodecCSURL);
+	loadCS(allowedVideoSchemes, useURLs, DVB_VideoCodecCS2020Filename, DVB_VideoCodecCS2020URL);  // TODO: for now just add these as permitted values - might become 2007 OR 2020 later
 	loadCS(allowedVideoSchemes, useURLs, MPEG7_VisualCodingFormatCSFilename, MPEG7_VisualCodingFormatCSURL);
 	loadCS(allowedVideoConformancePoints, useURLs, DVB_VideoConformanceCSFilename, DVB_VideoConformanceCSURL);
 
@@ -375,9 +383,10 @@ function validDASHcontentType(contentType) {
  */
 function validOutScheduleHours(HowRelated, namespace) {
     // return true if val is a valid CS value for Out of Service Banners (A177 5.2.5.3)
-    var val=HowRelated.attr(dvbi.a_href)?HowRelated.attr(dvbi.a_href).value():null;
-    return (SchemaVersion(namespace)==SCHEMA_v1 && val==dvbi.BANNER_OUTSIDE_AVAILABILITY_v1)
-		|| (SchemaVersion(namespace)==SCHEMA_v2 && val==dvbi.BANNER_OUTSIDE_AVAILABILITY_v2);
+    let val=HowRelated.attr(dvbi.a_href)?HowRelated.attr(dvbi.a_href).value():null
+	let schemaVer=SchemaVersion(namespace)
+    return (schemaVer==SCHEMA_v1 && val==dvbi.BANNER_OUTSIDE_AVAILABILITY_v1)
+		|| ((schemaVer==SCHEMA_v2 || schemaVer==SCHEMA_v3) && val==dvbi.BANNER_OUTSIDE_AVAILABILITY_v2);
 }
 
 
@@ -391,8 +400,9 @@ function validOutScheduleHours(HowRelated, namespace) {
  */
 function validContentFinishedBanner(HowRelated, namespace) {
     // return true if val is a valid CS value for Content Finished Banner (A177 5.2.7.3)
-    var val=HowRelated.attr(dvbi.a_href)?HowRelated.attr(dvbi.a_href).value():null;
-    return (SchemaVersion(namespace)==SCHEMA_v2 && val==dvbi.BANNER_CONTENT_FINISHED_v2);
+    let val=HowRelated.attr(dvbi.a_href)?HowRelated.attr(dvbi.a_href).value():null
+ 	let schemaVer=SchemaVersion(namespace)
+    return ((schemaVer==SCHEMA_v2 || schemaVer==SCHEMA_v3) && val==dvbi.BANNER_CONTENT_FINISHED_v2);
 }
 
 
@@ -405,9 +415,10 @@ function validContentFinishedBanner(HowRelated, namespace) {
  */
 function validServiceListLogo(HowRelated, namespace) {
     // return true if val is a valid CS value Service List Logo (A177 5.2.6.1)
-    var val=HowRelated.attr(dvbi.a_href)?HowRelated.attr(dvbi.a_href).value():null;
-	return (SchemaVersion(namespace)==SCHEMA_v1 && val==dvbi.LOGO_SERVICE_LIST_v1)
-		|| (SchemaVersion(namespace)==SCHEMA_v2 && val==dvbi.LOGO_SERVICE_LIST_v2);
+    let val=HowRelated.attr(dvbi.a_href)?HowRelated.attr(dvbi.a_href).value():null
+ 	let schemaVer=SchemaVersion(namespace)
+	return (schemaVer==SCHEMA_v1 && val==dvbi.LOGO_SERVICE_LIST_v1)
+		|| ((schemaVer==SCHEMA_v2 || schemaVer==SCHEMA_v3) && val==dvbi.LOGO_SERVICE_LIST_v2);
 }
 
 
@@ -420,9 +431,10 @@ function validServiceListLogo(HowRelated, namespace) {
  */
 function validServiceLogo(HowRelated, namespace) {
     // return true if val is a valid CS value Service Logo (A177 5.2.6.2)
-	var val=HowRelated.attr(dvbi.a_href)?HowRelated.attr(dvbi.a_href).value():null;
-    return (SchemaVersion(namespace)==SCHEMA_v1 && val==dvbi.LOGO_SERVICE_v1)
-		|| (SchemaVersion(namespace)==SCHEMA_v2 && val==dvbi.LOGO_SERVICE_v2);
+	let val=HowRelated.attr(dvbi.a_href)?HowRelated.attr(dvbi.a_href).value():null
+ 	let schemaVer=SchemaVersion(namespace)
+    return (schemaVer==SCHEMA_v1 && val==dvbi.LOGO_SERVICE_v1)
+		|| ((schemaVer==SCHEMA_v2 || schemaVer==SCHEMA_v3) && val==dvbi.LOGO_SERVICE_v2);
 }
 
 
@@ -435,9 +447,10 @@ function validServiceLogo(HowRelated, namespace) {
  */
 function validContentGuideSourceLogo(HowRelated, namespace) {
     // return true if val is a valid CS value Service Logo (A177 5.2.6.3)
-    var val=HowRelated.attr(dvbi.a_href)?HowRelated.attr(dvbi.a_href).value():null;
-    return (SchemaVersion(namespace)==SCHEMA_v1 && val==dvbi.LOGO_CG_PROVIDER_v1)
-		|| (SchemaVersion(namespace)==SCHEMA_v2 && val==dvbi.LOGO_CG_PROVIDER_v2);
+    let val=HowRelated.attr(dvbi.a_href)?HowRelated.attr(dvbi.a_href).value():null;
+ 	let schemaVer=SchemaVersion(namespace)
+    return (schemaVer==SCHEMA_v1 && val==dvbi.LOGO_CG_PROVIDER_v1)
+		|| ((schemaVer==SCHEMA_v2 || schemaVer==SCHEMA_v3) && val==dvbi.LOGO_CG_PROVIDER_v2);
 }
 
 
@@ -785,6 +798,17 @@ function isUnsignedLong(arg) {
 
 
 /**
+ * determine if the value provided represents a valid boolean value
+ *
+ * @param {String}  Value a string containing a boolean
+ * @returns {boolean} true if the argument represents a boolean - https://www.w3.org/TR/xmlschema-2/#boolean
+ */
+function isBoolean(arg) {
+	return (arg=="true" || arg=="false" || arg=="1" || arg==1 || arg=="0" || arg==0 )
+}
+
+
+/**
  * constructs HTML output of the errors found in the service list analysis
  *
  * @param {boolean} URLmode    If true ask for a URL to a service list, if false ask for a file
@@ -1007,7 +1031,7 @@ function checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, elem, mandatoryChildElements
 	return errs.length==initialErrorCount;
 }
 
-
+// TODO: THIS IS NOT COMPLETE
 /**
  * check that the specified child elements are in the parent element with the correct cardinality and order
  *
@@ -1018,7 +1042,7 @@ function checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, elem, mandatoryChildElements
  * @param {Class}  errs           Errors found in validaton
  * @param {string} errCode        Error code to be used for any error found 
  * @returns {boolean} true if no errors are found (all mandatory elements are present and no extra elements are specified)
- */
+ */ 
 const UNBOUNDED=65535
 function checkTopElements2(SL_SCHEMA, SCHEMA_PREFIX, elem, childElements, errs, errCode=null) {
 	
@@ -1330,7 +1354,7 @@ function validateContentProtection(ContentProtection, errs, Location, SCHEMA_NAM
 		
 		var scheme=DRMSystemId.attr(dvbi.a_encryptionScheme).value()
 		if (scheme && !isIn(dvbi.ENCRYPTION_VALID_TYPES, scheme)) 
-			errs.pushCode("CP022", scheme.quote()+"is not valid for "+dvbi.a_encryptionScheme.attribute(ContentProtection.name()))
+			errs.pushCode("CP022", scheme.quote()+" is not valid for "+dvbi.a_encryptionScheme.attribute(ContentProtection.name()))
 	}
 }
 
@@ -1344,7 +1368,7 @@ function validateContentProtection(ContentProtection, errs, Location, SCHEMA_NAM
  */
 function checkBitRate(child, errs, errCode=null) {
 	
-	function attributeError(errs, errCode, child, attributeName) {
+	function logAttributeError(errs, errCode, child, attributeName) {
 		errs.pushCode(errCode, "invalid value "+child.attr(attributeName).value().quote()+" for "+attributeName.attribute(child.name()), child.name()+" error")
 	}
 	
@@ -1356,23 +1380,23 @@ function checkBitRate(child, errs, errCode=null) {
 	
 	// check any @variable attribute is a boolean
 	if (child.attr(tva.a_variable))
-		if (!isIn(["true", "false"], child.attr(tva.a_variable).value()))
-			atributeError(errs, errCode?errCode+"-03":"BR003", child, tva.a_variable)
+		if (!isBoolean(child.attr(tva.a_variable).value()))
+			logAttributeError(errs, errCode?errCode+"-03":"BR003", child, tva.a_variable)
 	
 	// check any @minimum attribute is an unsignedLong
 	if (child.attr(tva.a_minimum))
 		if (!isUnsignedLong(child.attr(tva.a_minimum).value()))
-			atributeError(errs, errCode?errCode+"-04":"BR004", child, tva.a_minimum)
+			logAttributeError(errs, errCode?errCode+"-04":"BR004", child, tva.a_minimum)
 		
 	// check any @average attribute is an unsignedLong
 	if (child.attr(tva.a_average))
 		if (!isUnsignedLong(child.attr(tva.a_average).value()))
-			atributeError(errs, errCode?errCode+"-05":"BR005", child, tva.a_average)
+			logAttributeError(errs, errCode?errCode+"-05":"BR005", child, tva.a_average)
 		
 	// check any @maximum attribute is an unsignedLong
 	if (child.attr(tva.a_maximum))
 		if (!isUnsignedLong(child.attr(tva.a_maximum).value()))
-			atributeError(errs, errCode?errCode+"-05":"BR005", child, tva.a_maximum)
+			logAttributeError(errs, errCode?errCode+"-05":"BR005", child, tva.a_maximum)
 }
 
 
@@ -1464,6 +1488,99 @@ function checkAspectRatioType(node, errs, errcode=null) {
 	if (!isRatioType(node.text()))
 		errs.pushCode(errcode?errcode+"-03":"AR003", node.text.quote()+" is not a valid aspect ratio", "invalid value")
 }
+
+
+/**
+ * validate the SynopsisType elements 
+ *
+ * @param {string} CG_SCHEMA           Used when constructing Xpath queries
+ * @param {string} SCHEMA_PREFIX       Used when constructing Xpath queries
+ * @param {Object} BasicDescription    the element whose children should be checked
+ * @param {array}  requiredLengths	   @length attributes that are required to be present
+ * @param {array}  optionalLengths	   @length attributes that can optionally be present
+ * @param {string} requestType         the type of content guide request being checked
+ * @param {Class}  errs                errors found in validaton
+ * @param {string} parentLanguage	   the xml:lang of the parent element to ProgramInformation
+ * @param {string} errCode             error code prefix to be used in reports, if not present then use local codes
+ */
+ /*
+function ValidateSynopsis(CG_SCHEMA, SCHEMA_PREFIX, BasicDescription, requiredLengths, optionalLengths, requestType, errs, parentLanguage, errCode=null) {
+	
+	function synopsisLengthError(label, length) {
+		return "length of "+elementize(tva.e_Synopsis+"@"+tva.a_length+"="+quote(label))+" exceeds "+length+" characters"; }
+	function singleLengthLangError(length, lang) {
+		return "only a single "+elementize(tva.e_Synopsis)+" is permitted per length ("+length+") and language ("+lang+")"; }
+	function requiredSynopsisError(length) {
+		return "a "+elementize(tva.e_Synopsis)+" with @"+tva.a_length+"="+quote(length)+" is required"; }
+	
+	if (!BasicDescription) {
+		errs.pushCode("SY000", "ValidateSynopsis() called with BasicDescription==null")
+		return
+	}
+	var s=0, Synopsis, hasShort=false, hasMedium=false, hasLong=false;
+	var shortLangs=[], mediumLangs=[], longLangs=[];
+	while (Synopsis=BasicDescription.get(xPath(SCHEMA_PREFIX,tva.e_Synopsis, ++s), CG_SCHEMA)) {
+		
+		checkAttributes(CG_SCHEMA, SCHEMA_PREFIX, Synopsis, [tva.a_length], [tva.a_lang], errs, "SY001");
+
+		var synopsisLang=GetLanguage(knownLanguages, errs, Synopsis, parentLanguage, false, "SY002");
+		var synopsisLength=Synopsis.attr(tva.a_length)?Synopsis.attr(tva.a_length).value():null;
+		
+		if (synopsisLength) {
+			if (isIn(requiredLengths, synopsisLength) || isIn(optionalLengths, synopsisLength)) {
+				switch (synopsisLength) {
+				case dvbi.SYNOPSIS_SHORT_LABEL:
+					if ((unEntity(Synopsis.text()).length) > dvbi.SYNOPSIS_SHORT_LENGTH)
+						errs.pushCode(errCode?errCode+"-1":"SY011", synopsisLengthError(dvbi.SYNOPSIS_SHORT_LABEL, dvbi.SYNOPSIS_SHORT_LENGTH));
+					hasShort=true;
+					break;
+				case dvbi.SYNOPSIS_MEDIUM_LABEL:
+					if ((unEntity(Synopsis.text()).length) > dvbi.SYNOPSIS_MEDIUM_LENGTH)
+						errs.pushCode(errCode?errCode+"-2":"SY012", synopsisLengthError(dvbi.SYNOPSIS_MEDIUM_LABEL, dvbi.SYNOPSIS_MEDIUM_LENGTH));
+					hasMedium=true;
+					break;
+				case dvbi.SYNOPSIS_LONG_LABEL:
+					if ((unEntity(Synopsis.text()).length) > dvbi.SYNOPSIS_LONG_LENGTH)
+						errs.pushCode(errCode?errCode+"-3":"SY013", synopsisLengthError(dvbi.SYNOPSIS_LONG_LABEL, dvbi.SYNOPSIS_LONG_LENGTH));
+					hasLong=true;
+					hasLong=true;
+					break;						
+				}
+			}
+			else
+				errs.pushCode(errCode?errCode+"-4":"SY014", "@"+tva.a_length+"="+quote(synopsisLength)+" is not permitted for this request type");
+		}
+	
+		if (synopsisLang && synopsisLength) {
+			switch (synopsisLength) {
+				case dvbi.SYNOPSIS_SHORT_LABEL:
+					if (isIn(shortLangs, synopsisLang)) 
+						errs.pushCode(errCode?errCode+"-6":"SY016",singleLengthLangError(synopsisLength, synopsisLang));
+					else shortLangs.push(synopsisLang);
+					break;
+				case dvbi.SYNOPSIS_MEDIUM_LABEL:
+					if (isIn(mediumLangs, synopsisLang)) 
+						errs.pushCode(errCode?errCode+"-7":"SY017",singleLengthLangError(synopsisLength, synopsisLang));
+					else mediumLangs.push(synopsisLang);
+					break;
+				case dvbi.SYNOPSIS_LONG_LABEL:
+					if (isIn(longLangs, synopsisLang)) 
+						errs.pushCode(errCode?errCode+"-8":"SY018",singleLengthLangError(synopsisLength, synopsisLang));
+					else longLangs.push(synopsisLang);
+					break;
+			}
+		}
+	}
+	
+	if (isIn(requiredLengths, dvbi.SYNOPSIS_SHORT_LABEL) && !hasShort)
+		errs.pushCode(errCode?errCode+"-9":"SY019",requiredSynopsisError(dvbi.SYNOPSIS_SHORT_LABEL));	
+	if (isIn(requiredLengths, dvbi.SYNOPSIS_MEDIUM_LABEL) && !hasMedium)
+		errs.pushCode(errCode?errCode+"-10":"SY020",requiredSynopsisError(dvbi.SYNOPSIS_MEDIUM_LABEL));	
+	if (isIn(requiredLengths, dvbi.SYNOPSIS_LONG_LABEL) && !hasLong)
+		errs.pushCode(errCode?errCode+"-11":"SY021",requiredSynopsisError(dvbi.SYNOPSIS_LONG_LABEL));	
+}
+*/
+
 
 /**
  * validate the service list and record any errors
@@ -1646,7 +1763,11 @@ function validateServiceList(SLtext, errs) {
 		errs.set("num services",s);
 		thisServiceId="service-"+s;  // use a default value in case <UniqueIdentifier> is not specified
 		
-		checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, service, [dvbi.e_UniqueIdentifier, dvbi.e_ServiceName, dvbi.e_ProviderName], [dvbi.e_ServiceInstance, dvbi.e_TargetRegion, tva.e_RelatedMaterial, dvbi.e_ServiceGenre, dvbi.e_ServiceType, dvbi.e_RecordingInfo, dvbi.e_ContentGuideSource, dvbi.e_ContentGuideSourceRef, dvbi.e_ContentGuideServiceRef], errs, "SL030")
+		let serviceOptionalElements=[dvbi.e_ServiceInstance, dvbi.e_TargetRegion, tva.e_RelatedMaterial, dvbi.e_ServiceGenre, dvbi.e_ServiceType, dvbi.e_RecordingInfo, dvbi.e_ContentGuideSource, dvbi.e_ContentGuideSourceRef, dvbi.e_ContentGuideServiceRef]
+		if (SchemaVersion(SCHEMA_NAMESPACE) > SCHEMA_v2)
+			serviceOptionalElements.push(dvbi.e_ServiceDescription)
+		
+		checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, service, [dvbi.e_UniqueIdentifier, dvbi.e_ServiceName, dvbi.e_ProviderName], serviceOptionalElements, errs, "SL030")
 		checkAttributes(service, [dvbi.a_version], [dvbi.a_dynamic], errs, "SL031")
 		
 		//check Service@version
@@ -1746,9 +1867,11 @@ function validateServiceList(SLtext, errs) {
 				// Check @href of ContentAttributes/VideoAttributes/tva:coding
 				cp=0;
 				while (conf=ContentAttributes.get(xPath(SCHEMA_PREFIX, tva.e_VideoAttributes, ++cp), SL_SCHEMA)) {
-					checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, conf, [], [tva.e_Coding, tva.e_Scan, tva.e_HorizontalSize, tva.e_VerticalSize, tva.e_AspectRatio, tva.e_Color, tva.e_FrameRate, tva.e_BitRate, tva.e_PictureFormat], errs, "SL073")
+					let videoSubelements=[tva.e_Coding, tva.e_Scan, tva.e_HorizontalSize, tva.e_VerticalSize, tva.e_AspectRatio, tva.e_Color, tva.e_FrameRate, tva.e_BitRate, tva.e_PictureFormat]
+					if (SchemaVersion(SCHEMA_NAMESPACE) >= SCHEMA_v3)
+						videoSubelements.push(dvbi.e_Colorimetry)
+					checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, conf, [], videoSubelements, errs, "SL073")
 					
-					// TODO: check other elements in the VideoAttributes
 					var ch=0, child; 
 					while (child=conf.child(ch++)) {
 						switch (child.name()) {
@@ -1793,6 +1916,12 @@ function validateServiceList(SLtext, errs) {
 								if (child.attr(dvbi.a_href)) 
 									if (!isIn(allowedPictureFormats, child.attr(dvbi.a_href).value())) 
 										errs.pushCode("SL074i", "invalid "+dvbi.a_href.attribute(tva.e_PictureFormat)+" value ("+child.attr(dvbi.a_href).value()+")", tva.e_PictureFormat);
+								break;
+							case dvbi.e_Colorimetry:
+								checkAttributes(child, [dvbi.a_href], [], errs, "SL074j")
+								if (child.attr(dvbi.a_href)) 
+									if (!isIn(dvbi.ALLOWED_COLORIMETRY, child.attr(dvbi.a_href).value())) 
+										errs.pushCode("SL074i", "invalid "+dvbi.a_href.attribute(tva.e_Colorimetry)+" value ("+child.attr(dvbi.a_href).value()+")", tva.e_Colorimetry);
 								break;
 						}
 					}
@@ -1854,10 +1983,22 @@ function validateServiceList(SLtext, errs) {
 			if (FTAContentManagement) {
 				checkAttributes(FTAContentManagement, [dvbi.a_userDefined, dvbi.a_doNotScramble, dvbi.a_controlRemoteAccessOverInternet, dvbi.a_doNotApplyRevocation], [], errs, "SLa000")
 				
+				var ud=FTAContentManagement.attr(dvbi.a_userDefined)?FTAContentManagement.attr(dvbi.a_userDefined).value():null;
+				if (ud && !isBoolean(ud))
+					errs.pushCode("SL001a", "invalid value "+ud.quote()+" for "+dvbi.a_userDefined.attribute(dvbi.e_FTAContentManagement), "invalid")
+				
+				var dns=FTAContentManagement.attr(dvbi.a_doNotScramble)?FTAContentManagement.attr(dvbi.a_doNotScramble).value():null;
+				if (dns && !isBoolean(dns))
+					errs.pushCode("SL001b", "invalid value "+dns.quote()+" for "+dvbi.a_doNotScramble.attribute(dvbi.e_FTAContentManagement), "invalid")
+							
 				var cRAOI=FTAContentManagement.attr(dvbi.a_controlRemoteAccessOverInternet)?FTAContentManagement.attr(dvbi.a_controlRemoteAccessOverInternet).value():null;
 				
 				if (cRAOI && (cRAOI < 0 || cRAOI > 3))
 					errs.pushCode("SLa001", "invalid value "+cRAOI.quote()+" for "+dvbi.a_controlRemoteAccessOverInternet.attribute(dvbi.e_FTAContentManagement), "invalid")
+				
+				var dnar=FTAContentManagement.attr(dvbi.a_doNotApplyRevocation)?FTAContentManagement.attr(dvbi.a_doNotApplyRevocation).value():null;
+				if (dnar && !isBoolean(dnar))
+					errs.pushCode("SL001cc", "invalid value "+dnar.quote()+" for "+dvbi.a_doNotApplyRevocation.attribute(dvbi.e_FTAContentManagement), "invalid")				
 			}
 
 			// note that the <SourceType> element becomes optional and in A177v2, but if specified then the relevant
@@ -1917,12 +2058,13 @@ function validateServiceList(SLtext, errs) {
 								errs.pushCode("SL091", dvbi.e_SourceType.elementize()+" "+SourceType.text().quote()+" is not valid in Service "+thisServiceId.quote(), "invalid "+dvbi.e_SourceType);
 								break;
 							case SCHEMA_v2:
+							case SCHEMA_v3:
 								if (!ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_OtherDeliveryParameters), SL_SCHEMA))
 									errs.pushCode("SL092", dvbi.e_OtherDeliveryParameters.elementize()+" must be specified with user-defined "+dvbi.e_SourceType+" "+SourceType.text().quote(), "no "+dvbi.e_OtherDeliveryParameters)
 								break;
 						}
 				}
-				if (v1Params && SchemaVersion(SCHEMA_NAMESPACE) == SCHEMA_v2)
+				if (v1Params && SchemaVersion(SCHEMA_NAMESPACE) >= SCHEMA_v2)
 					errs.pushCodeW("SL093", dvbi.e_SourceType.elementize()+" is deprecated in this version")
 			}
 			else {
@@ -1961,7 +2103,7 @@ function validateServiceList(SLtext, errs) {
 			// <ServiceInstance><DVBTDeliveryParameters>			
 			var DVBTDeliveryParameters=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_DVBTDeliveryParameters), SL_SCHEMA);
 			if (DVBTDeliveryParameters) {
-				haveDVBT==true;
+				haveDVBT=true
 				checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, DVBTDeliveryParameters, [dvbi.e_DVBTriplet, dvbi.e_TargetCountry], [], errs, "SL103")
 
 				var DVBTtriplet=DVBTDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_DVBTriplet), SL_SCHEMA);
@@ -2000,8 +2142,7 @@ function validateServiceList(SLtext, errs) {
 			// <ServiceInstance><DVBSDeliveryParameters>
 			var DVBSDeliveryParameters=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_DVBSDeliveryParameters), SL_SCHEMA);
 			if (DVBSDeliveryParameters) {
-				haveDVBS=true;
-				
+				haveDVBS=true
 				checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, DVBSDeliveryParameters, [dvbi.e_DVBTriplet], [dvbi.e_OrbitalPosition, dvbi.e_Frequency, dvbi.e_Polarization], errs, "SL110")
 
 				var DVBStriplet=DVBSDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_DVBTriplet), SL_SCHEMA);
@@ -2159,6 +2300,14 @@ function validateServiceList(SLtext, errs) {
 				if (!isIn(allowedServiceTypes, ServiceType.attr(dvbi.a_href).value())) 
 					errs.pushCode("SL126", "service "+thisServiceId.quote()+" has an invalid "+dvbi.e_ServiceType.elementize()+" ("+ServiceType.attr(dvbi.a_href).value()+")", "invalid ServiceType");
 			}
+		}
+
+
+		// check <Service><ServiceDescription>
+		var sd=0, ServiceDescription
+		while (ServiceDescription=service.get(xPath(SCHEMA_PREFIX, tva.e_ServiceDescription, ++sd), SL_SCHEMA)) {
+			
+			
 		}
 
 		// check <Service><RecordingInfo>
