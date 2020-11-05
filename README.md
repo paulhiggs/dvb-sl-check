@@ -3,7 +3,9 @@ DVB-I Service List validator
 
 ## Description
 Validates the value space of the instance document, validation against the schema should be performed seperately (for now)
-Supports both the published :2019 schema and the upcoming :2020 schema and classification scheme updates
+Supports 
+* the [:2019 schema](http://dvb.org/wp-content/uploads/2019/11/A177_DVB-I_Nov_2019.pdf) 
+* the [:2020 schema](https://dvb.org/wp-content/uploads/2019/11/A177r1_Service-Discovery-and-Programme-Metadata-for-DVB-I_July-2020.pdf) with its classification scheme updates
 
 Checks performed:
 * channel numbers are not duplictaed in LCN tables
@@ -19,11 +21,11 @@ Checks performed:
   * TV Anytime FormatCS
   * DVB ContentSubjectCS
 * AudioAttributes@href and AudioConformancePoints@href accorinding to 
-  * DVB AudioCodecCS
+  * DVB AudioCodecCS and DVB AudioCodecCS:2020
   * MPEG7 AudioCodingFormatCS
   * DVB AudioConformancePointsCS
 * VideoAttributes@href and VideoConformancePoints@href accorinding to 
-  * DVB VideoCodecCS
+  * DVB VideoCodecCS and DVB VideoCodecCS:2020
   * MPEG7 VisualCodingFormatCS
   * DVB VideoConformancePointsCS
 * channel numbers are unique in an LCN Table
