@@ -1514,93 +1514,125 @@ function checkAspectRatioType(node, errs, errcode=null) {
 /**
  * validate the SynopsisType elements 
  *
- * @param {string} CG_SCHEMA           Used when constructing Xpath queries
+ * @param {string} SCHEMA              Used when constructing Xpath queries
  * @param {string} SCHEMA_PREFIX       Used when constructing Xpath queries
- * @param {Object} BasicDescription    the element whose children should be checked
+ * @param {Object} Element             the element whose children should be checked
+ * @param {string} ElementName
  * @param {array}  requiredLengths	   @length attributes that are required to be present
  * @param {array}  optionalLengths	   @length attributes that can optionally be present
- * @param {string} requestType         the type of content guide request being checked
  * @param {Class}  errs                errors found in validaton
  * @param {string} parentLanguage	   the xml:lang of the parent element to ProgramInformation
  * @param {string} errCode             error code prefix to be used in reports, if not present then use local codes
  */
- /*
-function ValidateSynopsis(CG_SCHEMA, SCHEMA_PREFIX, BasicDescription, requiredLengths, optionalLengths, requestType, errs, parentLanguage, errCode=null) {
+function ValidateSynopsisType(SCHEMA, SCHEMA_PREFIX, Element, ElementName, requiredLengths, optionalLengths, errs, parentLanguage, errCode=null) {
+
+	function synopsisLengthError(elem, label, length) {
+		return "length of "+elementize(tva.a_length.attribute(elem)+"="+quote(label))+" exceeds "+length+" characters"; }
+	function synopsisToShortError(elem, label, length) {
+		return "length of "+elementize(tva.a_length.attribute(elem)+"="+quote(label))+" is less than "+length+" characters"; }
+	function singleLengthLangError(elem, length, lang) {
+		return "only a single "+elementize(elem)+" is permitted per length ("+length+") and language ("+lang+")"; }
+	function requiredSynopsisError(elem, length) {
+		return "a "+elementize(elem)+" element with "+tva.a_length.attribute()+"="+quote(length)+" is required"; }
 	
-	function synopsisLengthError(label, length) {
-		return "length of "+elementize(tva.e_Synopsis+"@"+tva.a_length+"="+quote(label))+" exceeds "+length+" characters"; }
-	function singleLengthLangError(length, lang) {
-		return "only a single "+elementize(tva.e_Synopsis)+" is permitted per length ("+length+") and language ("+lang+")"; }
-	function requiredSynopsisError(length) {
-		return "a "+elementize(tva.e_Synopsis)+" with @"+tva.a_length+"="+quote(length)+" is required"; }
-	
-	if (!BasicDescription) {
-		errs.pushCode("SY000", "ValidateSynopsis() called with BasicDescription==null")
+	/**
+	 * replace ENTITY strings with a generic characterSet
+     *
+     * @param {string} str string containing HTML or XML entities (starts with & ends with ;)
+     * @return {string} the string with entities replaced with a single character '*'
+     */
+	function unEntity(str) { return str.replace(/(&.+;)/ig,"*"); }
+
+	if (!Element) {
+		errs.pushCode("SY000", "ValidateSynopsisType() called with Element==null")
 		return
 	}
-	var s=0, Synopsis, hasShort=false, hasMedium=false, hasLong=false;
-	var shortLangs=[], mediumLangs=[], longLangs=[];
-	while (Synopsis=BasicDescription.get(xPath(SCHEMA_PREFIX,tva.e_Synopsis, ++s), CG_SCHEMA)) {
+	var s=0, ste, hasBrief=false, hasShort=false, hasMedium=false, hasLong=false, hasExtended=false;
+	var briefLangs=[], shortLangs=[], mediumLangs=[], longLangs=[], extendedLangs=[];
+	while (ste=Element.get(xPath(SCHEMA_PREFIX, ElementName, ++s), SCHEMA)) {
 		
-		checkAttributes(CG_SCHEMA, SCHEMA_PREFIX, Synopsis, [tva.a_length], [tva.a_lang], errs, "SY001");
+		checkAttributes(SCHEMA, SCHEMA_PREFIX, ste, [tva.a_length], [tva.a_lang], errs, errcode?errcode+"-1":"SY001");
 
-		var synopsisLang=GetLanguage(knownLanguages, errs, Synopsis, parentLanguage, false, "SY002");
-		var synopsisLength=Synopsis.attr(tva.a_length)?Synopsis.attr(tva.a_length).value():null;
+		var synopsisLang=GetLanguage(knownLanguages, errs, ste, parentLanguage, false, errcode?errcode+"-2":"SY002");
+		var synopsisLength=ste.attr(tva.a_length)?ste.attr(tva.a_length).value():null;
 		
 		if (synopsisLength) {
 			if (isIn(requiredLengths, synopsisLength) || isIn(optionalLengths, synopsisLength)) {
 				switch (synopsisLength) {
-				case dvbi.SYNOPSIS_SHORT_LABEL:
-					if ((unEntity(Synopsis.text()).length) > dvbi.SYNOPSIS_SHORT_LENGTH)
-						errs.pushCode(errCode?errCode+"-1":"SY011", synopsisLengthError(dvbi.SYNOPSIS_SHORT_LABEL, dvbi.SYNOPSIS_SHORT_LENGTH));
+				case tva.SYNOPSIS_BRIEF_LABEL:
+					if ((unEntity(ste.text()).length) > tva.SYNOPSIS_BRIEF_LENGTH)
+						errs.pushCode(errCode?errCode+"-10":"SY010", synopsisLengthError(ElementName, tva.SYNOPSIS_BRIEF_LABEL, tva.SYNOPSIS_BRIEF_LENGTH));
+					hasBrief=true;
+					break;
+				case tva.SYNOPSIS_SHORT_LABEL:
+					if ((unEntity(ste.text()).length) > tva.SYNOPSIS_SHORT_LENGTH)
+						errs.pushCode(errCode?errCode+"-11":"SY011", synopsisLengthError(ElementName, tva.SYNOPSIS_SHORT_LABEL, tva.SYNOPSIS_SHORT_LENGTH));
 					hasShort=true;
 					break;
-				case dvbi.SYNOPSIS_MEDIUM_LABEL:
-					if ((unEntity(Synopsis.text()).length) > dvbi.SYNOPSIS_MEDIUM_LENGTH)
-						errs.pushCode(errCode?errCode+"-2":"SY012", synopsisLengthError(dvbi.SYNOPSIS_MEDIUM_LABEL, dvbi.SYNOPSIS_MEDIUM_LENGTH));
+				case tva.SYNOPSIS_MEDIUM_LABEL:
+					if ((unEntity(ste.text()).length) > tva.SYNOPSIS_MEDIUM_LENGTH)
+						errs.pushCode(errCode?errCode+"-12":"SY012", synopsisLengthError(ElementName, tva.SYNOPSIS_MEDIUM_LABEL, tva.SYNOPSIS_MEDIUM_LENGTH));
 					hasMedium=true;
 					break;
-				case dvbi.SYNOPSIS_LONG_LABEL:
-					if ((unEntity(Synopsis.text()).length) > dvbi.SYNOPSIS_LONG_LENGTH)
-						errs.pushCode(errCode?errCode+"-3":"SY013", synopsisLengthError(dvbi.SYNOPSIS_LONG_LABEL, dvbi.SYNOPSIS_LONG_LENGTH));
-					hasLong=true;
+				case tva.SYNOPSIS_LONG_LABEL:
+					if ((unEntity(ste.text()).length) > tva.SYNOPSIS_LONG_LENGTH)
+						errs.pushCode(errCode?errCode+"-13":"SY013", synopsisLengthError(ElementName, tva.SYNOPSIS_LONG_LABEL, tva.SYNOPSIS_LONG_LENGTH));
 					hasLong=true;
 					break;						
+				case tva.SYNOPSIS_EXTENDED_LABEL:
+					if ((unEntity(ste.text()).length) < tva.SYNOPSIS_LENGTH_LENGTH)
+						errs.pushCode(errCode?errCode+"-14":"SY014", synopsisToShortError(ElementName, tva.SYNOPSIS_EXTENDED_LABEL, tva.SYNOPSIS_LONG_LENGTH));
+					hasExtended=true;
+					break;
 				}
 			}
 			else
-				errs.pushCode(errCode?errCode+"-4":"SY014", "@"+tva.a_length+"="+quote(synopsisLength)+" is not permitted for this request type");
+				errs.pushCode(errCode?errCode+"-15":"SY015", "@"+tva.a_length+"="+quote(synopsisLength)+" is not permitted");
 		}
 	
 		if (synopsisLang && synopsisLength) {
 			switch (synopsisLength) {
-				case dvbi.SYNOPSIS_SHORT_LABEL:
+				case tva.SYNOPSIS_BRIEG_LABEL:
+					if (isIn(briefLangs, synopsisLang)) 
+						errs.pushCode(errCode?errCode+"-21":"SY021", singleLengthLangError(ElementName, synopsisLength, synopsisLang));
+					else briefLangs.push(synopsisLang);
+					break;
+				case tva.SYNOPSIS_SHORT_LABEL:
 					if (isIn(shortLangs, synopsisLang)) 
-						errs.pushCode(errCode?errCode+"-6":"SY016",singleLengthLangError(synopsisLength, synopsisLang));
+						errs.pushCode(errCode?errCode+"-22":"SY022", singleLengthLangError(ElementName, synopsisLength, synopsisLang));
 					else shortLangs.push(synopsisLang);
 					break;
-				case dvbi.SYNOPSIS_MEDIUM_LABEL:
+				case tva.SYNOPSIS_MEDIUM_LABEL:
 					if (isIn(mediumLangs, synopsisLang)) 
-						errs.pushCode(errCode?errCode+"-7":"SY017",singleLengthLangError(synopsisLength, synopsisLang));
+						errs.pushCode(errCode?errCode+"-23":"SY023", singleLengthLangError(ElementName, synopsisLength, synopsisLang));
 					else mediumLangs.push(synopsisLang);
 					break;
-				case dvbi.SYNOPSIS_LONG_LABEL:
+				case tva.SYNOPSIS_LONG_LABEL:
 					if (isIn(longLangs, synopsisLang)) 
-						errs.pushCode(errCode?errCode+"-8":"SY018",singleLengthLangError(synopsisLength, synopsisLang));
+						errs.pushCode(errCode?errCode+"-24":"SY024", singleLengthLangError(ElementName, synopsisLength, synopsisLang));
 					else longLangs.push(synopsisLang);
+					break;
+				case tva.SYNOPSIS_EXTENDED_LABEL:
+					if (isIn(extendedLangs, synopsisLang)) 
+						errs.pushCode(errCode?errCode+"-25":"SY025", singleLengthLangError(ElementName, synopsisLength, synopsisLang));
+					else extendedLangs.push(synopsisLang);
 					break;
 			}
 		}
 	}
 	
-	if (isIn(requiredLengths, dvbi.SYNOPSIS_SHORT_LABEL) && !hasShort)
-		errs.pushCode(errCode?errCode+"-9":"SY019",requiredSynopsisError(dvbi.SYNOPSIS_SHORT_LABEL));	
-	if (isIn(requiredLengths, dvbi.SYNOPSIS_MEDIUM_LABEL) && !hasMedium)
-		errs.pushCode(errCode?errCode+"-10":"SY020",requiredSynopsisError(dvbi.SYNOPSIS_MEDIUM_LABEL));	
-	if (isIn(requiredLengths, dvbi.SYNOPSIS_LONG_LABEL) && !hasLong)
-		errs.pushCode(errCode?errCode+"-11":"SY021",requiredSynopsisError(dvbi.SYNOPSIS_LONG_LABEL));	
+	if (isIn(requiredLengths, tva.SYNOPSIS_BRIEF_LABEL) && !hasBrief)
+		errs.pushCode(errCode?errCode+"-31":"SY031", requiredSynopsisError(tva.SYNOPSIS_BRIEF_LABEL));	
+	if (isIn(requiredLengths, tva.SYNOPSIS_SHORT_LABEL) && !hasShort)
+		errs.pushCode(errCode?errCode+"-32":"SY032",requiredSynopsisError(tva.SYNOPSIS_SHORT_LABEL));	
+	if (isIn(requiredLengths, tva.SYNOPSIS_MEDIUM_LABEL) && !hasMedium)
+		errs.pushCode(errCode?errCode+"-33":"SY022",requiredSynopsisError(tva.SYNOPSIS_MEDIUM_LABEL));	
+	if (isIn(requiredLengths, tva.SYNOPSIS_LONG_LABEL) && !hasLong)
+		errs.pushCode(errCode?errCode+"-34":"SY034",requiredSynopsisError(tva.SYNOPSIS_LONG_LABEL));	
+	if (isIn(requiredLengths, tva.SYNOPSIS_EXTENDED_LABEL) && !hasExtended)
+		errs.pushCode(errCode?errCode+"-35":"SY035",requiredSynopsisError(tva.SYNOPSIS_EXTENDED_LABEL));	
 }
-*/
+
 
 
 /**
@@ -2289,43 +2321,30 @@ function validateServiceList(SLtext, errs) {
 		var ServiceGenre=service.get(xPath(SCHEMA_PREFIX, dvbi.e_ServiceGenre), SL_SCHEMA);
 		if (ServiceGenre) {
 			checkAttributes(ServiceGenre, [dvbi.a_href], [tva.a_type], errs, "SL160")
-			if (ServiceGenre.attr(dvbi.a_href)) {
-				if (!isIn(allowedGenres, ServiceGenre.attr(dvbi.a_href).value())) 
+			if (ServiceGenre.attr(dvbi.a_href) && !isIn(allowedGenres, ServiceGenre.attr(dvbi.a_href).value())) 
 					errs.pushCode("SL161", "service "+thisServiceId.quote()+" has an invalid "+dvbi.a_href.attribute(dvbi.e_ServiceGenre)+" "+ServiceGenre.attr(dvbi.a_href).value().quote(), "invalid "+dvbi.e_ServiceGenre);
-			}
 
-			if (ServiceGenre.attr(tva.a_type)) {
-				if (!isIn(tva.ALLOWED_GENRE_TYPES, ServiceGenre.attr(tva.a_type).value())) 
-					errs.pushCode("SL162",  "service "+thisServiceId.quote()+" has an invalid "+tva.a_type.attribute(dvbi.e_ServiceGenre)+" "+ServiceGenre.attr(dvbi.a_type).value().quote(), "invalid "+dvbi.e_ServiceGenre)
-			}
+			if (ServiceGenre.attr(tva.a_type) && !isIn(tva.ALLOWED_GENRE_TYPES, ServiceGenre.attr(tva.a_type).value())) 
+					errs.pushCode("SL162", "service "+thisServiceId.quote()+" has an invalid "+tva.a_type.attribute(dvbi.e_ServiceGenre)+" "+ServiceGenre.attr(dvbi.a_type).value().quote(), "invalid "+dvbi.e_ServiceGenre)
 		}
 
 		//check <Service><ServiceType>                    
 		var ServiceType=service.get(xPath(SCHEMA_PREFIX, dvbi.e_ServiceType), SL_SCHEMA);
 		if (ServiceType) {
 			checkAttributes(ServiceType, [dvbi.a_href], [], errs, "SL163")
-			if (ServiceType.attr(dvbi.a_href)) {
-				if (!isIn(allowedServiceTypes, ServiceType.attr(dvbi.a_href).value())) 
+			if (ServiceType.attr(dvbi.a_href) && !isIn(allowedServiceTypes, ServiceType.attr(dvbi.a_href).value())) 
 					errs.pushCode("SL164", "service "+thisServiceId.quote()+" has an invalid "+dvbi.e_ServiceType.elementize()+" ("+ServiceType.attr(dvbi.a_href).value()+")", "invalid ServiceType");
-			}
 		}
-
 
 		// check <Service><ServiceDescription>
-		var sd=0, ServiceDescription
-		while (ServiceDescription=service.get(xPath(SCHEMA_PREFIX, tva.e_ServiceDescription, ++sd), SL_SCHEMA)) {
-			
-			
-		}
+		ValidateSynopsisType(SL_SCHEMA, SCHEMA_PREFIX, service, tva.e_ServiceDescription, [], [tva.SYNOPSIS_LENGTH_BRIEF, tva.SYNOPSIS_LENGTH_SHORT, tva.SYNOPSIS_LENGTH_MEDIUM, tva.SYNOPSIS_LENGTH_LONG, tva.SYNOPSIS_LENGTH_EXTENDED], errs, "***", "SL170") 
 
 		// check <Service><RecordingInfo>
 		var RecordingInfo=service.get(xPath(SCHEMA_PREFIX, dvbi.e_RecordingInfo), SL_SCHEMA);
 		if (RecordingInfo) {
 			checkAttributes(RecordingInfo, [dvbi.a_href], [], errs, "SL180")
-			if (RecordingInfo.attr(dvbi.a_href)) {
-				if (!isIn(RecordingInfoCSvalules, RecordingInfo.attr(dvbi.a_href).value())) 
-					errs.pushCode("SL181", "invalid "+dvbi.e_RecordingInfo.elementize()+" value "+RecordingInfo.attr(dvbi.a_href).value().quote()+"for service "+thisServiceId, "invalid RecordingInfo");
-			}
+			if (RecordingInfo.attr(dvbi.a_href) && !isIn(RecordingInfoCSvalules, RecordingInfo.attr(dvbi.a_href).value())) 
+				errs.pushCode("SL181", "invalid "+dvbi.e_RecordingInfo.elementize()+" value "+RecordingInfo.attr(dvbi.a_href).value().quote()+"for service "+thisServiceId, "invalid RecordingInfo");
 		}
 
 		// check <Service><ContentGuideSource>
@@ -2357,7 +2376,7 @@ function validateServiceList(SLtext, errs) {
 			var uniqueID=service.get(xPath(SCHEMA_PREFIX, dvbi.e_UniqueIdentifier), SL_SCHEMA);
 			if (uniqueID && !isIn(knownServices, CGSR.text())) 
 				errs.pushCodeW("SL220", dvbi.e_ContentGuideServiceRef.elementize()+" "+CGSR.text().quote()+" in service "+uniqueID.text().quote()+" does not refer to another service", "invalid "+dvbi.e_ContentGuideServiceRef.elementize());
-			if (uniqueID && (CGSR.text() == uniqueID.text()))
+			if (uniqueID && (CGSR.text()==uniqueID.text()))
 				errs.pushCodeW("SL221", dvbi.e_ContentGuideServiceRef.elementize()+" is self", "self "+dvbi.e_ContentGuideServiceRef.elementize());
 		}
 	}
@@ -2397,25 +2416,16 @@ function validateServiceList(SLtext, errs) {
 				}
 
 				// LCN@serviceRef
-				if (LCN.attr(dvbi.a_serviceRef)) {
-					var servRef=LCN.attr(dvbi.a_serviceRef).value();
-					if (!isIn(knownServices, servRef)) 
-						errs.pushCode("SL262", "LCN reference to unknown service "+servRef, "LCN unknown services");
-				}
+				if (LCN.attr(dvbi.a_serviceRef) && !isIn(knownServices, LCN.attr(dvbi.a_serviceRef).value())) 
+						errs.pushCode("SL262", "LCN reference to unknown service "+LCN.attr(dvbi.a_serviceRef).value(), "LCN unknown services");
 				
 				// LCN@selectable
-				if (LCN.attr(dvbi.a_selectable)) {
-					if (!isBoolean(LCN.attr(dvbi.a_selectable).value())) {
-						errs.pushCode("SL263", dvbi.a_selectable.attribute(dvbi.e_LCN)+" is not a boolean value", "not boolean")
-					}
-				}
+				if (LCN.attr(dvbi.a_selectable) && !isBoolean(LCN.attr(dvbi.a_selectable).value())) 
+					errs.pushCode("SL263", dvbi.a_selectable.attribute(dvbi.e_LCN)+" is not a boolean value", "not boolean")
 				
 				// LCN@visible
-				if (LCN.attr(dvbi.a_visible)) {
-					if (!isBoolean(LCN.attr(dvbi.a_visible).value())) {
+				if (LCN.attr(dvbi.a_visible) && !isBoolean(LCN.attr(dvbi.a_visible).value()))
 						errs.pushCode("SL264", dvbi.a_visible.attribute(dvbi.e_LCN)+" is not a boolean value", "not boolean")
-					}
-				}
 			}
 		}
 	}
