@@ -64,6 +64,7 @@ const TVA_ContentCSFilename=path.join("dvb-common/tva","ContentCS.xml"),
       DVB_VideoCodecCS2020Filename=path.join("dvb-common/dvb","VideoCodecCS-2020.xml"),
       MPEG7_AudioCodingFormatCSFilename=path.join("dvb-common/tva","AudioCodingFormatCS.xml"),
       MPEG7_VisualCodingFormatCSFilename=path.join("dvb-common/tva","VisualCodingFormatCS.xml"),
+      MPEG7_AudioPresentationCSFilename=path.join("dvb-common/mpeg7", "AudioPresentationCS.xml"),
       DVB_AudioConformanceCSFilename=path.join("dvb-common/dvb","AudioConformancePointsCS.xml"),
       DVB_VideoConformanceCSFilename=path.join("dvb-common/dvb","VideoConformancePointsCS.xml"),
       ISO3166_Filename=path.join("dvb-common","iso3166-countries.json"),
@@ -86,6 +87,7 @@ const COMMON_REPO_RAW="https://raw.githubusercontent.com/paulhiggs/dvb-common/ma
       DVB_VideoCodecCS2020URL=DVB_METADATA + "cs/2007/" + "VideoCodecCS-2020.xml",
       MPEG7_AudioCodingFormatCSURL=COMMON_REPO_RAW + "tva/" + "AudioCodingFormatCS.xml",
       MPEG7_VisualCodingFormatCSURL=COMMON_REPO_RAW + "tva/" + "VisualCodingFormatCS.xml",
+      MPEG7_AudioPresentationCSURL=COMMON_REPO_RAW + "mpeg7/" + "AudioPresentationCS.xml",
       DVB_AudioConformanceCSURL=DVB_METADATA + "cs/2017/" + "AudioConformancePointsCS.xml",
       DVB_VideoConformanceCSURL=DVB_METADATA + "cs/2017/" + "VideoConformancePointsCS.xml",
       ISO3166_URL=COMMON_REPO_RAW + "iso3166-countries.json",
@@ -97,7 +99,7 @@ const SERVICE_LIST_RM="service list",
 
 var allowedGenres=[], allowedServiceTypes=[], allowedAudioSchemes=[], allowedVideoSchemes=[], 
 	allowedAudioConformancePoints=[], allowedVideoConformancePoints=[], RecordingInfoCSvalules=[],
-	allowedPictureFormats=[]
+	allowedPictureFormats=[], AudioPresentationCS=[]
 
 var knownCountries=new ISOcountries(false, true)
 var knownLanguages=new IANAlanguages()
@@ -243,11 +245,12 @@ function loadDataFiles(useURLs) {
 	loadCS(allowedAudioSchemes, useURLs, MPEG7_AudioCodingFormatCSFilename, MPEG7_AudioCodingFormatCSURL);
 	loadCS(allowedAudioConformancePoints, useURLs, DVB_AudioConformanceCSFilename, DVB_AudioConformanceCSURL);
 	
-    allowedVideoSchemes=[]; allowedVideoConformancePoints=[];
+    allowedVideoSchemes=[]; allowedVideoConformancePoints=[]; AudioPresentationCS=[];
 	loadCS(allowedVideoSchemes, useURLs, DVB_VideoCodecCSFilename, DVB_VideoCodecCSURL);
 	loadCS(allowedVideoSchemes, useURLs, DVB_VideoCodecCS2020Filename, DVB_VideoCodecCS2020URL);  // TODO: for now just add these as permitted values - might become 2007 OR 2020 later
 	loadCS(allowedVideoSchemes, useURLs, MPEG7_VisualCodingFormatCSFilename, MPEG7_VisualCodingFormatCSURL);
 	loadCS(allowedVideoConformancePoints, useURLs, DVB_VideoConformanceCSFilename, DVB_VideoConformanceCSURL);
+	loadCS(AudioPresentationCS, useURLs, MPEG7_AudioPresentationCSFilename, MPEG7_AudioPresentationCSURL)
 
 	RecordingInfoCSvalules=[];
 	loadCS(RecordingInfoCSvalules, useURLs, DVBI_RecordingInfoCSFilename, DVBI_RecordingInfoCSURL);
@@ -1359,19 +1362,24 @@ function validateAContentGuideSource(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE,
  * @param {string} SCHEMA_PREFIX     Used when constructing Xpath queries
  * @param {string} SCHEMA_NAMESPACE  The namespace of XML document
  */
-function validateContentProtection(ContentProtection, errs, Location, SCHEMA_NAMESPACE) {
+function validateContentProtection(ContentProtection, errs, Location, SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE) {
+	if (!ContentProtection) {
+		errs.push("CP000", "validateContentProtection() called with ContentProtection==null")
+		return
+	}
+	
 	checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, ContentProtection, [], [dvbi.e_CASystemId, dvbi.e_DRMSystemId], errs, "CP001")
 	
 	var ca=0, CASystemId
 	while (CASystemId=ContentProtection.get(xPath(SCHEMA_PREFIX, dvbi.e_CASystemId, ++ca), SL_SCHEMA)) {
 		checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, CASystemId, [dvbi.e_CASystemId], errs, "CP010")
-		checkAttributes(CASystemId, [], [dvbi.cpsIndex], errs, "CP011")
+		checkAttributes(CASystemId, [], [dvbi.a_cpsIndex], errs, "CP011")
 	}
 	
 	var dr=0, DRMSystemId
 	while (DRMSystemId=ContentProtection.get(xPath(SCHEMA_PREFIX, dvbi.e_DRMSystemId, ++dr), SL_SCHEMA)) {
-		checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, DRMSystemId, [dvbi.e_DRMSystemId], errs, "CP020")
-		checkAttributes(DRMSystemId, [dvbi.a_encryptionScheme], [dvbi.cpsIndex], errs, "CP021")
+		checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, DRMSystemId, [dvbi.e_DRMSystemId], [], errs, "CP020")
+		checkAttributes(DRMSystemId, [dvbi.a_encryptionScheme], [dvbi.a_cpsIndex], errs, "CP021")
 		
 		var scheme=DRMSystemId.attr(dvbi.a_encryptionScheme).value()
 		if (scheme && !isIn(dvbi.ENCRYPTION_VALID_TYPES, scheme)) 
@@ -1559,31 +1567,31 @@ function ValidateSynopsisType(SCHEMA, SCHEMA_PREFIX, Element, ElementName, requi
 		if (synopsisLength) {
 			if (isIn(requiredLengths, synopsisLength) || isIn(optionalLengths, synopsisLength)) {
 				switch (synopsisLength) {
-				case tva.SYNOPSIS_BRIEF_LABEL:
-					if ((unEntity(ste.text()).length) > tva.SYNOPSIS_BRIEF_LENGTH)
-						errs.pushCode(errCode?errCode+"-10":"SY010", synopsisLengthError(ElementName, tva.SYNOPSIS_BRIEF_LABEL, tva.SYNOPSIS_BRIEF_LENGTH));
-					hasBrief=true;
-					break;
-				case tva.SYNOPSIS_SHORT_LABEL:
-					if ((unEntity(ste.text()).length) > tva.SYNOPSIS_SHORT_LENGTH)
-						errs.pushCode(errCode?errCode+"-11":"SY011", synopsisLengthError(ElementName, tva.SYNOPSIS_SHORT_LABEL, tva.SYNOPSIS_SHORT_LENGTH));
-					hasShort=true;
-					break;
-				case tva.SYNOPSIS_MEDIUM_LABEL:
-					if ((unEntity(ste.text()).length) > tva.SYNOPSIS_MEDIUM_LENGTH)
-						errs.pushCode(errCode?errCode+"-12":"SY012", synopsisLengthError(ElementName, tva.SYNOPSIS_MEDIUM_LABEL, tva.SYNOPSIS_MEDIUM_LENGTH));
-					hasMedium=true;
-					break;
-				case tva.SYNOPSIS_LONG_LABEL:
-					if ((unEntity(ste.text()).length) > tva.SYNOPSIS_LONG_LENGTH)
-						errs.pushCode(errCode?errCode+"-13":"SY013", synopsisLengthError(ElementName, tva.SYNOPSIS_LONG_LABEL, tva.SYNOPSIS_LONG_LENGTH));
-					hasLong=true;
-					break;						
-				case tva.SYNOPSIS_EXTENDED_LABEL:
-					if ((unEntity(ste.text()).length) < tva.SYNOPSIS_LENGTH_LENGTH)
-						errs.pushCode(errCode?errCode+"-14":"SY014", synopsisToShortError(ElementName, tva.SYNOPSIS_EXTENDED_LABEL, tva.SYNOPSIS_LONG_LENGTH));
-					hasExtended=true;
-					break;
+					case tva.SYNOPSIS_BRIEF_LABEL:
+						if ((unEntity(ste.text()).length) > tva.SYNOPSIS_BRIEF_LENGTH)
+							errs.pushCode(errCode?errCode+"-10":"SY010", synopsisLengthError(ElementName, tva.SYNOPSIS_BRIEF_LABEL, tva.SYNOPSIS_BRIEF_LENGTH));
+						hasBrief=true;
+						break;
+					case tva.SYNOPSIS_SHORT_LABEL:
+						if ((unEntity(ste.text()).length) > tva.SYNOPSIS_SHORT_LENGTH)
+							errs.pushCode(errCode?errCode+"-11":"SY011", synopsisLengthError(ElementName, tva.SYNOPSIS_SHORT_LABEL, tva.SYNOPSIS_SHORT_LENGTH));
+						hasShort=true;
+						break;
+					case tva.SYNOPSIS_MEDIUM_LABEL:
+						if ((unEntity(ste.text()).length) > tva.SYNOPSIS_MEDIUM_LENGTH)
+							errs.pushCode(errCode?errCode+"-12":"SY012", synopsisLengthError(ElementName, tva.SYNOPSIS_MEDIUM_LABEL, tva.SYNOPSIS_MEDIUM_LENGTH));
+						hasMedium=true;
+						break;
+					case tva.SYNOPSIS_LONG_LABEL:
+						if ((unEntity(ste.text()).length) > tva.SYNOPSIS_LONG_LENGTH)
+							errs.pushCode(errCode?errCode+"-13":"SY013", synopsisLengthError(ElementName, tva.SYNOPSIS_LONG_LABEL, tva.SYNOPSIS_LONG_LENGTH));
+						hasLong=true;
+						break;						
+					case tva.SYNOPSIS_EXTENDED_LABEL:
+						if ((unEntity(ste.text()).length) < tva.SYNOPSIS_LENGTH_LENGTH)
+							errs.pushCode(errCode?errCode+"-14":"SY014", synopsisToShortError(ElementName, tva.SYNOPSIS_EXTENDED_LABEL, tva.SYNOPSIS_LONG_LENGTH));
+						hasExtended=true;
+						break;
 				}
 			}
 			else
@@ -1676,10 +1684,10 @@ function validateServiceInstance(ServiceInstance, thisServiceId, SL_SCHEMA, SCHE
 			while (child=conf.child(ch++)) {
 				switch (child.name()) {
 					case tva.e_Coding:
-						checkAttributes(child, [dvbi.a_href], [], errs, "SL042")
+						checkAttributes(child, [dvbi.a_href], [], errs, "SL051a")
 						if (child.attr(dvbi.a_href)) {
 							if (!isIn(allowedAudioSchemes, child.attr(dvbi.a_href).value())) 
-								errs.pushCode("SI051", "invalid "+dvbi.a_href.attribute(tva.e_AudioAttributes)+" value for ("+child.attr(dvbi.a_href).value()+")", "audio codec");
+								errs.pushCode("SI051b", "invalid "+dvbi.a_href.attribute(child.name())+" value for ("+child.attr(dvbi.a_href).value()+")", "audio codec");
 						}
 						break;
 					case tva.e_NumOfChannels:
@@ -1687,7 +1695,12 @@ function validateServiceInstance(ServiceInstance, thisServiceId, SL_SCHEMA, SCHE
 							errs.pushCode("SI052", "invalid value "+child.text().quote()+" for "+child.name().elementize()+" in "+conf.name().elementize(), "invalid value")
 						break;
 					case tva.e_MixType:
-						// TODO:
+						// taken from MPEG-7 AudioPresentationCS
+						checkAttributes(child, [dvbi.a_href], [], errs, "SL053a")
+						if (child.attr(dvbi.a_href)) {
+							if (!isIn(AudioPresentationCS, child.attr(dvbi.a_href).value())) 
+								errs.pushCode("SI053b", "invalid "+dvbi.a_href.attribute(child.name())+" value for ("+child.attr(dvbi.a_href).value()+")", "audio codec");
+						}
 						break;
 					case tva.e_AudioLanguage:
 						// TODO:
@@ -1701,7 +1714,7 @@ function validateServiceInstance(ServiceInstance, thisServiceId, SL_SCHEMA, SCHE
 							errs.pushCode("SI056", "invalid value "+child.text().quote()+" for "+child.name().elementize()+" in "+conf.name().elementize(), "invalid value")
 						break;
 					case tva.e_BitRate:
-						checkBitRate(chile, errs, "SI057")
+						checkBitRate(child, errs, "SI057")
 						break;
 				}
 			}
@@ -1826,8 +1839,8 @@ function validateServiceInstance(ServiceInstance, thisServiceId, SL_SCHEMA, SCHE
 	// <ServiceInstance><SubscriptionPackage>
 	checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, dvbi.e_SubscriptionPackage, ServiceInstance.name().elementize(), ServiceInstance, errs, "SI131")
 	var sp=0, SubscriptionPackage;
-	while (SubscriptionPackage=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_SubscriptionPackage, ++sp))) {
-		// nothing to do here
+	while (SubscriptionPackage=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_SubscriptionPackage, ++sp), SL_SCHEMA)) {
+		// nothing to do here)
 	}
 			
 	// <ServiceInstance><FTAContentManagement>
