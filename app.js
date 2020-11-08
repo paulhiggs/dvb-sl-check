@@ -385,7 +385,7 @@ function validDASHcontentType(contentType) {
  * @param {any}   value            value to match with val: in the allowed values
  * @returns {boolean} true if {index, value} pair exists in the list of allowed values, else false
  */
-function match(permittedValues, index, value) {
+function match(debug, permittedValues, index, value) {
 	if (!value) return false
 	let i=permittedValues.find(elem => elem.ver==index)
 	return i && i.val==value
@@ -405,7 +405,7 @@ function validOutScheduleHours(HowRelated, namespace) {
 		{ver: SCHEMA_v1, val: dvbi.BANNER_OUTSIDE_AVAILABILITY_v1 },
 		{ver: SCHEMA_v2, val: dvbi.BANNER_OUTSIDE_AVAILABILITY_v2 },
 		{ver: SCHEMA_v3, val: dvbi.BANNER_OUTSIDE_AVAILABILITY_v2 }
-		], SchemaVersion(namespace), HowRelated.attr(dvbi.a_href)?HowRelated.attr(dvbi.a_href).value():null )
+		], SchemaVersion(namespace), HowRelated.attr(dvbi.a_href)?HowRelated.attr(dvbi.a_href).value():null)
 }
 
 
@@ -422,7 +422,7 @@ function validContentFinishedBanner(HowRelated, namespace) {
 	return match([ 
 		{ver: SCHEMA_v2, val: dvbi.BANNER_CONTENT_FINISHED_v2 },
 		{ver: SCHEMA_v3, val: dvbi.BANNER_CONTENT_FINISHED_v2 }
-		], SchemaVersion(namespace), HowRelated.attr(dvbi.a_href)?HowRelated.attr(dvbi.a_href).value():null )
+		], SchemaVersion(namespace), HowRelated.attr(dvbi.a_href)?HowRelated.attr(dvbi.a_href).value():null)
 }
 
 
@@ -439,7 +439,7 @@ function validServiceListLogo(HowRelated, namespace) {
 		{ver: SCHEMA_v1, val: dvbi.LOGO_SERVICE_LIST_v1 },
 		{ver: SCHEMA_v2, val: dvbi.LOGO_SERVICE_LIST_v2 },
 		{ver: SCHEMA_v3, val: dvbi.LOGO_SERVICE_LIST_v2 }
-		], SchemaVersion(namespace), HowRelated.attr(dvbi.a_href)?HowRelated.attr(dvbi.a_href).value():null )
+		], SchemaVersion(namespace), HowRelated.attr(dvbi.a_href)?HowRelated.attr(dvbi.a_href).value():null)
 }
 
 
@@ -659,11 +659,11 @@ function validateRelatedMaterial(RelatedMaterial, errs, Location, LocationType, 
 					MediaLocator.forEach(locator => 
 						checkValidLogo(HowRelated, Format, locator, errs, Location, LocationType));
 				else
-					InvalidHrefValue(errs, HowRelated.attr(dvbi.a_href).value(), tva.e_RelatedMaterial.elementize(), Location, errcode?errcode+"-12":"RM012")	
+					InvalidHrefValue(errs, HowRelated.attr(dvbi.a_href).value(), tva.e_RelatedMaterial.elementize(), Location, errcode?errcode+"-11":"RM011")	
 				break;
 			case SERVICE_RM:
 				if (validContentFinishedBanner(HowRelated, SCHEMA_NAMESPACE) && (SchemaVersion(SCHEMA_NAMESPACE)==SCHEMA_v1)) 
-					errs.pushCode(errcode?errcode+"-20":"RM020", dvbi.BANNER_CONTENT_FINISHED_v2.quote()+" not permitted for "+SCHEMA_NAMESPACE.quote()+" in "+Location, "invalid CS value");
+					errs.pushCode(errcode?errcode+"-21":"RM021", dvbi.BANNER_CONTENT_FINISHED_v2.quote()+" not permitted for "+SCHEMA_NAMESPACE.quote()+" in "+Location, "invalid CS value");
 				
 				if (validOutScheduleHours(HowRelated, SCHEMA_NAMESPACE) || validContentFinishedBanner(HowRelated, SCHEMA_NAMESPACE) ||validServiceApplication(HowRelated) || validServiceLogo(HowRelated, SCHEMA_NAMESPACE)) {
 					if (validServiceLogo(HowRelated, SCHEMA_NAMESPACE) || validOutScheduleHours(HowRelated, SCHEMA_NAMESPACE))
@@ -674,14 +674,14 @@ function validateRelatedMaterial(RelatedMaterial, errs, Location, LocationType, 
 							checkSignalledApplication(HowRelated, Format, locator, errs, Location, LocationType));
 				}
 				else
-					InvalidHrefValue(errs, HowRelated.attr(dvbi.a_href).value(), tva.e_RelatedMaterial.elementize(), Location, errcode?errcode+"-21":"RM021");
+					InvalidHrefValue(errs, HowRelated.attr(dvbi.a_href).value(), tva.e_RelatedMaterial.elementize(), Location, errcode?errcode+"-22":"RM022");
 				break;
 			case CONTENT_GUIDE_RM:
 				if (validContentGuideSourceLogo(HowRelated, SCHEMA_NAMESPACE)) 
 					MediaLocator.forEach(locator =>
 						checkValidLogo(HowRelated, Format, locator, errs, Location, LocationType));
 				else
-					InvalidHrefValue(errs, HowRelated.attr(dvbi.a_href).value(), tva.e_RelatedMaterial.elementize(), Location, errcode?errcode+"-30":"RM030")
+					InvalidHrefValue(errs, HowRelated.attr(dvbi.a_href).value(), tva.e_RelatedMaterial.elementize(), Location, errcode?errcode+"-31":"RM031")
 				break;
 		}
 	}
@@ -1951,13 +1951,17 @@ function validateServiceInstance(ServiceInstance, thisServiceId, SL_SCHEMA, SCHE
 					errs.pushCode("SI173", dvbi.a_contentType.attribute()+"="+uriContentType.value().quote()+" in service "+thisServiceId.quote()+" is not valid", "no "+dvbi.a_contentType.attribute()+" for DASH");	
 		}
 		
-		// TODO: validate <DASHDeliveryParameters><MinimumBitRate>
-		
+		// <DASHDeliveryParameters><MinimumBitRate>
+		var MinimumBitRate=DASHDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_MinimumBitRate), SL_SCHEMA)
+		if (MinimumBitRate && !isUnsignedInt(MinimumBitRate.text()))
+			errs.pushCode("SI174", MinimumBitRate.text().quote()+" is not valid for "+dvbi.e_MinimumBitRate.elementize(), "invalid value")			
+	
+		// <DASHDeliveryParameters><Extension>		
 		var e=0, extension;
 		while (extension=DASHDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_Extension, ++e), SL_SCHEMA)) {
 			if (extension.attr(dvbi.a_extensionName)) {
 				if (!validExtensionName(extension.attr(dvbi.a_extensionName).value())) 
-					errs.pushCode("SI174", dvbi.a_extensionName.attribute()+"="+extension.attr(dvbi.a_extensionName).value().quote()+" is not valid in service "+thisServiceId.quote(), "invalid "+dvbi.a_extensionName.attribute());
+					errs.pushCode("SI175", dvbi.a_extensionName.attribute()+"="+extension.attr(dvbi.a_extensionName).value().quote()+" is not valid in service "+thisServiceId.quote(), "invalid "+dvbi.a_extensionName.attribute());
 			}
 			else 
 				errs.pushCode("SI175", dvbi.a_extensionName.attribute()+" not specified for DASH extension in "+thisServiceId.quote(), "no "+dvbi.a_extensionName.attribute());
@@ -2058,10 +2062,8 @@ function validateServiceInstance(ServiceInstance, thisServiceId, SL_SCHEMA, SCHE
 		}
 
 		var MinimumBitRate=RTSPDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_MinimumBitRate), SL_SCHEMA)
-		if (MinimumBitRate) {
-			if (!isUnsignedInt(MinimumBitRate.text()))
-				errs.pushCode("SI224", MinimumBitRate.text().quote()+" is not valid for "+dvbi.e_MinimumBitRate.elementize(), "invalid value")
-		}				
+		if (MinimumBitRate && !isUnsignedInt(MinimumBitRate.text()))
+			errs.pushCode("SI224", MinimumBitRate.text().quote()+" is not valid for "+dvbi.e_MinimumBitRate.elementize(), "invalid value")			
 	}
 	
 	// <ServiceInstance><MulticastTSDeliveryParameters>
