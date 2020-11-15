@@ -66,7 +66,7 @@ const TVA_ContentCSFilename=path.join("dvb-common/tva","ContentCS.xml"),
       MPEG7_VisualCodingFormatCSFilename=path.join("dvb-common/tva","VisualCodingFormatCS.xml"),
       MPEG7_AudioPresentationCSFilename=path.join("dvb-common/mpeg7", "AudioPresentationCS.xml"),
       DVB_AudioConformanceCSFilename=path.join("dvb-common/dvb/cs/2017","AudioConformancePointsCS.xml"),
-      DVB_VideoConformanceCSFilename=path.join("dvb-common/dvb/cs2017","VideoConformancePointsCS.xml"),
+      DVB_VideoConformanceCSFilename=path.join("dvb-common/dvb/cs/2017","VideoConformancePointsCS.xml"),
       ISO3166_Filename=path.join("dvb-common","iso3166-countries.json"),
       DVBI_RecordingInfoCSFilename=path.join("dvb-common/dvbi","DVBRecordingInfoCS-2019.xml")
 
