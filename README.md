@@ -60,4 +60,6 @@ If you want to start an HTTPS server, make sure you have `selfsigned.crt` and `s
 Occassionally, the language-subtag-registry file can be updated from https://www.iana.org/assignments/language-subtag-registry/language-subtag-registry
 
 ### Command Line Arguments
---urls - this argument will force the classification scheme, country and language values to be read from the internet. Default is to load values from local files.
+* --urls [-u] forces the classification scheme, country and language values to be read from the internet. Default is to load values from local files.
+* --port [-p] set the HTTP listening port (default: 3000)
+* --sport [-s] set the HTTPS listening port (default: 3001)

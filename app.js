@@ -170,11 +170,11 @@ function xPath(SCHEMA_PREFIX, elementName, index=null) {
  * @return {boolean} true if value is in the set of values
  */
 function isIn(values, value){
-    if (typeof(values) == "string")
+    if (typeof(values)=="string")
         return values==value;
    
-    if (typeof(values) == "object") 	
-		return values.find(arrayVal => arrayVal==value)
+    if (typeof(values)=="object") 	
+		return values.includes(value)
     
     return false;
 }
