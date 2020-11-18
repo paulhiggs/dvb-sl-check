@@ -380,14 +380,14 @@ function validDASHcontentType(contentType) {
 /**
  * looks for the {index, value} pair within the array of permitted values
  *
- * @param {array} permittedValues  array of allowed value pairs {ver: , val}
- * @param {any}   index            value to match with ver: in the allowed values
+ * @param {array} permittedValues  array of allowed value pairs {ver: , val:}
+ * @param {any}   version          value to match with ver: in the allowed values
  * @param {any}   value            value to match with val: in the allowed values
  * @returns {boolean} true if {index, value} pair exists in the list of allowed values, else false
  */
-function match(permittedValues, index, value) {
+function match(permittedValues, version, value) {
 	if (!value) return false
-	let i=permittedValues.find(elem => elem.ver==index)
+	let i=permittedValues.find(elem => elem.ver==version)
 	return i && i.val==value
 } 
  
