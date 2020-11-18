@@ -485,7 +485,7 @@ function validContentGuideSourceLogo(HowRelated, namespace) {
  */
 function validExtensionName(ext) {
 	const ExtensionRegex=/[A-Za-z\d][A-Za-z\d:\-/\.]*[A-Za-z\d]/g;
-    var s=ext.match(ExtensionRegex);
+    var s=ext.trim().match(ExtensionRegex);
     return s?s[0]===ext:false;
 }
 
@@ -500,7 +500,7 @@ function validExtensionName(ext) {
 function validFrameRate(str) {
 	const FrameRateRegex1=/\d{1,3}(\.\d{1,3})?/;
 	const FrameRateRegex2=/\d{1,3}\/1\.001/;
-	var s1=str.match(FrameRateRegex1), s2=str.match(FrameRateRegex2)
+	var s1=str.trim().match(FrameRateRegex1), s2=str.trim().match(FrameRateRegex2)
 	
 	return ((s2 && s2[0]===str) || (s1 && s1[0]===str))
 }
@@ -747,7 +747,7 @@ function isURL(arg) {
  */
 function isRTSPURL(arg) {
 	if (!(arg && isURL(arg))) return false;
-    var s=arg.match(/rtsp:\/\/.*/g);
+    var s=arg.trim().match(/rtsp:\/\/.*/g);
     return s?s[0]===arg:false;	
 }
 
@@ -777,7 +777,7 @@ function isUnsignedShort(arg){
  */
 function isNonNegativeInteger(arg) {
 	if (!arg || arg=="") return false;
-    var s=arg.match(/\d+/g);
+    var s=arg.trim().match(/\d+/g);
     return s?s[0]===arg:false;	
 }
 
@@ -1499,7 +1499,7 @@ function checkAspectRatioType(node, errs, errcode=null) {
 	
 	function isRatioType(arg) {
 		const RatioRegex=/\d+:\d+/g;
-		var s=arg.match(RatioRegex);
+		var s=arg.trim().match(RatioRegex);
 		return s?s[0]===arg:false;
 	}
 	
@@ -1642,6 +1642,18 @@ function ValidateSynopsisType(SCHEMA, SCHEMA_PREFIX, Element, ElementName, requi
 }
 
 
+/**
+ * check that a values conforms to the ServiceDaysList type
+ *
+ * @param {string} the value to check, likely from an Interval@days attribute
+ * @returns {boolean} true if the value is properly formated
+ */
+function validServiceDaysList(val) {
+	// list of values 1-7 separeted by spaces
+	const ListRegex=/([1-7]\s+)*[1-7]/
+    var s=val.trim().match(ListRegex)
+    return s?s[0]===ext:false
+}
 
 /**
  * validate a ServiceInstance element
@@ -1822,19 +1834,41 @@ function validateServiceInstance(ServiceInstance, thisServiceId, SL_SCHEMA, SCHE
 	var Availability=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_Availability), SL_SCHEMA);
 	if (Availability) {
 		checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, Availability, [dvbi.e_Period], [], errs, "SI121")
-		checkAttributes(Availability, [], [dvbi.a_validFrom, dvbi.a_validTo], errs, "SI122")
 		var Period, p=0;
-		while (Period=Availability.get(xPath(SCHEMA_PREFIX, dvbi.e_Period, ++p), SL_SCHEMA)) 
+		while (Period=Availability.get(xPath(SCHEMA_PREFIX, dvbi.e_Period, ++p), SL_SCHEMA)) {
+			checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, Period, [], [dvbi.e_Interval], errs, "SI122")
+			checkAttributes(Period, [], [dvbi.a_validFrom, dvbi.a_validTo], errs, "SI123")
 			if (Period.attr(dvbi.a_validFrom) && Period.attr(dvbi.a_validTo)) {
 				// validTo should be >= validFrom
 				var fr=new Date(Period.attr(dvbi.a_validFrom).value()), 
 					to=new Date(Period.attr(dvbi.a_validTo).value());
 			
 				if (to.getTime() < fr.getTime()) 
-					errs.pushCode("SI123", "invalid availability period for service "+thisServiceId.quote()+". "+fr+">"+to, "period start>end");
+					errs.pushCode("SI124", "invalid availability period for service "+thisServiceId.quote()+". "+fr+">"+to, "period start>end");
 			}
-	}
+			
+			var Interval, i=0
+			while (Interval=Period.get(xPath(SCHEMA_PREFIX, dvbi.e_Interval, ++i), SL_SCHEMA)) {
+				checkAttributes(Interval, [], [dvbi.a_days, dvbi.a_recurrence, dvbi.a_startTime, dvbi.a_endTime], errs, "SI125")
+				
+				if (Interval.attr(dvbi.a_days) && !validServiceDaysList(Interval.attr(dvbi.a_days).value()))
+					errs.pushCode("SI126", dvbi.a_days.attribute(dvbi.e_Interval)+" is invalid ("+Interval.attr(dvbi.a_days).value().quote()+")")
+				
+				if (Interval.attr(dvbi.a_recurrence)) {
+					// TODO::
+				}
 
+				if (Interval.attr(dvbi.a_startTime)) {
+					// TODO::
+				}
+
+				if (Interval.attr(dvbi.a_endTime)) {
+					// TODO::
+				}
+				
+			}
+		}
+	}
 
 	// <ServiceInstance><SubscriptionPackage>
 	checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, dvbi.e_SubscriptionPackage, ServiceInstance.name().elementize(), ServiceInstance, errs, "SI131")
@@ -2123,8 +2157,6 @@ function validateServiceInstance(ServiceInstance, thisServiceId, SL_SCHEMA, SCHE
 		}
 	}
 }
-
-
 
 
 /**
