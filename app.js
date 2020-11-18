@@ -385,7 +385,7 @@ function validDASHcontentType(contentType) {
  * @param {any}   value            value to match with val: in the allowed values
  * @returns {boolean} true if {index, value} pair exists in the list of allowed values, else false
  */
-function match(debug, permittedValues, index, value) {
+function match(permittedValues, index, value) {
 	if (!value) return false
 	let i=permittedValues.find(elem => elem.ver==index)
 	return i && i.val==value
@@ -665,7 +665,7 @@ function validateRelatedMaterial(RelatedMaterial, errs, Location, LocationType, 
 				if (validContentFinishedBanner(HowRelated, SCHEMA_NAMESPACE) && (SchemaVersion(SCHEMA_NAMESPACE)==SCHEMA_v1)) 
 					errs.pushCode(errcode?errcode+"-21":"RM021", dvbi.BANNER_CONTENT_FINISHED_v2.quote()+" not permitted for "+SCHEMA_NAMESPACE.quote()+" in "+Location, "invalid CS value");
 				
-				if (validOutScheduleHours(HowRelated, SCHEMA_NAMESPACE) || validContentFinishedBanner(HowRelated, SCHEMA_NAMESPACE) ||validServiceApplication(HowRelated) || validServiceLogo(HowRelated, SCHEMA_NAMESPACE)) {
+				if (validOutScheduleHours(HowRelated, SCHEMA_NAMESPACE) || validContentFinishedBanner(HowRelated, SCHEMA_NAMESPACE) || validServiceApplication(HowRelated) || validServiceLogo(HowRelated, SCHEMA_NAMESPACE)) {
 					if (validServiceLogo(HowRelated, SCHEMA_NAMESPACE) || validOutScheduleHours(HowRelated, SCHEMA_NAMESPACE))
 						MediaLocator.forEach(locator =>
 							checkValidLogo(HowRelated, Format, locator, errs, Location, LocationType));

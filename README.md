@@ -53,7 +53,7 @@ Checks performed:
 ## Installation
 1. Clone this repository `git clone --recurse-submodules https://github.com/paulhiggs/dvb-sl-check.git`
 1. Install necessary libraries (express, libxmljs, morgan)  `npm install`
-1. run it - `node app [--urls]`
+1. run it - `node app [--urls] [--port 3010] [--sport 3011]`
 
 If you want to start an HTTPS server, make sure you have `selfsigned.crt` and `selfsigned.key` files in the same directory. These can be generated (on Linux) with `sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout ./selfsigned.key -out selfsigned.crt`
 
