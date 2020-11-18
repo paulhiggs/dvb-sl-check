@@ -1655,6 +1655,21 @@ function validServiceDaysList(val) {
     return s?s[0]===ext:false
 }
 
+
+/**
+ * check that a values conforms to the ZuluTimeType type
+ *
+ * @param {string} the value to check, likely from an Interval@startTime or @endTime attributes
+ * @returns {boolean} true if the value is properly formated
+ */
+function validZuluTimeType(val) {
+	// <pattern value="(([01]\d|2[0-3]):[0-5]\d:[0-5]\d(\.\d+)?|(24:00:00(\.0+)?))Z"/>
+	const ZuluRegex=/(([01]\d|2[0-3]):[0-5]\d:[0-5]\d(\.\d+)?|(24:00:00(\.0+)?))Z/
+    var s=val.trim().match(ZuluRegex)
+    return s?s[0]===ext:false
+}
+
+
 /**
  * validate a ServiceInstance element
  *
@@ -1858,14 +1873,11 @@ function validateServiceInstance(ServiceInstance, thisServiceId, SL_SCHEMA, SCHE
 					// TODO::
 				}
 
-				if (Interval.attr(dvbi.a_startTime)) {
-					// TODO::
-				}
+				if (Interval.attr(dvbi.a_startTime) && !validZuluTimeType(Interval.attr(dvbi.a_startTime).value())) 
+					errs.pushCode("SI128", dvbi.a_days.a_startTime(dvbi.e_Interval)+" is invalid ("+Interval.attr(dvbi.a_startTime).value().quote()+")")
 
-				if (Interval.attr(dvbi.a_endTime)) {
-					// TODO::
-				}
-				
+				if (Interval.attr(dvbi.a_endTime) && !validZuluTimeType(Interval.attr(dvbi.a_endTime).value())) 
+					errs.pushCode("SI129", dvbi.a_days.a_endTime(dvbi.e_Interval)+" is invalid ("+Interval.attr(dvbi.a_endTime).value().quote()+")")
 			}
 		}
 	}
