@@ -1449,41 +1449,33 @@ function isIPorDomain(arg) {
  *
  */
 function checkFECLayerAddressType(layerParams, errs, errcode=null) {
+	
+	function invalidValue(errs, errcode, elementName, attribName, attribValue) {
+		errs.pushCode(errcode, "Invalid value "+attribValue.quote()+" for "+attribName.attribute(elementName), "invalid value")	
+	}
+	
 	checkAttributes(layerParams, [], [dvbi.a_Address, dvbi.a_Source, dvbi.a_Port, dvbi.a_MaxBitrate, dvbi.a_RTSPControlURL, dvbi.a_PayloadTypeNumber, dvbi.a_TransportProtocol], errs, errcode?errcode+"-01":"LA001")
 	
-	if (layerParams.attr(dvbi.a_Address)) {
-		if (!isIPorDomain(layerParams.attr(dvbi.a_Address).value()))
-			errs.pushCode(errcode?errcode+"-02":"LA002", "Invalid value "+layerParams.attr(dvbi.a_Address).value().quote()+" for "+dvbi.a_Address.attribute(layerParams.name()), "invalid value")
-	}
+	if (layerParams.attr(dvbi.a_Address) && !isIPorDomain(layerParams.attr(dvbi.a_Address).value()))
+		invalidValue(errs, errcode?errcode+"-02":"LA002", layerParams.name(), dvbi.a_Address, layerParams.attr(dvbi.a_Address).value())
 	
-	if (layerParams.attr(dvbi.a_Source)) {
-		if (!isIPorDomain(layerParams.attr(dvbi.a_Source).value()))
-			errs.pushCode(errcode?errcode+"-03":"LA003", "Invalid value "+layerParams.attr(dvbi.a_Source).value().quote()+" for "+dvbi.a_Source.attribute(layerParams.name()), "invalid value")
-	}
+	if (layerParams.attr(dvbi.a_Source) && !isIPorDomain(layerParams.attr(dvbi.a_Source).value()))
+		invalidValue(errs, errcode?errcode+"-03":"LA003", layerParams.name(), dvbi.a_Source, layerParams.attr(dvbi.a_Source).value())
 	
-	if (layerParams.attr(dvbi.a_Port)) {
-		if (!isUnsignedShort(layerParams.attr(dvbi.a_Port).value()))
-			errs.pushCode(errcode?errcode+"-04":"LA004", "Invalid value "+layerParams.attr(dvbi.a_Port).value().quote()+" for "+dvbi.a_Port.attribute(layerParams.name()), "invalid value")		
-	}
+	if (layerParams.attr(dvbi.a_Port) && !isUnsignedShort(layerParams.attr(dvbi.a_Port).value()))
+		invalidValue(errs, errcode?errcode+"-04":"LA004", layerParams.name(), dvbi.a_Port, layerParams.attr(dvbi.a_Port).value())		
 	
-	if (layerParams.attr(dvbi.a_MaxBitrate)) {
-		if (!isPositiveInteger(layerParams.attr(dvbi.a_MaxBitrate).value()))
-			errs.pushCode(errcode?errcode+"-05":"LA005", "Invalid value "+layerParams.attr(dvbi.a_MaxBitrate).value().quote()+" for "+dvbi.a_MaxBitrate.attribute(layerParams.name()), "invalid value")					
-	}
+	if (layerParams.attr(dvbi.a_MaxBitrate) && !isPositiveInteger(layerParams.attr(dvbi.a_MaxBitrate).value()))
+		invalidValue(errs, errcode?errcode+"-05":"LA005", layerParams.name(), dvbi.a_MaxBitrate, layerParams.attr(dvbi.a_MaxBitrate).value())	
 	
-	if (layerParams.attr(dvbi.a_RTSPControlURL)) {
-		// TODO:
-	}
-	
-	if (layerParams.attr(dvbi.a_PayloadTypeNumber)) {
-		if (!isUnsignedInt(layerParams.attr(dvbi.a_MaxBitrate).value()))
-			errs.pushCode(errcode?errcode+"-05":"LA005", "Invalid value "+layerParams.attr(dvbi.a_MaxBitrate).value().quote()+" for "+dvbi.a_MaxBitrate.attribute(layerParams.name()), "invalid value")			
-	}
-	
-	if (layerParams.attr(dvbi.a_TransportProtocol)) {
-		if (!isIn(dvbi.ALLOWED_TRANSPORT_PROTOCOLS, layerParams.attr(dvbi.a_TransportProtocol).value()))
-			errs.pushCode(errcode?errcode+"-06":"LA006", "Invalid value "+val.quote()+" for "+dvbi.a_TransportProtocol.attribute(layerParams.name()), "invalid value")
-	}
+	if (layerParams.attr(dvbi.a_RTSPControlURL) && !isRTSPURL(layerParams.attr(dvbi.a_RTSPControlURL).value())) 
+		invalidValue(errs, errcode?errcode+"-06":"LA006", layerParams.name(), dvbi.a_RTSPControlURL, layerParams.attr(dvbi.a_RTSPControlURL).value())	
+			
+	if (layerParams.attr(dvbi.a_PayloadTypeNumber) && !isUnsignedInt(layerParams.attr(dvbi.a_MaxBitrate).value()))
+		invalidValue(errs, errcode?errcode+"-07":"LA007", layerParams.name(), dvbi.a_PayloadTypeNumber, layerParams.attr(dvbi.a_PayloadTypeNumber).value())
+			
+	if (layerParams.attr(dvbi.a_TransportProtocol) && !isIn(dvbi.ALLOWED_TRANSPORT_PROTOCOLS, layerParams.attr(dvbi.a_TransportProtocol).value()))
+		invalidValue(errs, errcode?errcode+"-08":"LA008", layerParams.name(), dvbi.a_TransportProtocol, layerParams.attr(dvbi.a_TransportProtocol).value())
 }
 
 
