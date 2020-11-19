@@ -557,19 +557,21 @@ function checkValidLogo(HowRelated, Format, MediaLocator, errs, Location, Locati
     }
 
     if (MediaLocator) {
-        var subElems=MediaLocator.childNodes(), hasMediaURI=false;
+        let subElems=MediaLocator.childNodes(), hasMediaURI=false;
         if (subElems) subElems.forEach(child => {
             if (child.name()==tva.e_MediaUri) {
                 hasMediaURI=true;
-                if (child.attr(dvbi.a_contentType)) {
-                   var contentType=child.attr(dvbi.a_contentType).value();
+				checkAttributes(child, [tva.a_contentType], [tva.a_uriType], errs, "VL021")
+				
+                if (child.attr(tva.a_contentType)) {
+                    let contentType=child.attr(tva.a_contentType).value();
                     if (!isJPEGmime(contentType) && !isPNGmime(contentType))
-                        errs.pushCode("VL022", "invalid "+dvbi.a_contentType.attribute()+" "+contentType.quote()+" specified for "+tva.e_RelatedMaterial.elementize()+tva.e_MediaLocator.elementize()+" in "+Location, "invalid "+dvbi.a_contentType.attribute(tva.e_MediaUri));
+                        errs.pushCode("VL022", "invalid "+tva.a_contentType.attribute()+" "+contentType.quote()+" specified for "+tva.e_RelatedMaterial.elementize()+tva.e_MediaLocator.elementize()+" in "+Location, "invalid "+tva.a_contentType.attribute(tva.e_MediaUri));
                     if (Format && ((isJPEGmime(contentType) && !isJPEG) || (isPNGmime(contentType) && !isPNG))) 
                         errs.pushCode("VL023", "conflicting media types in "+tva.e_Format.elementize()+" and "+tva.e_MediaUri.elementize()+" for "+Location, "conflicting mime types");					
 				}
-				else
-                    errs.pushCode("VL021", dvbi.a_contentType.attribute()+" not specified for logo "+tva.e_MediaUri.elementize()+" in "+Location, "unspecified "+dvbi.a_contentType.attribute(tva.e_MediaUri));
+/*				else
+                    errs.pushCode("VL021", tva.a_contentType.attribute()+" not specified for logo "+tva.e_MediaUri.elementize()+" in "+Location, "unspecified "+tva.a_contentType.attribute(tva.e_MediaUri)); */
             }
         });
         if (!hasMediaURI) 
@@ -601,11 +603,12 @@ function checkSignalledApplication(HowRelated, Format, MediaLocator, errs, Locat
         if (subElems) subElems.forEach(child => {
             if (child.name()==tva.e_MediaUri) {
                 hasMediaURI=true;
-                if (child.attr(dvbi.a_contentType)) {
-					if (!validApplicationType(child.attr(dvbi.a_contentType).value)) 
-                        errs.pushCodeW("SA003", dvbi.a_contentType.attribute()+" "+child.attr(dvbi.a_contentType).value().quote()+" is not DVB AIT for "+tva.e_RelatedMaterial.elementize()+tva.e_MediaLocator.elementize()+" in "+Location, "invalid "+dvbi.a_contentType.attribute(tva.e_MediaUri));
+				checkAttributes(child, [tva.a_contentType], [tva.a_uriType], errs, "SA002")
+                if (child.attr(tva.a_contentType)) {
+					if (!validApplicationType(child.attr(tva.a_contentType).value)) 
+                        errs.pushCodeW("SA003", tva.a_contentType.attribute()+" "+child.attr(tva.a_contentType).value().quote()+" is not DVB AIT for "+tva.e_RelatedMaterial.elementize()+tva.e_MediaLocator.elementize()+" in "+Location, "invalid "+tva.a_contentType.attribute(tva.e_MediaUri));
 				}
-				else errs.pushCode("SA002", dvbi.a_contentType.attribute()+" not specified for "+tva.e_MediaUri.elementize()+" in "+Location, "unspecified "+dvbi.a_contentType.attribute(tva.e_MediaUri));
+/*				else errs.pushCode("SA002", tva.a_contentType.attribute()+" not specified for "+tva.e_MediaUri.elementize()+" in "+Location, "unspecified "+tva.a_contentType.attribute(tva.e_MediaUri)); */
             }
         });
         if (!hasMediaURI) 
@@ -1891,7 +1894,7 @@ function validateServiceInstance(ServiceInstance, thisServiceId, SL_SCHEMA, SCHE
 			invalidValue(errs, "SI143", dvbi.e_FTAContentManagement, dvbi.a_doNotScramble, dns)
 					
 		let cRAOI=FTAContentManagement.attr(dvbi.a_controlRemoteAccessOverInternet)?FTAContentManagement.attr(dvbi.a_controlRemoteAccessOverInternet).value():null;	
-		if (cRAOI && (cRAOI < 0 || cRAOI > 3))  // TODO: check this - the attr() above returns a string
+		if (cRAOI && (parseInt(cRAOI) < 0 || parseInt(cRAOI) > 3))
 			invalidValue(errs, "SI144", dvbi.e_FTAContentManagement, dvbi.a_controlRemoteAccessOverInternet, cRAOI)
 		
 		let dnar=FTAContentManagement.attr(dvbi.a_doNotApplyRevocation)?FTAContentManagement.attr(dvbi.a_doNotApplyRevocation).value():null;
@@ -1979,9 +1982,8 @@ function validateServiceInstance(ServiceInstance, thisServiceId, SL_SCHEMA, SCHE
 			checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, URILoc, [dvbi.e_URI], [], errs, "SI171")
 			checkAttributes(URILoc, [dvbi.a_contentType], [], errs, "SI172")
 			var uriContentType=URILoc.attr(dvbi.a_contentType);
-			if (uriContentType) 
-				if (!validDASHcontentType(uriContentType.value()))
-					errs.pushCode("SI173", dvbi.a_contentType.attribute()+"="+uriContentType.value().quote()+" in service "+thisServiceId.quote()+" is not valid", "no "+dvbi.a_contentType.attribute()+" for DASH");	
+			if (uriContentType && !validDASHcontentType(uriContentType.value()))
+				errs.pushCode("SI173", dvbi.a_contentType.attribute()+"="+uriContentType.value().quote()+" in service "+thisServiceId.quote()+" is not valid", "no "+dvbi.a_contentType.attribute()+" for DASH");	
 		}
 		
 		// <DASHDeliveryParameters><MinimumBitRate>
@@ -2008,27 +2010,25 @@ function validateServiceInstance(ServiceInstance, thisServiceId, SL_SCHEMA, SCHE
 		haveDVBT=true
 		checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, DVBTDeliveryParameters, [dvbi.e_DVBTriplet, dvbi.e_TargetCountry], [], errs, "SI180")
 
-		var DVBTtriplet=DVBTDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_DVBTriplet), SL_SCHEMA);
+		let DVBTtriplet=DVBTDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_DVBTriplet), SL_SCHEMA);
 		if (DVBTtriplet) 
 			validateTriplet(DVBTtriplet, errs, "SI181")
 
-		var DVBTtargetCountry=DVBTDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_TargetCountry), SL_SCHEMA);
-		if (DVBTtargetCountry)
-			if (!knownCountries.isISO3166code(DVBTtargetCountry.text())) 
-				InvalidCountryCode(errs, DVBTtargetCountry.text(), "DVB-T", "service "+thisServiceId.quote(), "SI182");
+		let DVBTtargetCountry=DVBTDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_TargetCountry), SL_SCHEMA);
+		if (DVBTtargetCountry && !knownCountries.isISO3166code(DVBTtargetCountry.text())) 
+			InvalidCountryCode(errs, DVBTtargetCountry.text(), "DVB-T", "service "+thisServiceId.quote(), "SI182");
 	}
 
 	// <ServiceInstance><DVBCDeliveryParameters>
-	var DVBCDeliveryParameters=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_DVBCDeliveryParameters), SL_SCHEMA);
+	let DVBCDeliveryParameters=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_DVBCDeliveryParameters), SL_SCHEMA);
 	if (DVBCDeliveryParameters) {
 		checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, DVBCDeliveryParameters, [dvbi.e_TargetCountry, dvbi.e_NetworkID], [dvbi.e_DVBTriplet], errs, "SI190")
 		
-		var DVBCtargetCountry=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_DVBCDeliveryParameters)+"/"+xPath(SCHEMA_PREFIX, dvbi.e_TargetCountry), SL_SCHEMA);
-		if (DVBCtargetCountry)
-			if (!knownCountries.isISO3166code(DVBCtargetCountry.text()))  
-				InvalidCountryCode(errs, DVBCtargetCountry.text(), "DVB-C", "service "+thisServiceId.quote(), "SI191");
+		let DVBCtargetCountry=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_DVBCDeliveryParameters)+"/"+xPath(SCHEMA_PREFIX, dvbi.e_TargetCountry), SL_SCHEMA);
+		if (DVBCtargetCountry && !knownCountries.isISO3166code(DVBCtargetCountry.text()))  
+			InvalidCountryCode(errs, DVBCtargetCountry.text(), "DVB-C", "service "+thisServiceId.quote(), "SI191");
 		
-		var DVBCnetworkId=DVBCDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_NetworkID), SL_SCHEMA);
+		let DVBCnetworkId=DVBCDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_NetworkID), SL_SCHEMA);
 		if (DVBCnetworkId) {
 			var val=parseInt(DVBCnetworkId.text());
 			if (DVBCnetworkId.text()=="" || val<0 || val>MAX_UNSIGNED_SHORT)
@@ -2036,7 +2036,7 @@ function validateServiceInstance(ServiceInstance, thisServiceId, SL_SCHEMA, SCHE
 					dvbi.e_NetworkID.elementize()+" ("+DVBCnetworkId.text()+")")
 		}
 
-		var DVBCtriplet=DVBCDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_DVBTriplet), SL_SCHEMA);
+		let DVBCtriplet=DVBCDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_DVBTriplet), SL_SCHEMA);
 		if (DVBCtriplet) 
 			validateTriplet(DVBCtriplet, errs, "SI193")
 	}
@@ -2052,20 +2052,16 @@ function validateServiceInstance(ServiceInstance, thisServiceId, SL_SCHEMA, SCHE
 			validateTriplet(DVBStriplet, errs, "SI201")
 		
 		var DVBSorbitalPosition=DVBSDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_OrbitalPosition), SL_SCHEMA);
-		if (DVBSorbitalPosition) {
-			if (!validLongitude(DVBSorbitalPosition.text()))
-				errs.pushCode("SI202", "invalid value for "+dvbi.e_DVBSDeliveryParameters+elementize()+dvbi.OrbitalPosition.elementize()+" ("+DVBSorbitalPosition.text()+")")
-		}
+		if (DVBSorbitalPosition && !validLongitude(DVBSorbitalPosition.text()))
+			errs.pushCode("SI202", "invalid value for "+dvbi.e_DVBSDeliveryParameters+elementize()+dvbi.OrbitalPosition.elementize()+" ("+DVBSorbitalPosition.text()+")")
+
 		var DVBSfrequency=DVBSDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_Frequency), SL_SCHEMA);
-		if (DVBSfrequency) {
-			if (!validFrequency(DVBSfrequency.text()))
-				errs.pushCode("SI203", "invalid value for "+dvbi.e_DVBSDeliveryParameters+elementize()+dvbi.Frequency.elementize()+" ("+DVBSfrequency.text()+")")
-		}
+		if (DVBSfrequency && !validFrequency(DVBSfrequency.text()))
+			errs.pushCode("SI203", "invalid value for "+dvbi.e_DVBSDeliveryParameters+elementize()+dvbi.Frequency.elementize()+" ("+DVBSfrequency.text()+")")
+
 		var DVBSpolarization=DVBSDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_Polarization), SL_SCHEMA);
-		if (DVBSpolarization) {
-			if (!isIn(dvbi.DVBS_POLARIZATION_VALUES, DVBSpolarization.text()))
-				errs.pushCode("SI204", "invalid value for "+dvbi.e_DVBSDeliveryParameters.elementize()+dvbi.e_Polarization.elementize()+" ("+DVBSpolarization.text()+")")
-		}
+		if (DVBSpolarization && !isIn(dvbi.DVBS_POLARIZATION_VALUES, DVBSpolarization.text()))
+			errs.pushCode("SI204", "invalid value for "+dvbi.e_DVBSDeliveryParameters.elementize()+dvbi.e_Polarization.elementize()+" ("+DVBSpolarization.text()+")")
 	}
 
 	// <ServiceInstance><SATIPDeliveryParameters>			
@@ -2079,45 +2075,44 @@ function validateServiceInstance(ServiceInstance, thisServiceId, SL_SCHEMA, SCHE
 	}
 
 	// <ServiceInstance><RTSPDeliveryParameters>
-	var RTSPDeliveryParameters=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_RTSPDeliveryParameters), SL_SCHEMA)
+	let RTSPDeliveryParameters=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_RTSPDeliveryParameters), SL_SCHEMA)
 	if (RTSPDeliveryParameters) {
 		checkTopElements(SL_SCHEMA, SL_PREFIX, RTSPDeliveryParameters, [dvbi.e_RTSPURL], [dvbi.e_DVBTriplet, dvbi.e_MinimumBitRate], errs, "SI220")
 		
-		var Triplet=RTSPDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_DVBTriplet), SL_SCHEMA)
+		let Triplet=RTSPDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_DVBTriplet), SL_SCHEMA)
 		if (Triplet) 
 			validateTriplet(Triplet, errs, "SI221")
 		
-		var RTSPURL=RTSPDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_RTSPURL), SL_SCHEMA)
+		let RTSPURL=RTSPDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_RTSPURL), SL_SCHEMA)
 		if (RTSPURL) {
 			checkAttributes(RTSPURL, [], [dvbi.a_RTSPControlURL], errs, "SI222")
 			if (!isRTSPURL(RTSPURL.text()))
 				errs.pushCode("SI223", RTSPURL.text().quote()+" is not a valid RTSP URL", "invalid URL")
 		}
 
-		var MinimumBitRate=RTSPDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_MinimumBitRate), SL_SCHEMA)
+		let MinimumBitRate=RTSPDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_MinimumBitRate), SL_SCHEMA)
 		if (MinimumBitRate && !isUnsignedInt(MinimumBitRate.text()))
 			errs.pushCode("SI224", MinimumBitRate.text().quote()+" is not valid for "+dvbi.e_MinimumBitRate.elementize(), "invalid value")			
 	}
 	
 	// <ServiceInstance><MulticastTSDeliveryParameters>
-	var MulticastTSDeliveryParameters=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_MulticastTSDeliveryParameters), SL_SCHEMA)
+	let MulticastTSDeliveryParameters=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_MulticastTSDeliveryParameters), SL_SCHEMA)
 	if (MulticastTSDeliveryParameters) {
 		checkTopElements(SL_SCHEMA, SL_PREFIX, MulticastTSDeliveryParameters, [dvbi.e_IPMulticastAddress], [dvbi.e_DVBTriplet, dvbi.e_MinimumBitRate], errs, "SI230")
 		
-		var Triplet=MulticastTSDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_DVBTriplet), SL_SCHEMA)
+		let Triplet=MulticastTSDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_DVBTriplet), SL_SCHEMA)
 		if (Triplet) 
 			validateTriplet(Triplet, errs, "SI230")
 		
-		var IPMulticastAddress=MulticastTSDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_IPMulticastAddress), SL_SCHEMA)
+		let IPMulticastAddress=MulticastTSDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_IPMulticastAddress), SL_SCHEMA)
 		if (IPMulticastAddress) {
 			checkTopElements(SL_SCHEMA, SL_PREFIX, IPMulticastAddress, [], [dvbi.e_FECBaseLayer, dvbi.e_FECEnhancementLayer, dvbi.e_CNAME, dvbi.e_ssrc, dvbi.e_RTPRetransmission], errs, "SI232")
 			
-			var FECBaseLayer=IPMulticastAddress.get(xPath(SCHEMA_PREFIX, dvbi.e_FECBaseLayer), SL_SCHEMA)
+			let FECBaseLayer=IPMulticastAddress.get(xPath(SCHEMA_PREFIX, dvbi.e_FECBaseLayer), SL_SCHEMA)
 			if (FECBaseLayer) 
 				checkFECLayerAddressType(FECBaseLayer, errs, "SI233")
 
-			
-			var el=0, FECEnhancementLayer;
+			let el=0, FECEnhancementLayer;
 			while (FECEnhancementLayer=IPMulticastAddress.get(xPath(SCHEMA_PREFIX, dvbi.e_FECEnhancementLayer, ++el), SL_SCHEMA)) 
 				checkFECLayerAddressType(FECEnhancementLayer, errs, "SI234")
 			
@@ -2126,7 +2121,7 @@ function validateServiceInstance(ServiceInstance, thisServiceId, SL_SCHEMA, SCHE
 				// TODO:
 			}
 			
-			var ssrc=IPMulticastAddress.get(xPath(SCHEMA_PREFIX, dvbi.e_ssrc), SL_SCHEMA)
+			let ssrc=IPMulticastAddress.get(xPath(SCHEMA_PREFIX, dvbi.e_ssrc), SL_SCHEMA)
 			if (ssrc && !isUnsignedInt(ssrc.text()))
 				invalidValue(errs, "SI236", dvbi.e_ssrc, null, ssrc.text())
 			
@@ -2137,21 +2132,17 @@ function validateServiceInstance(ServiceInstance, thisServiceId, SL_SCHEMA, SCHE
 		}
 		
 		var MinimumBitRate=MulticastTSDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_MinimumBitRate), SL_SCHEMA)
-		if (MinimumBitRate) {
-			if (!isUnsignedInt(MinimumBitRate.text()))
-				errs.pushCode("SI238", MinimumBitRate.text().quote()+" is not valid for "+dvbi.e_MinimumBitRate.elementize(), "invalid value")
-		}
+		if (MinimumBitRate && !isUnsignedInt(MinimumBitRate.text()))
+			errs.pushCode("SI238", MinimumBitRate.text().quote()+" is not valid for "+dvbi.e_MinimumBitRate.elementize(), "invalid value")
 	}
 	
 	// <ServiceInstance><OtherDeliveryParameters>			
-	var OtherDeliveryParameters=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_OtherDeliveryParameters), SL_SCHEMA);
+	let OtherDeliveryParameters=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_OtherDeliveryParameters), SL_SCHEMA);
 	if (OtherDeliveryParameters) {
 		checkAttributes(OtherDeliveryParameters, [dvbi.a_extensionName], [], errs, "SI250")
 
-		if (OtherDeliveryParamers.attr(dvbi.a_extensionName)) {
-			if (!validExtensionName(OtherDeliveryParamers.attr(dvbi.a_extensionName).value()))
-				errs.pushCode("SI251", dvbi.a_extensionName.attribute()+"="+OtherDeliveryParameters.attr(dvbi.a_extensionName).value().quote()+" is not valid in service "+thisServiceId.quote(), "invalid "+dvbi.a_extensionName.attribute());
-		}
+		if (OtherDeliveryParamers.attr(dvbi.a_extensionName) && !validExtensionName(OtherDeliveryParamers.attr(dvbi.a_extensionName).value()))
+			errs.pushCode("SI251", dvbi.a_extensionName.attribute()+"="+OtherDeliveryParameters.attr(dvbi.a_extensionName).value().quote()+" is not valid in service "+thisServiceId.quote(), "invalid "+dvbi.a_extensionName.attribute());
 	}
 }
 
