@@ -1366,9 +1366,9 @@ function validateAContentGuideSource(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE,
 	// does not have any language specified
 	checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, dvbi.e_ProviderName, loc, source, errs, errCode?errCode+"b":"GS004");
 	
-	var rm=0, CGrm;
-	while (CGrm=source.get(xPath(SCHEMA_PREFIX, tva.e_RelatedMaterial, ++rm), SL_SCHEMA))
-		validateRelatedMaterial(CGrm, errs, loc, CONTENT_GUIDE_RM, SCHEMA_NAMESPACE, "GS005");
+	let rm=0, RelatedMaterial;
+	while (RelatedMaterial=source.get(xPath(SCHEMA_PREFIX, tva.e_RelatedMaterial, ++rm), SL_SCHEMA))
+		validateRelatedMaterial(RelatedMaterial, errs, loc, CONTENT_GUIDE_RM, SCHEMA_NAMESPACE, "GS005");
 }
 
 
@@ -1406,6 +1406,7 @@ function validateContentProtection(ContentProtection, errs, Location, SL_SCHEMA,
 			errs.pushCode("CP022", scheme.quote()+" is not valid for "+dvbi.a_encryptionScheme.attribute(ContentProtection.name()))
 	}
 }
+
 
 /**
  * validate an element against a TV-Anytime BitrateType
@@ -1456,7 +1457,6 @@ function isIPorDomain(arg) {
  * @param {object} layerParams    The node of the element to check
  * @param {Class}  errs           Errors found in validaton
  * @param {string} errCode        Error code prefix to be used in reports, if not present then use local codes
- *
  */
 function checkFECLayerAddressType(layerParams, errs, errcode=null) {
 	checkAttributes(layerParams, [], [dvbi.a_Address, dvbi.a_Source, dvbi.a_Port, dvbi.a_MaxBitrate, dvbi.a_RTSPControlURL, dvbi.a_PayloadTypeNumber, dvbi.a_TransportProtocol], errs, errcode?errcode+"-01":"LA001")
@@ -1487,7 +1487,7 @@ function checkFECLayerAddressType(layerParams, errs, errcode=null) {
 /**
  * validate an element against a TVA AspectRatioType
  *
- * @param {object} node    The node of the element to check
+ * @param {object} node           The node of the element to check
  * @param {Class}  errs           Errors found in validaton
  * @param {string} errCode        Error code prefix to be used in reports, if not present then use local codes
  */
@@ -1550,73 +1550,73 @@ function ValidateSynopsisType(SCHEMA, SCHEMA_PREFIX, Element, ElementName, requi
 		return
 	}
 	var s=0, ste, hasBrief=false, hasShort=false, hasMedium=false, hasLong=false, hasExtended=false;
-	var briefLangs=[], shortLangs=[], mediumLangs=[], longLangs=[], extendedLangs=[];
+	let briefLangs=[], shortLangs=[], mediumLangs=[], longLangs=[], extendedLangs=[];
 	while (ste=Element.get(xPath(SCHEMA_PREFIX, ElementName, ++s), SCHEMA)) {
 		
 		checkAttributes(SCHEMA, SCHEMA_PREFIX, ste, [tva.a_length], [tva.a_lang], errs, errcode?errcode+"-1":"SY001");
 
-		var synopsisLang=GetLanguage(knownLanguages, errs, ste, parentLanguage, false, errcode?errcode+"-2":"SY002");
-		var synopsisLength=ste.attr(tva.a_length)?ste.attr(tva.a_length).value():null;
+		let synopsisLang=GetLanguage(knownLanguages, errs, ste, parentLanguage, false, errcode?errcode+"-2":"SY002");
+		let synopsisLength=ste.attr(tva.a_length)?ste.attr(tva.a_length).value():null;
 		
 		if (synopsisLength) {
 			if (isIn(requiredLengths, synopsisLength) || isIn(optionalLengths, synopsisLength)) {
 				switch (synopsisLength) {
 					case tva.SYNOPSIS_BRIEF_LABEL:
 						if ((unEntity(ste.text()).length) > tva.SYNOPSIS_BRIEF_LENGTH)
-							errs.pushCode(errCode?errCode+"-10":"SY010", synopsisLengthError(ElementName, tva.SYNOPSIS_BRIEF_LABEL, tva.SYNOPSIS_BRIEF_LENGTH));
+							errs.pushCode(errCode?errCode+"-10":"SY010", synopsisLengthError(ElementName, tva.SYNOPSIS_BRIEF_LABEL, tva.SYNOPSIS_BRIEF_LENGTH), "synopsis");
 						hasBrief=true;
 						break;
 					case tva.SYNOPSIS_SHORT_LABEL:
 						if ((unEntity(ste.text()).length) > tva.SYNOPSIS_SHORT_LENGTH)
-							errs.pushCode(errCode?errCode+"-11":"SY011", synopsisLengthError(ElementName, tva.SYNOPSIS_SHORT_LABEL, tva.SYNOPSIS_SHORT_LENGTH));
+							errs.pushCode(errCode?errCode+"-11":"SY011", synopsisLengthError(ElementName, tva.SYNOPSIS_SHORT_LABEL, tva.SYNOPSIS_SHORT_LENGTH), "synopsis");
 						hasShort=true;
 						break;
 					case tva.SYNOPSIS_MEDIUM_LABEL:
 						if ((unEntity(ste.text()).length) > tva.SYNOPSIS_MEDIUM_LENGTH)
-							errs.pushCode(errCode?errCode+"-12":"SY012", synopsisLengthError(ElementName, tva.SYNOPSIS_MEDIUM_LABEL, tva.SYNOPSIS_MEDIUM_LENGTH));
+							errs.pushCode(errCode?errCode+"-12":"SY012", synopsisLengthError(ElementName, tva.SYNOPSIS_MEDIUM_LABEL, tva.SYNOPSIS_MEDIUM_LENGTH), "synopsis");
 						hasMedium=true;
 						break;
 					case tva.SYNOPSIS_LONG_LABEL:
 						if ((unEntity(ste.text()).length) > tva.SYNOPSIS_LONG_LENGTH)
-							errs.pushCode(errCode?errCode+"-13":"SY013", synopsisLengthError(ElementName, tva.SYNOPSIS_LONG_LABEL, tva.SYNOPSIS_LONG_LENGTH));
+							errs.pushCode(errCode?errCode+"-13":"SY013", synopsisLengthError(ElementName, tva.SYNOPSIS_LONG_LABEL, tva.SYNOPSIS_LONG_LENGTH), "synopsis");
 						hasLong=true;
 						break;						
 					case tva.SYNOPSIS_EXTENDED_LABEL:
 						if ((unEntity(ste.text()).length) < tva.SYNOPSIS_LENGTH_LENGTH)
-							errs.pushCode(errCode?errCode+"-14":"SY014", synopsisToShortError(ElementName, tva.SYNOPSIS_EXTENDED_LABEL, tva.SYNOPSIS_LONG_LENGTH));
+							errs.pushCode(errCode?errCode+"-14":"SY014", synopsisToShortError(ElementName, tva.SYNOPSIS_EXTENDED_LABEL, tva.SYNOPSIS_LONG_LENGTH), "synopsis");
 						hasExtended=true;
 						break;
 				}
 			}
 			else
-				errs.pushCode(errCode?errCode+"-15":"SY015", "@"+tva.a_length+"="+quote(synopsisLength)+" is not permitted");
+				errs.pushCode(errCode?errCode+"-15":"SY015", "@"+tva.a_length+"="+quote(synopsisLength)+" is not permitted", "synopsis");
 		}
 	
 		if (synopsisLang && synopsisLength) {
 			switch (synopsisLength) {
-				case tva.SYNOPSIS_BRIEG_LABEL:
+				case tva.SYNOPSIS_BRIEF_LABEL:
 					if (isIn(briefLangs, synopsisLang)) 
-						errs.pushCode(errCode?errCode+"-21":"SY021", singleLengthLangError(ElementName, synopsisLength, synopsisLang));
+						errs.pushCode(errCode?errCode+"-21":"SY021", singleLengthLangError(ElementName, synopsisLength, synopsisLang), "synopsis");
 					else briefLangs.push(synopsisLang);
 					break;
 				case tva.SYNOPSIS_SHORT_LABEL:
 					if (isIn(shortLangs, synopsisLang)) 
-						errs.pushCode(errCode?errCode+"-22":"SY022", singleLengthLangError(ElementName, synopsisLength, synopsisLang));
+						errs.pushCode(errCode?errCode+"-22":"SY022", singleLengthLangError(ElementName, synopsisLength, synopsisLang), "synopsis");
 					else shortLangs.push(synopsisLang);
 					break;
 				case tva.SYNOPSIS_MEDIUM_LABEL:
 					if (isIn(mediumLangs, synopsisLang)) 
-						errs.pushCode(errCode?errCode+"-23":"SY023", singleLengthLangError(ElementName, synopsisLength, synopsisLang));
+						errs.pushCode(errCode?errCode+"-23":"SY023", singleLengthLangError(ElementName, synopsisLength, synopsisLang), "synopsis");
 					else mediumLangs.push(synopsisLang);
 					break;
 				case tva.SYNOPSIS_LONG_LABEL:
 					if (isIn(longLangs, synopsisLang)) 
-						errs.pushCode(errCode?errCode+"-24":"SY024", singleLengthLangError(ElementName, synopsisLength, synopsisLang));
+						errs.pushCode(errCode?errCode+"-24":"SY024", singleLengthLangError(ElementName, synopsisLength, synopsisLang), "synopsis");
 					else longLangs.push(synopsisLang);
 					break;
 				case tva.SYNOPSIS_EXTENDED_LABEL:
 					if (isIn(extendedLangs, synopsisLang)) 
-						errs.pushCode(errCode?errCode+"-25":"SY025", singleLengthLangError(ElementName, synopsisLength, synopsisLang));
+						errs.pushCode(errCode?errCode+"-25":"SY025", singleLengthLangError(ElementName, synopsisLength, synopsisLang), "synopsis");
 					else extendedLangs.push(synopsisLang);
 					break;
 			}
@@ -1624,15 +1624,15 @@ function ValidateSynopsisType(SCHEMA, SCHEMA_PREFIX, Element, ElementName, requi
 	}
 	
 	if (isIn(requiredLengths, tva.SYNOPSIS_BRIEF_LABEL) && !hasBrief)
-		errs.pushCode(errCode?errCode+"-31":"SY031", requiredSynopsisError(tva.SYNOPSIS_BRIEF_LABEL));	
+		errs.pushCode(errCode?errCode+"-31":"SY031", requiredSynopsisError(tva.SYNOPSIS_BRIEF_LABEL), "synopsis");	
 	if (isIn(requiredLengths, tva.SYNOPSIS_SHORT_LABEL) && !hasShort)
-		errs.pushCode(errCode?errCode+"-32":"SY032",requiredSynopsisError(tva.SYNOPSIS_SHORT_LABEL));	
+		errs.pushCode(errCode?errCode+"-32":"SY032",requiredSynopsisError(tva.SYNOPSIS_SHORT_LABEL), "synopsis");	
 	if (isIn(requiredLengths, tva.SYNOPSIS_MEDIUM_LABEL) && !hasMedium)
-		errs.pushCode(errCode?errCode+"-33":"SY022",requiredSynopsisError(tva.SYNOPSIS_MEDIUM_LABEL));	
+		errs.pushCode(errCode?errCode+"-33":"SY022",requiredSynopsisError(tva.SYNOPSIS_MEDIUM_LABEL), "synopsis");	
 	if (isIn(requiredLengths, tva.SYNOPSIS_LONG_LABEL) && !hasLong)
-		errs.pushCode(errCode?errCode+"-34":"SY034",requiredSynopsisError(tva.SYNOPSIS_LONG_LABEL));	
+		errs.pushCode(errCode?errCode+"-34":"SY034",requiredSynopsisError(tva.SYNOPSIS_LONG_LABEL), "synopsis");	
 	if (isIn(requiredLengths, tva.SYNOPSIS_EXTENDED_LABEL) && !hasExtended)
-		errs.pushCode(errCode?errCode+"-35":"SY035",requiredSynopsisError(tva.SYNOPSIS_EXTENDED_LABEL));	
+		errs.pushCode(errCode?errCode+"-35":"SY035",requiredSynopsisError(tva.SYNOPSIS_EXTENDED_LABEL), "synopsis");	
 }
 
 
@@ -1667,7 +1667,12 @@ function validZuluTimeType(val) {
 /**
  * validate a ServiceInstance element
  *
- * 
+ * @param {object} ServiceInstance       the service instance element to check
+ * @param {string} thisServiceId         the identifier of the service 
+ * @param {string} SL_SCHEMA             Used when constructing Xpath queries
+ * @param {string} SCHEMA_PREFIX         Used when constructing Xpath queries
+ * @param {string} SCHEMA_NAMESPACE      The namespace of XML document * @param 
+ * @param {Class}  errs                  errors found in validaton
  */
 function validateServiceInstance(ServiceInstance, thisServiceId, SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, errs) {
 	if (!ServiceInstance) {
