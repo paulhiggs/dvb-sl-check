@@ -757,7 +757,7 @@ function isRTSPURL(arg) {
  * @param {String}  Value a string containing a integer
  * @returns {boolean} true if the argument represents a positiveInteger - https://www.w3.org/TR/xmlschema-2/#unsignedShort
  */
-function isUnsignedShort(arg){
+function isUnsignedShort(arg) {
 	if (!arg || arg=="") return false;
 	var val=parseInt(arg);
 	return !(isNaN(val) || val<0 || val>MAX_UNSIGNED_SHORT)
@@ -939,7 +939,7 @@ function drawForm(URLmode, res, lastInput=null, error=null, errors=null) {
  * @param {String} errCode    The error code to be reported
  */
 function NoDeliveryParams(errs, source, serviceId, errCode=null) {
-    errs.pushCode(errCode?errCode:"XX101", source+" delivery parameters not specified for service instance in service "+serviceId.quote(), "no delivery params");
+    errs.pushCode(errCode?errCode:"XX101", source+" delivery parameters not specified for service instance in service "+serviceId.quote(), "no delivery params")
 }
 
 
@@ -953,7 +953,7 @@ function NoDeliveryParams(errs, source, serviceId, errCode=null) {
  * @param {String} errCode  The error code to be reported
  */
 function InvalidHrefValue(errs, value, src, loc, errCode=null) {
-	errs.pushCode(errCode?errCode:"XX103", "invalid "+dvbi.a_href.attribute()+"="+value.quote()+" specified for "+src+" in "+loc, "invalid href");
+	errs.pushCode(errCode?errCode:"XX103", "invalid "+dvbi.a_href.attribute()+"="+value.quote()+" specified for "+src+" in "+loc, "invalid href")
 }
 
 
@@ -967,7 +967,7 @@ function InvalidHrefValue(errs, value, src, loc, errCode=null) {
  * @param {String} errCode  The error code to be reported
  */
 function InvalidCountryCode(errs, value, src, loc, errCode=null) {
-	errs.pushCode(errCode?errCode:"XX104", "invalid country code ("+value+") for "+src+" parameters in "+loc, "invalid country code");
+	errs.pushCode(errCode?errCode:"XX104", "invalid country code ("+value+") for "+src+" parameters in "+loc, "invalid country code")
 }
 
 
@@ -980,7 +980,7 @@ function InvalidCountryCode(errs, value, src, loc, errCode=null) {
  * @param {String} errCode  The error code to be reported
  */
 function UnspecifiedTargetRegion(errs, region, loc, errCode=null) {
-	errs.pushCode(errCode?errCode:"XX105", loc+" has an unspecified "+dvbi.e_TargetRegion.elementize()+region, "target region");	
+	errs.pushCode(errCode?errCode:"XX105", loc+" has an unspecified "+dvbi.e_TargetRegion.elementize()+region, "target region")	
 }
 
 
@@ -993,7 +993,22 @@ function UnspecifiedTargetRegion(errs, region, loc, errCode=null) {
  * @param {String} errCode  The error code to be reported
  */
 function NoMediaLocator(errs, src, loc, errCode=null) {
-	errs.pushCode(errCode?errCode:"XX106", tva.e_MediaUri.elementize()+" not specified for "+src+" "+tva.e_MediaLocator.elementize()+" in "+loc, "no "+tva.e_MediaUri);
+	errs.pushCode(errCode?errCode:"XX106", tva.e_MediaUri.elementize()+" not specified for "+src+" "+tva.e_MediaLocator.elementize()+" in "+loc, "no "+tva.e_MediaUri)
+}
+
+
+/**
+ * Add an error message when an attribite contains an invalid value
+ *
+ * @param {Object} errs             Errors buffer
+ * @param {String} errCode          The error code to be reported
+ * @param {String} elementName      The name of element 
+ * @param {String} attribName       The name of the attribute with the invalid value
+ * @param {String} attribValue      The invalid value
+ * @param {String} parentElementName The name of the parent element for elementName
+ */
+function invalidValue(errs, errcode, elementName, attribName, attribValue, parentElementName) {
+	errs.pushCode(errcode, "Invalid value "+(attribValue?(attribValue.quote()+" "):"")+"for "+(attribName?attribName.attribute(elementName):elementName.elementize())+(parentElementName?" in "+parentElementName.elementize():""), "invalid value")	
 }
 
 
@@ -1054,6 +1069,8 @@ function checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, elem, mandatoryChildElements
 	}
 	return errs.length==initialErrorCount;
 }
+
+
 
 // TODO: THIS IS NOT COMPLETE
 /**
@@ -1264,8 +1281,7 @@ function validateTriplet(triplet, errs, errCode=null) {
 	function checkTripletAttributeValue(attr, parentElemName, errs, errCode=null) {
 		if (!attr) return;
 		if (!isUnsignedShort(attr.value()))
-			errs.pushCode(errCode?errCode:"AtV001", "invalid value specified for "+
-				attr.name().attribute(parentElemName)+" ("+attr.value()+")")	
+			invalidValue(errs, errCode?errCode:"AtV001", parentElemName, attr.name(), attr.value())
 	}
 
 	if (!triplet) {
@@ -1302,6 +1318,7 @@ function validLongitude(position) {
 	if (isNaN(x)) return false
 	return (x >= -180 && x <= 180)
 }
+
 
 /**
  * determine if the value provided represents a valid transmission frequency
@@ -1393,39 +1410,29 @@ function validateContentProtection(ContentProtection, errs, Location, SL_SCHEMA,
  * @param {object} child       The node of the element to check
  * @param {Class}  errs        Errors found in validaton
  * @param {string} errCode     Error code prefix to be used in reports, if not present then use local codes
- *
  */
-function checkBitRate(child, errs, errCode=null) {
-	
-	function logAttributeError(errs, errCode, child, attributeName) {
-		errs.pushCode(errCode, "invalid value "+child.attr(attributeName).value().quote()+" for "+attributeName.attribute(child.name()), child.name()+" error")
-	}
-	
+function checkBitRate(child, errs, errCode=null) {	
 	checkAttributes(child, [], [tva.a_variable, tva.a_minimum, tva.a_average, tva.a_maximum], errs, errCode?errCode+"-01":"BR001")
 	
 	// check the value is a nonNegativeInteger
 	if (!isNonNegativeInteger(child.text()))
-		errs.pushCode(errCode?errCode+"-02":"BR002", "invalid value "+child.text().quote()+" for "+child.name().elementize(), child.name()+" error")
+		invalidValue(errs, errCode?errCode+"-02":"BR002", child.name(), null, child.text())
 	
 	// check any @variable attribute is a boolean
-	if (child.attr(tva.a_variable))
-		if (!isBoolean(child.attr(tva.a_variable).value()))
-			logAttributeError(errs, errCode?errCode+"-03":"BR003", child, tva.a_variable)
+	if (child.attr(tva.a_variable) && !isBoolean(child.attr(tva.a_variable).value()))
+		invalidValue(errs, errCode?errCode+"-03":"BR003", child.name(), tva.a_variable, child.attr(tva.a_variable).value())
 	
 	// check any @minimum attribute is an unsignedLong
-	if (child.attr(tva.a_minimum))
-		if (!isUnsignedLong(child.attr(tva.a_minimum).value()))
-			logAttributeError(errs, errCode?errCode+"-04":"BR004", child, tva.a_minimum)
+	if (child.attr(tva.a_minimum) && !isUnsignedLong(child.attr(tva.a_minimum).value()))
+		invalidValue(errs, errCode?errCode+"-04":"BR004", child.name(), tva.a_minimum, child.attr(tva.a_minimum).value())
 		
 	// check any @average attribute is an unsignedLong
-	if (child.attr(tva.a_average))
-		if (!isUnsignedLong(child.attr(tva.a_average).value()))
-			logAttributeError(errs, errCode?errCode+"-05":"BR005", child, tva.a_average)
+	if (child.attr(tva.a_average) && !isUnsignedLong(child.attr(tva.a_average).value()))
+		invalidValue(errs, errCode?errCode+"-05":"BR005", child.name(), tva.a_average, child.attr(tva.a_average).value())
 		
 	// check any @maximum attribute is an unsignedLong
-	if (child.attr(tva.a_maximum))
-		if (!isUnsignedLong(child.attr(tva.a_maximum).value()))
-			logAttributeError(errs, errCode?errCode+"-05":"BR005", child, tva.a_maximum)
+	if (child.attr(tva.a_maximum) && !isUnsignedLong(child.attr(tva.a_maximum).value()))
+		invalidValue(errs, errCode?errCode+"-06":"BR006", child.name(), tva.a_maximum, child.attr(tva.a_maximum).value())
 }
 
 
@@ -1449,11 +1456,6 @@ function isIPorDomain(arg) {
  *
  */
 function checkFECLayerAddressType(layerParams, errs, errcode=null) {
-	
-	function invalidValue(errs, errcode, elementName, attribName, attribValue) {
-		errs.pushCode(errcode, "Invalid value "+attribValue.quote()+" for "+attribName.attribute(elementName), "invalid value")	
-	}
-	
 	checkAttributes(layerParams, [], [dvbi.a_Address, dvbi.a_Source, dvbi.a_Port, dvbi.a_MaxBitrate, dvbi.a_RTSPControlURL, dvbi.a_PayloadTypeNumber, dvbi.a_TransportProtocol], errs, errcode?errcode+"-01":"LA001")
 	
 	if (layerParams.attr(dvbi.a_Address) && !isIPorDomain(layerParams.attr(dvbi.a_Address).value()))
@@ -1485,7 +1487,6 @@ function checkFECLayerAddressType(layerParams, errs, errcode=null) {
  * @param {object} node    The node of the element to check
  * @param {Class}  errs           Errors found in validaton
  * @param {string} errCode        Error code prefix to be used in reports, if not present then use local codes
- *
  */
 function checkAspectRatioType(node, errs, errcode=null) {
 	
@@ -1501,10 +1502,8 @@ function checkAspectRatioType(node, errs, errcode=null) {
 	}
 	checkAttributes(node, [], [tva.a_type], errs, errcode?errcode+"-01":"AR001")
 	
-	if (node.attr(tva.a_type)) {
-		if (!isIn(tva.ALLOWED_ASPECT_RATIO_TYPES, node.attr(tva.a_type).value()))
-			errs.pushCode(errcode?errcode+"-02":"AR002", "invalid value "+node.attr(tva.a_type).value().quote()+" specified for "+tva.a_type.attribute(node.name()), "invalid value")
-	}
+	if (node.attr(tva.a_type)&& !isIn(tva.ALLOWED_ASPECT_RATIO_TYPES, node.attr(tva.a_type).value()))
+		invalidValue(errs, errcode?errcode+"-02":"AR002", node.name(), tva.a_type, node.attr(tva.a_type).value())
 	
 	if (!isRatioType(node.text()))
 		errs.pushCode(errcode?errcode+"-03":"AR003", node.text.quote()+" is not a valid aspect ratio", "invalid value")
@@ -1703,37 +1702,35 @@ function validateServiceInstance(ServiceInstance, thisServiceId, SL_SCHEMA, SCHE
 			while (child=conf.child(ch++)) {
 				switch (child.name()) {
 					case tva.e_Coding:
-						checkAttributes(child, [dvbi.a_href], [], errs, "SL051a")
+						checkAttributes(child, [dvbi.a_href], [], errs, "SL051")
 						if (child.attr(dvbi.a_href)) {
 							if (!isIn(allowedAudioSchemes, child.attr(dvbi.a_href).value())) 
-								errs.pushCode("SI051b", "invalid "+dvbi.a_href.attribute(child.name())+" value for ("+child.attr(dvbi.a_href).value()+")", "audio codec");
+								errs.pushCode("SI052", "invalid "+dvbi.a_href.attribute(child.name())+" value for ("+child.attr(dvbi.a_href).value()+")", "audio codec");
 						}
 						break;
 					case tva.e_NumOfChannels:
 						if (!isUnsignedShort(child.text()))
-							errs.pushCode("SI052", "invalid value "+child.text().quote()+" for "+child.name().elementize()+" in "+conf.name().elementize(), "invalid value")
+							invalidValue(errs, "SI053", child.name(), null, child.text(), conf.name())
 						break;
 					case tva.e_MixType:
 						// taken from MPEG-7 AudioPresentationCS
-						checkAttributes(child, [dvbi.a_href], [], errs, "SL053a")
-						if (child.attr(dvbi.a_href)) {
-							if (!isIn(AudioPresentationCS, child.attr(dvbi.a_href).value())) 
-								errs.pushCode("SI053b", "invalid "+dvbi.a_href.attribute(child.name())+" value for ("+child.attr(dvbi.a_href).value()+")", "audio codec");
-						}
+						checkAttributes(child, [dvbi.a_href], [], errs, "SL054")
+						if (child.attr(dvbi.a_href) && !isIn(AudioPresentationCS, child.attr(dvbi.a_href).value())) 
+							errs.pushCode("SI055", "invalid "+dvbi.a_href.attribute(child.name())+" value for ("+child.attr(dvbi.a_href).value()+")", "audio codec");
 						break;
 					case tva.e_AudioLanguage:
 						// TODO:
 						break;
 					case tva.e_SampleFrequency:
 						if (!isUnsignedInt(child.text()))
-							errs.pushCode("SI055", "invalid value "+child.text().quote()+" for "+child.name().elementize()+" in "+conf.name().elementize(), "invalid value")
+							errs.pushCode("SI057", "invalid value "+child.text().quote()+" for "+child.name().elementize()+" in "+conf.name().elementize(), "invalid value")
 						break;
 					case tva.e_BitsPerSample:
 						if (!isUnsignedShort(child.text()))
-							errs.pushCode("SI056", "invalid value "+child.text().quote()+" for "+child.name().elementize()+" in "+conf.name().elementize(), "invalid value")
+							invalidValue(errs, "SI058", child.name(), null, child.text(), conf.name())
 						break;
 					case tva.e_BitRate:
-						checkBitRate(child, errs, "SI057")
+						checkBitRate(child, errs, "SI059")
 						break;
 				}
 			}
@@ -1861,10 +1858,9 @@ function validateServiceInstance(ServiceInstance, thisServiceId, SL_SCHEMA, SCHE
 				if (Interval.attr(dvbi.a_days) && !validServiceDaysList(Interval.attr(dvbi.a_days).value()))
 					errs.pushCode("SI126", dvbi.a_days.attribute(dvbi.e_Interval)+" is invalid ("+Interval.attr(dvbi.a_days).value().quote()+")")
 				
-				if (Interval.attr(dvbi.a_recurrence)) {
-					// TODO::
-				}
-
+				if (Interval.attr(dvbi.a_recurrence) && !isUnsignedInt(Interval.attr(dvbi.a_recurrence).value()))
+					errs.pushCode("SI127", dvbi.a_recurrence.a_startTime(dvbi.e_Interval)+" is invalid ("+Interval.attr(dvbi.a_recurrence).value().quote()+")")
+					
 				if (Interval.attr(dvbi.a_startTime) && !validZuluTimeType(Interval.attr(dvbi.a_startTime).value())) 
 					errs.pushCode("SI128", dvbi.a_days.a_startTime(dvbi.e_Interval)+" is invalid ("+Interval.attr(dvbi.a_startTime).value().quote()+")")
 
@@ -1886,22 +1882,21 @@ function validateServiceInstance(ServiceInstance, thisServiceId, SL_SCHEMA, SCHE
 	if (FTAContentManagement) {
 		checkAttributes(FTAContentManagement, [dvbi.a_userDefined, dvbi.a_doNotScramble, dvbi.a_controlRemoteAccessOverInternet, dvbi.a_doNotApplyRevocation], [], errs, "SI141")
 		
-		var ud=FTAContentManagement.attr(dvbi.a_userDefined)?FTAContentManagement.attr(dvbi.a_userDefined).value():null;
+		let ud=FTAContentManagement.attr(dvbi.a_userDefined)?FTAContentManagement.attr(dvbi.a_userDefined).value():null;
 		if (ud && !isBoolean(ud))
-			errs.pushCode("SI142", "invalid value "+ud.quote()+" for "+dvbi.a_userDefined.attribute(dvbi.e_FTAContentManagement), "invalid")
+			invalidValue(errs, "SI142", dvbi.e_FTAContentManagement, dvbi.a_userDefined, ud)
 		
-		var dns=FTAContentManagement.attr(dvbi.a_doNotScramble)?FTAContentManagement.attr(dvbi.a_doNotScramble).value():null;
+		let dns=FTAContentManagement.attr(dvbi.a_doNotScramble)?FTAContentManagement.attr(dvbi.a_doNotScramble).value():null;
 		if (dns && !isBoolean(dns))
-			errs.pushCode("SI143", "invalid value "+dns.quote()+" for "+dvbi.a_doNotScramble.attribute(dvbi.e_FTAContentManagement), "invalid")
+			invalidValue(errs, "SI143", dvbi.e_FTAContentManagement, dvbi.a_doNotScramble, dns)
 					
-		var cRAOI=FTAContentManagement.attr(dvbi.a_controlRemoteAccessOverInternet)?FTAContentManagement.attr(dvbi.a_controlRemoteAccessOverInternet).value():null;
+		let cRAOI=FTAContentManagement.attr(dvbi.a_controlRemoteAccessOverInternet)?FTAContentManagement.attr(dvbi.a_controlRemoteAccessOverInternet).value():null;	
+		if (cRAOI && (cRAOI < 0 || cRAOI > 3))  // TODO: check this - the attr() above returns a string
+			invalidValue(errs, "SI144", dvbi.e_FTAContentManagement, dvbi.a_controlRemoteAccessOverInternet, cRAOI)
 		
-		if (cRAOI && (cRAOI < 0 || cRAOI > 3))
-			errs.pushCode("SI144", "invalid value "+cRAOI.quote()+" for "+dvbi.a_controlRemoteAccessOverInternet.attribute(dvbi.e_FTAContentManagement), "invalid")
-		
-		var dnar=FTAContentManagement.attr(dvbi.a_doNotApplyRevocation)?FTAContentManagement.attr(dvbi.a_doNotApplyRevocation).value():null;
+		let dnar=FTAContentManagement.attr(dvbi.a_doNotApplyRevocation)?FTAContentManagement.attr(dvbi.a_doNotApplyRevocation).value():null;
 		if (dnar && !isBoolean(dnar))
-			errs.pushCode("SI145", "invalid value "+dnar.quote()+" for "+dvbi.a_doNotApplyRevocation.attribute(dvbi.e_FTAContentManagement), "invalid")				
+			invalidValue(errs, "SI145", dvbi.e_FTAContentManagement, dvbi.a_doNotApplyRevocation, dnar)		
 	}
 
 	// note that the <SourceType> element becomes optional and in A177v2, but if specified then the relevant
@@ -2132,10 +2127,8 @@ function validateServiceInstance(ServiceInstance, thisServiceId, SL_SCHEMA, SCHE
 			}
 			
 			var ssrc=IPMulticastAddress.get(xPath(SCHEMA_PREFIX, dvbi.e_ssrc), SL_SCHEMA)
-			if (ssrc) {
-				if (!isUnsignedInt(ssrc.text()))
-					errs.pushCode("SI236", ssrc.text().quote()+" is not valid for "+dvbi.e_ssrc.elementize(), "invalid value")
-			}
+			if (ssrc && !isUnsignedInt(ssrc.text()))
+				invalidValue(errs, "SI236", dvbi.e_ssrc, null, ssrc.text())
 			
 			var RTPRetransmission=IPMulticastAddress.get(xPath(SCHEMA_PREFIX, dvbi.e_RTPRetransmission), SL_SCHEMA)
 			if (RTPRetransmission) {
@@ -2668,7 +2661,7 @@ app.get("*", function(req,res) {
 // start the HTTP server
 var http_server=app.listen(options.port, function() {
     console.log("HTTP listening on port number", http_server.address().port);
-});
+})
 
 
 // start the HTTPS server
@@ -2676,7 +2669,7 @@ var http_server=app.listen(options.port, function() {
 var https_options={
     key:readmyfile(keyFilename),
     cert:readmyfile(certFilename)
-};
+}
 
 if (https_options.key && https_options.cert) {
 	if (options.sport==options.port)
@@ -2687,4 +2680,3 @@ if (https_options.key && https_options.cert) {
         console.log("HTTPS listening on port number", https_server.address().port);
     });
 }
-
