@@ -173,7 +173,7 @@ function isIn(values, value){
     if (typeof(values)=="string")
         return values==value;
    
-    if (typeof(values)=="object") 	
+    if (Array.isArray(values)) 	
 		return values.includes(value)
     
     return false;
