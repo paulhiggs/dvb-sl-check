@@ -319,29 +319,58 @@ function addRegion(SL_SCHEMA, SCHEMA_PREFIX, Region, depth, knownRegionIDs, errs
 	}
 	checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, Region, [], [dvbi.e_RegionName, dvbi.e_Postcode, dvbi.e_WildcardPostcode, dvbi.e_PostcodeRange, dvbi.e_Coordinates, dvbi.e_Region], errs, "AR001")
 	checkAttributes(Region, [dvbi.a_regionID], [dvbi.a_countryCodes], errs, "AR002")
-
-    var regionID=Region.attr(dvbi.a_regionID)?Region.attr(dvbi.a_regionID).value():"";
-    var countryCodeSpecified=Region.attr(dvbi.a_countryCodes);
+	
+    let regionID=Region.attr(dvbi.a_regionID)?Region.attr(dvbi.a_regionID).value():""
 	if (regionID!="") {
 		if (isIn(knownRegionIDs, regionID)) 
-			errs.pushCode("AR003", "Duplicate "+dvbi.a_regionId.attribute()+" "+regionID.quote(), "duplicate regionID");
-		else knownRegionIDs.push(regionID);
+			errs.pushCode("AR003", "Duplicate "+dvbi.a_regionId.attribute()+" "+regionID.quote(), "duplicate regionID")
+		else knownRegionIDs.push(regionID)
 	}
+    let countryCodeSpecified=Region.attr(dvbi.a_countryCodes)
     if ((depth!=0) && countryCodeSpecified) 
-        errs.pushCode("AR004", dvbi.a_countryCodes.attribute(Region.name())+" not permitted for sub-region "+regionID.quote(), "ccode in subRegion");
+        errs.pushCode("AR004", dvbi.a_countryCodes.attribute(Region.name())+" not permitted for sub-region "+regionID.quote(), "ccode in subRegion")
 
     if (countryCodeSpecified) {
-        var countries=countryCodeSpecified.value().split(",");
-        if (countries) countries.forEach(country => {
-            if (!knownCountries.isISO3166code(country)) 
-                errs.pushCode("AR005", "invalid country code ("+country+") for region "+regionID.quote(), "invalid country code");
-        });
+        let countries=countryCodeSpecified.value().split(",")
+        if (countries) 
+			countries.forEach(country => {
+				if (!knownCountries.isISO3166code(country)) 
+					errs.pushCode("AR005", "invalid country code ("+country+") for region "+regionID.quote(), "invalid country code")
+			})
     }
 
-    if (depth > dvbi.MAX_SUBREGION_LEVELS) 
-        errs.pushCode("AR006", dvbi.e_Region.elementize()+" depth exceeded (>"+dvbi.MAX_SUBREGION_LEVELS+") for sub-region "+regionID.quote(), "region depth exceeded");
+	// Check that the @xml:lang values for each <DisplayName> element are unique and only one element does not have any language specified
+	checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, dvbi.e_RegionName, dvbi.a_regionID.attribute(dvbi.e_Region)+"="+regionID.quote(), Region, errs, "AR006")
+	
+	// TODO: <Region><Postcode>
+	
+	// TODO: <Region><WildcardPostcode>
+	
+	// TODO: <Region><PostcodeRange>
+	
+	// TODO: <Region><Coordinates>
+	let co=0, Coordinates
+	while (Coordinates=Region.get(xPath(SCHEMA_PREFIX, elementName, ++co), SL_SCHEMA)) {
+		checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, Coordinates, [dvbi.e_Latitude, dvbi.e_Longitude, dvbi.e_Radius], [], errs, "AR041")
 
-    var i=0, RegionChild;
+		let Latitude=Coordinates.get(xpath(SCHEMA_PREFIX, dvbi.e_Latitude), SL_SCHEMA)
+		if (Latitude && !validLatitude(Latitude))
+			errs.pushCode("AR042", dvbi.e_Latitude.elementize()+" is not a valid latitude "+Latitude.quote(), "invalid value")
+
+		let Longitude=Coordinates.get(xpath(SCHEMA_PREFIX, dvbi.e_Longitude), SL_SCHEMA)
+		if (Longitude && !validLongitude(Longitude))
+			errs.pushCode("AR043", dvbi.e_Longitude.elementize()+" is not a valid longitude "+Longitude.quote(), "invalid value")
+			
+		let Raduis=Coordinates.get(xpath(SCHEMA_PREFIX, dvbi.e_Radius), SL_SCHEMA)
+		if (Radius && !isPositiveInteger(Radius))
+			errs.pushCode("AR044", dvbi.e_Radius.elementize()+" is not a valid value "+Radius.quote(), "invalid value")
+
+	}
+
+    if (depth > dvbi.MAX_SUBREGION_LEVELS) 
+        errs.pushCode("AR007", dvbi.e_Region.elementize()+" depth exceeded (>"+dvbi.MAX_SUBREGION_LEVELS+") for sub-region "+regionID.quote(), "region depth exceeded")
+
+    let i=0, RegionChild;
     while ((RegionChild=Region.child(i++)) != null) 
         if (RegionChild.type()==="element" && RegionChild.name()==dvbi.e_Region)      // its a child Region
             addRegion(SL_SCHEMA, SCHEMA_PREFIX, RegionChild, depth+1, knownRegionIDs, errs);
@@ -566,15 +595,12 @@ function checkValidLogo(HowRelated, Format, MediaLocator, errs, Location, Locati
                     if (Format && ((isJPEGmime(contentType) && !isJPEG) || (isPNGmime(contentType) && !isPNG))) 
                         errs.pushCode("VL023", "conflicting media types in "+tva.e_Format.elementize()+" and "+tva.e_MediaUri.elementize()+" for "+Location, "conflicting mime types");					
 				}
-/*				else
-                    errs.pushCode("VL021", tva.a_contentType.attribute()+" not specified for logo "+tva.e_MediaUri.elementize()+" in "+Location, "unspecified "+tva.a_contentType.attribute(tva.e_MediaUri)); */
             }
         });
         if (!hasMediaURI) 
 			NoMediaLocator("logo", Location, errs, "VL024");
     }
-    else 
-        errs.pushCode("VL025", tva.e_MediaLocator+" not specified for "+tva.e_RelatedMaterial.elementize()+" in "+Location, "no "+tva.e_MediaLocator);
+    else errs.pushCode("VL025", tva.e_MediaLocator+" not specified for "+tva.e_RelatedMaterial.elementize()+" in "+Location, "no "+tva.e_MediaLocator);
 }
 
 
@@ -671,7 +697,7 @@ function validateRelatedMaterial(RelatedMaterial, errs, Location, LocationType, 
 						MediaLocator.forEach(locator =>
 							checkSignalledApplication(HowRelated, Format, locator, errs, Location, LocationType));
 				}
-				else
+				else 
 					InvalidHrefValue(HowRelated.attr(dvbi.a_href).value(), tva.e_RelatedMaterial.elementize(), Location, errs, errcode?errcode+"-22":"RM022");
 				break;
 			case CONTENT_GUIDE_RM:
@@ -855,8 +881,8 @@ function drawForm(URLmode, res, lastInput=null, error=null, errors=null) {
     res.write(FORM_TOP);    
     res.write(PAGE_HEADING);    
     if (URLmode) 
-		res.write(sprintf(ENTRY_FORM_URL, lastInput ? lastInput : ""));
-	else res.write(sprintf(ENTRY_FORM_FILE, lastInput ? lastInput : ""));
+		res.write(sprintf(ENTRY_FORM_URL, lastInput?lastInput:""));
+	else res.write(sprintf(ENTRY_FORM_FILE, lastInput?lastInput:""));
 
     res.write(RESULT_WITH_INSTRUCTION);
 
@@ -1307,13 +1333,26 @@ function cleanInt(intStr) {
 /**
  * determine if the value provided represents a valid longitude value (i.e. -180.0 -> +180.0)
  *
- * @param {String} intStr  A string containing a longitude
+ * @param {String} position  A string containing a longitude
  * @returns {boolean} true if the argument represents a longitudal angle
  */
 function validLongitude(position) {
-	var x=Number(position);
-	if (isNaN(x)) return false
-	return (x >= -180 && x <= 180)
+	let val=Number(position)
+	if (isNaN(val)) return false
+	return (val >= -180 && val <= 180)
+}
+
+
+/**
+ * determine if the value provided represents a valid latitude value (i.e. -90.0 -> +90.0)
+ *
+ * @param {String} position  A string containing a latituse
+ * @returns {boolean} true if the argument represents a latidudial angle
+ */
+function validLatitude(position) {
+	let val=Number(position)
+	if (isNaN(xval)) return false
+	return (val >= -90 && val <= 90)
 }
 
 
@@ -1362,21 +1401,30 @@ function validateAContentGuideSource(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE,
 	let rm=0, RelatedMaterial;
 	while (RelatedMaterial=source.get(xPath(SCHEMA_PREFIX, tva.e_RelatedMaterial, ++rm), SL_SCHEMA))
 		validateRelatedMaterial(RelatedMaterial, errs, loc, CONTENT_GUIDE_RM, SCHEMA_NAMESPACE, errCode?errCode+"e":"GS005")
+	
+	// TODO:  ContentGuideSourceType::ScheduleInfoEndpoint - should be a URL
+	
+	// TODO:  ContentGuideSourceType::ProgramInfoEndpoint - should be a URL
+	
+	// TODO:  ContentGuideSourceType::GroupInfoEndpoint - should be a URL
+	
+	// TODO:  ContentGuideSourceType::ModeEpisodesEndpoint - should be a URL
+	
 }
 
 
 /**
  * verifies if the specified ContentProtection element is valid according to specification (contents and location)
  *
- * @param {Object} ContentProtection  The <ContentProtection> element (a libxmls ojbect tree) to be checked
- * @param {string} Location           The printable name used to indicate the location of the <ContentProtection> element being checked. used for error reporting
  * @param {string} SL_SCHEMA          Used when constructing Xpath queries
  * @param {string} SCHEMA_PREFIX      Used when constructing Xpath queries
  * @param {string} SCHEMA_NAMESPACE   The namespace of XML document
+ * @param {Object} ContentProtection  The <ContentProtection> element (a libxmls ojbect tree) to be checked
+ * @param {string} Location           The printable name used to indicate the location of the <ContentProtection> element being checked. used for error reporting
  * @param {Object} errs               The class where errors and warnings relating to the serivce list processing are stored 
  * @param {string} errCode            Error code prefix to be used in reports, if not present then use local codes
  */
-function validateContentProtection(ContentProtection, Location, SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, errs, errcode=null) {
+function validateContentProtection(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, ContentProtection, Location, errs, errcode=null) {
 	if (!ContentProtection) {
 		errs.push("CP000", "validateContentProtection() called with ContentProtection==null")
 		return
@@ -1519,11 +1567,11 @@ function checkAspectRatioType(node, errs, errcode=null) {
  * @param {string} ElementName
  * @param {array}  requiredLengths	   @length attributes that are required to be present
  * @param {array}  optionalLengths	   @length attributes that can optionally be present
- * @param {Class}  errs                errors found in validaton
  * @param {string} parentLanguage	   the xml:lang of the parent element to ProgramInformation
+ * @param {Class}  errs                errors found in validaton
  * @param {string} errCode             error code prefix to be used in reports, if not present then use local codes
  */
-function ValidateSynopsisType(SCHEMA, SCHEMA_PREFIX, Element, ElementName, requiredLengths, optionalLengths, errs, parentLanguage, errCode=null) {
+function ValidateSynopsisType(SCHEMA, SCHEMA_PREFIX, Element, ElementName, requiredLengths, optionalLengths, parentLanguage, errs, errCode=null) {
 
 	function synopsisLengthError(elem, label, length) {
 		return "length of "+elementize(tva.a_length.attribute(elem)+"="+quote(label))+" exceeds "+length+" characters"; }
@@ -1666,14 +1714,14 @@ function validZuluTimeType(val) {
 /**
  * validate a ServiceInstance element
  *
- * @param {object} ServiceInstance       the service instance element to check
- * @param {string} thisServiceId         the identifier of the service 
  * @param {string} SL_SCHEMA             Used when constructing Xpath queries
  * @param {string} SCHEMA_PREFIX         Used when constructing Xpath queries
  * @param {string} SCHEMA_NAMESPACE      The namespace of XML document 
+ * @param {object} ServiceInstance       the service instance element to check
+ * @param {string} thisServiceId         the identifier of the service 
  * @param {Class}  errs                  errors found in validaton
  */
-function validateServiceInstance(ServiceInstance, thisServiceId, SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, errs) {
+function validateServiceInstance(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, ServiceInstance, thisServiceId, errs) {
 	if (!ServiceInstance) {
 		errs.pushCode("SI000", "validateServiceInstance() called with ServiceInstance==null")
 		return
@@ -1693,7 +1741,7 @@ function validateServiceInstance(ServiceInstance, thisServiceId, SL_SCHEMA, SCHE
 	// <ServiceInstance><ContentProtection>
 	var cp=0, ContentProtection;
 	while (ContentProtection=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_ContentProtection, ++cp), SL_SCHEMA))
-		validateContentProtection(ContentProtection, "service instance of "+thisServiceId.quote(), SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, errs, "SI030")
+		validateContentProtection(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, ContentProtection, "service instance of "+thisServiceId.quote(), errs, "SI030")
 
 	// <ServiceInstance><ContentAttributes>
 	var ContentAttributes=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_ContentAttributes), SL_SCHEMA)
@@ -2192,7 +2240,7 @@ function validateServiceList(SLtext, errs) {
 		SCHEMA_NAMESPACE=SL.root().namespace().href();
 	SL_SCHEMA[SCHEMA_PREFIX]=SCHEMA_NAMESPACE;
 
-	if (SchemaVersion(SCHEMA_NAMESPACE) == SCHEMA_unknown) {
+	if (SchemaVersion(SCHEMA_NAMESPACE)==SCHEMA_unknown) {
 		errs.pushCode("SL004", "Unsupported namespace "+SCHEMA_NAMESPACE.quote());
 		return;
 	}
@@ -2237,10 +2285,8 @@ function validateServiceList(SLtext, errs) {
 		checkAttributes(RegionList, [dvbi.a_version], [], errs, "SL051")
 
 		//check RegionList@version
-		if (RegionList.attr(dvbi.a_version)) {
-			if (!isPositiveInteger(RegionList.attr(dvbi.a_version).value()))
-				errs.pushCode("SL052", dvbi.a_version.attribute(dvbi.e_RegionList)+" is not a positiveInteger ("+RegionList.attr(dvbi.a_version).value()+")")
-		}
+		if (RegionList.attr(dvbi.a_version) && !isPositiveInteger(RegionList.attr(dvbi.a_version).value()))
+			errs.pushCode("SL052", dvbi.a_version.attribute(dvbi.e_RegionList)+" is not a positiveInteger ("+RegionList.attr(dvbi.a_version).value()+")")
 
 		// recurse the regionlist - Regions can be nested in Regions
 		var r=0, Region;
@@ -2280,21 +2326,20 @@ function validateServiceList(SLtext, errs) {
 
 	// check  elements in <ServiceList><ContentGuideSource>
 	var slGCS=SL.get(xPath(SCHEMA_PREFIX, dvbi.e_ContentGuideSource), SL_SCHEMA);
-	if (slGCS) {
+	if (slGCS) 
 		validateAContentGuideSource(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, slGCS, dvbi.e_ServiceList+"."+dvbi.e_ContentGuideSource, errs, "SL080")
-	}
 
 	// this should not happen if the XML document has passed schema validation
 	if (SL.get(xPath(SCHEMA_PREFIX, dvbi.e_ContentGuideSourceList), SL_SCHEMA) && SL.get(xPath(SCHEMA_PREFIX, dvbi.e_ContentGuideSource), SL_SCHEMA))
 		errs.pushCode("SL081", "cannot specify both "+dvbi.e_ContentGuideSourceList.elementize()+" and "+dvbi.e_ContentGuideSource.elementize(), "source and ref")
 
-	errs.set("num services",0);
+	errs.set("num services", 0);
 
 	// check <Service>
 	var s=0, service, knownServices=[], thisServiceId;
 	while (service=SL.get("//"+xPath(SCHEMA_PREFIX, dvbi.e_Service, ++s), SL_SCHEMA)) {
 		// for each service
-		errs.set("num services",s);
+		errs.set("num services", s);
 		thisServiceId="service-"+s;  // use a default value in case <UniqueIdentifier> is not specified
 		
 		let serviceOptionalElements=[dvbi.e_ServiceInstance, dvbi.e_TargetRegion, tva.e_RelatedMaterial, dvbi.e_ServiceGenre, dvbi.e_ServiceType, dvbi.e_RecordingInfo, dvbi.e_ContentGuideSource, dvbi.e_ContentGuideSourceRef, dvbi.e_ContentGuideServiceRef]
@@ -2305,10 +2350,8 @@ function validateServiceList(SLtext, errs) {
 		checkAttributes(service, [dvbi.a_version], [dvbi.a_dynamic], errs, "SL102")
 		
 		//check Service@version
-		if (service.attr(dvbi.a_version)) {
-			if (!isPositiveInteger(service.attr(dvbi.a_version).value()))
-				errs.pushCode("SL103", dvbi.a_version.attribute(dvbi.e_Service)+" is not a positiveInteger ("+service.attr(dvbi.a_version).value()+")")
-		}
+		if (service.attr(dvbi.a_version) && !isPositiveInteger(service.attr(dvbi.a_version).value()))
+			errs.pushCode("SL103", dvbi.a_version.attribute(dvbi.e_Service)+" is not a positiveInteger ("+service.attr(dvbi.a_version).value()+")")
 
 		// check <Service><UniqueIdentifier>
 		var uID=service.get(xPath(SCHEMA_PREFIX, dvbi.e_UniqueIdentifier), SL_SCHEMA);
@@ -2323,10 +2366,8 @@ function validateServiceList(SLtext, errs) {
 
 		//check <Service><ServiceInstance>
 		var si=0, ServiceInstance;
-		while (ServiceInstance=service.get(xPath(SCHEMA_PREFIX, dvbi.e_ServiceInstance, ++si), SL_SCHEMA)) {
-			//for each service instance
-			validateServiceInstance(ServiceInstance, thisServiceId, SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, errs)	
-		}
+		while (ServiceInstance=service.get(xPath(SCHEMA_PREFIX, dvbi.e_ServiceInstance, ++si), SL_SCHEMA)) 
+			validateServiceInstance(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, ServiceInstance, thisServiceId, errs)	
 
 		//check <Service><TargetRegion>
 		var tr=0, TargetRegion;
@@ -2350,10 +2391,10 @@ function validateServiceList(SLtext, errs) {
 		if (ServiceGenre) {
 			checkAttributes(ServiceGenre, [dvbi.a_href], [tva.a_type], errs, "SL160")
 			if (ServiceGenre.attr(dvbi.a_href) && !isIn(allowedGenres, ServiceGenre.attr(dvbi.a_href).value())) 
-					errs.pushCode("SL161", "service "+thisServiceId.quote()+" has an invalid "+dvbi.a_href.attribute(dvbi.e_ServiceGenre)+" "+ServiceGenre.attr(dvbi.a_href).value().quote(), "invalid "+dvbi.e_ServiceGenre);
+				errs.pushCode("SL161", "service "+thisServiceId.quote()+" has an invalid "+dvbi.a_href.attribute(dvbi.e_ServiceGenre)+" "+ServiceGenre.attr(dvbi.a_href).value().quote(), "invalid "+dvbi.e_ServiceGenre);
 
 			if (ServiceGenre.attr(tva.a_type) && !isIn(tva.ALLOWED_GENRE_TYPES, ServiceGenre.attr(tva.a_type).value())) 
-					errs.pushCode("SL162", "service "+thisServiceId.quote()+" has an invalid "+tva.a_type.attribute(dvbi.e_ServiceGenre)+" "+ServiceGenre.attr(dvbi.a_type).value().quote(), "invalid "+dvbi.e_ServiceGenre)
+				errs.pushCode("SL162", "service "+thisServiceId.quote()+" has an invalid "+tva.a_type.attribute(dvbi.e_ServiceGenre)+" "+ServiceGenre.attr(dvbi.a_type).value().quote(), "invalid "+dvbi.e_ServiceGenre)
 		}
 
 		//check <Service><ServiceType>                    
@@ -2361,11 +2402,11 @@ function validateServiceList(SLtext, errs) {
 		if (ServiceType) {
 			checkAttributes(ServiceType, [dvbi.a_href], [], errs, "SL163")
 			if (ServiceType.attr(dvbi.a_href) && !isIn(allowedServiceTypes, ServiceType.attr(dvbi.a_href).value())) 
-					errs.pushCode("SL164", "service "+thisServiceId.quote()+" has an invalid "+dvbi.e_ServiceType.elementize()+" ("+ServiceType.attr(dvbi.a_href).value()+")", "invalid ServiceType");
+				errs.pushCode("SL164", "service "+thisServiceId.quote()+" has an invalid "+dvbi.e_ServiceType.elementize()+" ("+ServiceType.attr(dvbi.a_href).value()+")", "invalid ServiceType");
 		}
 
 		// check <Service><ServiceDescription>
-		ValidateSynopsisType(SL_SCHEMA, SCHEMA_PREFIX, service, tva.e_ServiceDescription, [], [tva.SYNOPSIS_LENGTH_BRIEF, tva.SYNOPSIS_LENGTH_SHORT, tva.SYNOPSIS_LENGTH_MEDIUM, tva.SYNOPSIS_LENGTH_LONG, tva.SYNOPSIS_LENGTH_EXTENDED], errs, "***", "SL170") 
+		ValidateSynopsisType(SL_SCHEMA, SCHEMA_PREFIX, service, tva.e_ServiceDescription, [], [tva.SYNOPSIS_LENGTH_BRIEF, tva.SYNOPSIS_LENGTH_SHORT, tva.SYNOPSIS_LENGTH_MEDIUM, tva.SYNOPSIS_LENGTH_LONG, tva.SYNOPSIS_LENGTH_EXTENDED], "***", errs, "SL170") 
 
 		// check <Service><RecordingInfo>
 		var RecordingInfo=service.get(xPath(SCHEMA_PREFIX, dvbi.e_RecordingInfo), SL_SCHEMA);
@@ -2377,9 +2418,8 @@ function validateServiceList(SLtext, errs) {
 
 		// check <Service><ContentGuideSource>
 		var sCG=service.get(xPath(SCHEMA_PREFIX, dvbi.e_ContentGuideSource), SL_SCHEMA);
-		if (sCG) {
+		if (sCG) 
 			validateAContentGuideSource(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, sCG, dvbi.e_ContentGuideSource.elementize()+" in service "+thisServiceId, errs, "SL190")
-		}
 
 		//check <Service><ContentGuideSourceRef>
 		var sCGref=service.get(xPath(SCHEMA_PREFIX, dvbi.e_ContentGuideSourceRef), SL_SCHEMA);
@@ -2391,19 +2431,17 @@ function validateServiceList(SLtext, errs) {
 		// this should not happen if the XML document has passed schema validation
 		if (sCG && sCGref)
 			errs.pushCode("SL210", "only "+dvbi.e_ContentGuideSource.elementize()+" or "+dvbi.e_CountentGuideSourceRef.elementize()+" to be specifed for a service "+thisServiceId.quote(), "source and ref");
-		
-		// <Service><ContentGuideServiceRef> checked below
 	}        
 
 	// check <Service><ContentGuideServiceRef>
 	// issues a warning if this is not a reference to another service or is a reference to self
 	s=0;
 	while (service=SL.get("//"+xPath(SCHEMA_PREFIX, dvbi.e_Service, ++s), SL_SCHEMA)) {
-		var CGSR=service.get(xPath(SCHEMA_PREFIX, dvbi.e_ContentGuideServiceRef), SL_SCHEMA);
+		let CGSR=service.get(xPath(SCHEMA_PREFIX, dvbi.e_ContentGuideServiceRef), SL_SCHEMA);
 		if (CGSR) {
-			var uniqueID=service.get(xPath(SCHEMA_PREFIX, dvbi.e_UniqueIdentifier), SL_SCHEMA);
-			if (uniqueID && !isIn(knownServices, CGSR.text())) 
-				errs.pushCodeW("SL220", dvbi.e_ContentGuideServiceRef.elementize()+" "+CGSR.text().quote()+" in service "+uniqueID.text().quote()+" does not refer to another service", "invalid "+dvbi.e_ContentGuideServiceRef.elementize());
+			let uniqueID=service.get(xPath(SCHEMA_PREFIX, dvbi.e_UniqueIdentifier), SL_SCHEMA);
+			if (!isIn(knownServices, CGSR.text())) 
+				errs.pushCodeW("SL220", dvbi.e_ContentGuideServiceRef.elementize()+"="+CGSR.text().quote()+(uniqueId?(" in service "+uniqueID.text().quote()):"")+" does not refer to another service", "invalid "+dvbi.e_ContentGuideServiceRef.elementize());
 			if (uniqueID && (CGSR.text()==uniqueID.text()))
 				errs.pushCodeW("SL221", dvbi.e_ContentGuideServiceRef.elementize()+" is self", "self "+dvbi.e_ContentGuideServiceRef.elementize());
 		}
@@ -2430,30 +2468,33 @@ function validateServiceList(SLtext, errs) {
 			checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, dvbi.e_SubscriptionPackage, dvbi.e_LCNTable, LCNTable, errs, "SL250");
 			
 			// <LCNTable><LCN>
-			var LCNNumbers=[],e=0,LCN;
+			let LCNNumbers=[], e=0, LCN;
 			while (LCN=LCNTable.get(xPath(SCHEMA_PREFIX, dvbi.e_LCN, ++e), SL_SCHEMA)) {
 				
 				checkAttributes(LCN, [dvbi.a_channelNumber, dvbi.a_serviceRef], [dvbi.a_selectable, dvbi.a_visible], errs, "SL260")
 				
 				// LCN@channelNumber
 				if (LCN.attr(dvbi.a_channelNumber)) {
-					var chanNum=LCN.attr(dvbi.a_channelNumber).value();
+					let chanNum=LCN.attr(dvbi.a_channelNumber).value();
+					if (!isPositiveInteger(chanNum)) 
+						errs.pushCode("SL261", dvbi.a_channelNumber.attribute(dvbi.e_LCN)+" is not a positiveInteger "+chanNum.quote(), "invalid value")
+					
 					if (isIn(LCNNumbers, chanNum)) 
-						errs.pushCode("SL261", "duplicated channel number "+chanNum+" for "+dvbi.e_TargetRegion.elementize()+" "+lastTargetRegion, "duplicate channel number");
+						errs.pushCode("SL262", "duplicated channel number "+chanNum+" for "+dvbi.e_TargetRegion.elementize()+" "+lastTargetRegion, "duplicate channel number");
 					else LCNNumbers.push(chanNum);
 				}
 
 				// LCN@serviceRef
 				if (LCN.attr(dvbi.a_serviceRef) && !isIn(knownServices, LCN.attr(dvbi.a_serviceRef).value())) 
-						errs.pushCode("SL262", "LCN reference to unknown service "+LCN.attr(dvbi.a_serviceRef).value(), "LCN unknown services");
+					errs.pushCode("SL263", "LCN reference to unknown service "+LCN.attr(dvbi.a_serviceRef).value(), "LCN unknown services");
 				
 				// LCN@selectable
 				if (LCN.attr(dvbi.a_selectable) && !isBoolean(LCN.attr(dvbi.a_selectable).value())) 
-					errs.pushCode("SL263", dvbi.a_selectable.attribute(dvbi.e_LCN)+" is not a boolean value", "not boolean")
+					errs.pushCode("SL264", dvbi.a_selectable.attribute(dvbi.e_LCN)+" is not a boolean value "+LCN.attr(dvbi.a_selectable).value().quote(), "not boolean")
 				
 				// LCN@visible
 				if (LCN.attr(dvbi.a_visible) && !isBoolean(LCN.attr(dvbi.a_visible).value()))
-						errs.pushCode("SL264", dvbi.a_visible.attribute(dvbi.e_LCN)+" is not a boolean value", "not boolean")
+					errs.pushCode("SL265", dvbi.a_visible.attribute(dvbi.e_LCN)+" is not a boolean value "+LCN.attr(dvbi.a_visible).value().quote(), "not boolean")
 			}
 		}
 	}
