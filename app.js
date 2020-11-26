@@ -10,7 +10,8 @@ const MAX_UNSIGNED_SHORT=65535,
       MAX_UNSIGNED_INT=  4294967295,
 	  MAX_UNSIGNED_LONG= 18446744073709551615
 	  
-const OTHER_ELEMENTS_OK="!!!"
+const OTHER_ELEMENTS_OK="!!!",
+      ANY_NAMESPACE="$%$!!"
 
 const ErrorList=require("./dvb-common/ErrorList.js")
 const dvbi=require("./dvb-common/DVB-I_definitions.js")
@@ -95,6 +96,7 @@ const COMMON_REPO_RAW="https://raw.githubusercontent.com/paulhiggs/dvb-common/ma
 
 const SERVICE_LIST_RM="service list",
       SERVICE_RM="service",
+	  SERVICE_INSTANCE_RM="service instance",
       CONTENT_GUIDE_RM="content guide"
 
 var allowedGenres=[], allowedServiceTypes=[], allowedAudioSchemes=[], allowedVideoSchemes=[], 
@@ -350,7 +352,7 @@ function addRegion(SL_SCHEMA, SCHEMA_PREFIX, Region, depth, knownRegionIDs, errs
 	
 	// TODO: <Region><Coordinates>
 	let co=0, Coordinates
-	while (Coordinates=Region.get(xPath(SCHEMA_PREFIX, elementName, ++co), SL_SCHEMA)) {
+	while (Coordinates=Region.get(xPath(SCHEMA_PREFIX, dvbi.e_Coordinates, ++co), SL_SCHEMA)) {
 		checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, Coordinates, [dvbi.e_Latitude, dvbi.e_Longitude, dvbi.e_Radius], [], errs, "AR041")
 
 		let Latitude=Coordinates.get(xpath(SCHEMA_PREFIX, dvbi.e_Latitude), SL_SCHEMA)
@@ -377,6 +379,14 @@ function addRegion(SL_SCHEMA, SCHEMA_PREFIX, Region, depth, knownRegionIDs, errs
 }
 
 
+function validServiceControlApplication(val) {
+	return val==dvbi.APP_IN_PARALLEL || val==dvbi.APP_IN_CONTROL
+}
+
+function validServiceUnavailableApplication(val) {
+	return val==dvbi.APP_OUTSIDE_AVAILABILITY
+}
+
 /** 
  * determines if the identifer provided refers to a valid application launching method
  *
@@ -387,9 +397,7 @@ function validServiceApplication(HowRelated) {
     // return true if val is a valid CS value for Service Related Applications (A177 5.2.3)
     // urn:dvb:metadata:cs:LinkedApplicationCS:2019
     var val=HowRelated.attr(dvbi.a_href)?HowRelated.attr(dvbi.a_href).value():null;
-    return val==dvbi.APP_IN_PARALLEL
-        || val==dvbi.APP_IN_CONTROL
-        || val==dvbi.APP_OUTSIDE_AVAILABILITY;
+    return validServiceControlApplication(val)||validServiceUnavailableApplication(val)
 }
 
 
@@ -410,14 +418,20 @@ function validDASHcontentType(contentType) {
  * looks for the {index, value} pair within the array of permitted values
  *
  * @param {array} permittedValues  array of allowed value pairs {ver: , val:}
- * @param {any}   version          value to match with ver: in the allowed values
+ * @param {any}   version          value to match with ver: in the allowed values or ANY_NAMESPACE
  * @param {any}   value            value to match with val: in the allowed values
- * @returns {boolean} true if {index, value} pair exists in the list of allowed values, else false
+ * @returns {boolean} true if {index, value} pair exists in the list of allowed values when namespace is specific or if any val: equals value with namespace is ANY_NAMESPACE, else false
  */
 function match(permittedValues, version, value) {
 	if (!value) return false
-	let i=permittedValues.find(elem => elem.ver==version)
-	return i && i.val==value
+	if (version==ANY_NAMESPACE) {
+		let i=permittedValues.find(elem => elem.value==value)
+		return i!=undefined
+	}
+	else {
+		let i=permittedValues.find(elem => elem.ver==version)
+		return i && i.val==value
+	}
 } 
  
 
@@ -451,7 +465,7 @@ function validContentFinishedBanner(HowRelated, namespace) {
 	return match([ 
 		{ver: SCHEMA_v2, val: dvbi.BANNER_CONTENT_FINISHED_v2 },
 		{ver: SCHEMA_v3, val: dvbi.BANNER_CONTENT_FINISHED_v2 }
-		], SchemaVersion(namespace), HowRelated.attr(dvbi.a_href)?HowRelated.attr(dvbi.a_href).value():null)
+		], namespace==ANY_NAMESPACE?namespace:SchemaVersion(namespace), HowRelated.attr(dvbi.a_href)?HowRelated.attr(dvbi.a_href).value():null)
 }
 
 
@@ -649,15 +663,17 @@ function checkSignalledApplication(HowRelated, Format, MediaLocator, errs, Locat
  * @param {string} LocationType      The type of element containing the <RelatedMaterial> element. Different validation rules apply to different location types
  * @param {string} SCHEMA_NAMESPACE  The namespace of XML document
  * @param {string} errcode			 The prefix to use for any errors found
+ * @returns {string} an href value is valid, else ""
  */
 function validateRelatedMaterial(RelatedMaterial, errs, Location, LocationType, SCHEMA_NAMESPACE, errcode=null) {
+	let rc=""
 	if (!RelatedMaterial) {
 		errs.pushCode("RM000", "validateRelatedMaterial() called with RelatedMaterial==null", "invalid args")
-		return;
+		return rc;
 	}
 	
-    var HowRelated=null, Format=null, MediaLocator=[];
-    var elem=RelatedMaterial.child(0);
+    let HowRelated=null, Format=null, MediaLocator=[];
+    let elem=RelatedMaterial.child(0);
     while (elem) {
         if (elem.name()===tva.e_HowRelated)
             HowRelated=elem;
@@ -671,25 +687,28 @@ function validateRelatedMaterial(RelatedMaterial, errs, Location, LocationType, 
 
     if (!HowRelated) {
         errs.pushCode(errcode?errcode+"-1":"RM001", tva.e_HowRelated.elementize()+" not specified for "+tva.e_RelatedMaterial.elementize()+" in "+Location, "no "+tva.e_HowRelated);
-		return;
+		return rc
     }
 	checkAttributes(HowRelated, [dvbi.a_href], [], errs, errcode?errcode+"-2":"RM002")
 
-	if (HowRelated.attr(dvbi.a_href)) {
-		
+	if (HowRelated.attr(dvbi.a_href)) {	
 		switch (LocationType) {
 			case SERVICE_LIST_RM: 
-				if (validServiceListLogo(HowRelated,SCHEMA_NAMESPACE)) 
+				if (validServiceListLogo(HowRelated, SCHEMA_NAMESPACE)) {
+					rc=HowRelated.attr(dvbi.a_href).value()
 					MediaLocator.forEach(locator => 
-						checkValidLogo(HowRelated, Format, locator, errs, Location, LocationType));
+						checkValidLogo(HowRelated, Format, locator, errs, Location, LocationType))
+				}
 				else
 					InvalidHrefValue(HowRelated.attr(dvbi.a_href).value(), tva.e_RelatedMaterial.elementize(), Location, errs, errcode?errcode+"-11":"RM011")	
 				break;
 			case SERVICE_RM:
-				if (validContentFinishedBanner(HowRelated, SCHEMA_NAMESPACE) && (SchemaVersion(SCHEMA_NAMESPACE)==SCHEMA_v1)) 
-					errs.pushCode(errcode?errcode+"-21":"RM021", dvbi.BANNER_CONTENT_FINISHED_v2.quote()+" not permitted for "+SCHEMA_NAMESPACE.quote()+" in "+Location, "invalid CS value");
+			case SERVICE_INSTANCE_RM:
+				if (validContentFinishedBanner(HowRelated, ANY_NAMESPACE) && (SchemaVersion(SCHEMA_NAMESPACE)==SCHEMA_v1)) 
+					errs.pushCode(errcode?errcode+"-21":"RM021", HowRelated.attr(dvbi.href).value().quote()+" not permitted for "+SCHEMA_NAMESPACE.quote()+" in "+Location, "invalid CS value")
 				
 				if (validOutScheduleHours(HowRelated, SCHEMA_NAMESPACE) || validContentFinishedBanner(HowRelated, SCHEMA_NAMESPACE) || validServiceApplication(HowRelated) || validServiceLogo(HowRelated, SCHEMA_NAMESPACE)) {
+					rc=HowRelated.attr(dvbi.a_href).value()
 					if (validServiceLogo(HowRelated, SCHEMA_NAMESPACE) || validOutScheduleHours(HowRelated, SCHEMA_NAMESPACE))
 						MediaLocator.forEach(locator =>
 							checkValidLogo(HowRelated, Format, locator, errs, Location, LocationType));
@@ -698,17 +717,20 @@ function validateRelatedMaterial(RelatedMaterial, errs, Location, LocationType, 
 							checkSignalledApplication(HowRelated, Format, locator, errs, Location, LocationType));
 				}
 				else 
-					InvalidHrefValue(HowRelated.attr(dvbi.a_href).value(), tva.e_RelatedMaterial.elementize(), Location, errs, errcode?errcode+"-22":"RM022");
+					InvalidHrefValue(HowRelated.attr(dvbi.a_href).value(), tva.e_RelatedMaterial.elementize(), Location, errs, errcode?errcode+"-22":"RM022")
 				break;
 			case CONTENT_GUIDE_RM:
-				if (validContentGuideSourceLogo(HowRelated, SCHEMA_NAMESPACE)) 
+				if (validContentGuideSourceLogo(HowRelated, SCHEMA_NAMESPACE)) {
+					rc=HowRelated.attr(dvbi.a_href).value()
 					MediaLocator.forEach(locator =>
-						checkValidLogo(HowRelated, Format, locator, errs, Location, LocationType));
+						checkValidLogo(HowRelated, Format, locator, errs, Location, LocationType))
+				}
 				else
 					InvalidHrefValue(HowRelated.attr(dvbi.a_href).value(), tva.e_RelatedMaterial.elementize(), Location, errs, errcode?errcode+"-31":"RM031")
 				break;
 		}
 	}
+	return rc
 }
 
 
@@ -1734,9 +1756,14 @@ function validateServiceInstance(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, Ser
 	checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, dvbi.e_DisplayName, "service instance in service="+thisServiceId.quote(), ServiceInstance, errs, "SI010");
 
 	// check @href of <ServiceInstance><RelatedMaterial>
-	var rm=0, RelatedMaterial;
-	while (RelatedMaterial=ServiceInstance.get(xPath(SCHEMA_PREFIX, tva.e_RelatedMaterial, ++rm), SL_SCHEMA)) 
-		validateRelatedMaterial(RelatedMaterial, errs, "service instance of "+thisServiceId.quote(), SERVICE_RM, SCHEMA_NAMESPACE, "SI020");
+	var rm=0, countControlApps=0, RelatedMaterial;
+	while (RelatedMaterial=ServiceInstance.get(xPath(SCHEMA_PREFIX, tva.e_RelatedMaterial, ++rm), SL_SCHEMA)) {
+		let foundHref=validateRelatedMaterial(RelatedMaterial, errs, "service instance of "+thisServiceId.quote(), SERVICE_INSTANCE_RM, SCHEMA_NAMESPACE, "SI020")
+		if (foundHref!="" && validServiceControlApplication(foundHref)) 
+			countControlApps++
+	}
+	if (countControlApps>1)
+		errs.pushCode("SI021", "only a single service control application can be signalled in a service instance", "multi apps")
 
 	// <ServiceInstance><ContentProtection>
 	var cp=0, ContentProtection;
@@ -2274,10 +2301,15 @@ function validateServiceList(SLtext, errs) {
 	checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, dvbi.e_ProviderName, dvbi.e_ServiceList, SL, errs, "SL030");
 
 	//check <ServiceList><RelatedMaterial>
-	var rm=0, RelatedMaterial;
-	while (RelatedMaterial=SL.get(xPath(SCHEMA_PREFIX, tva.e_RelatedMaterial, ++rm), SL_SCHEMA)) 
-		validateRelatedMaterial(RelatedMaterial, errs, "service list", SERVICE_LIST_RM, SCHEMA_NAMESPACE, "SL040");
+	var rm=0, countControlApps=0, RelatedMaterial;
+	while (RelatedMaterial=SL.get(xPath(SCHEMA_PREFIX, tva.e_RelatedMaterial, ++rm), SL_SCHEMA)) {
+		let foundHref=validateRelatedMaterial(RelatedMaterial, errs, "service list", SERVICE_LIST_RM, SCHEMA_NAMESPACE, "SL040")
+		if (foundHref!="" && validServiceControlApplication(foundHref)) 
+			countControlApps++	}
 
+	if (countControlApps>1)
+		errs.pushCode("SL041", "only a single service control application can be signalled in a service", "multi apps")
+		
 	// check <ServiceList><RegionList> and remember regionID values
 	var knownRegionIDs=[], RegionList=SL.get(xPath(SCHEMA_PREFIX, dvbi.e_RegionList), SL_SCHEMA);
 	if (RegionList) {
@@ -2556,7 +2588,7 @@ function processQuery(req, res) {
 			if (this.readyState==this.DONE && this.status==200) 
 				validateServiceList(xhttp.responseText.replace(/(\r\n|\n|\r|\t)/gm,""), errs);
 			else             
-				errs.pushCode("PR102", "retrieval of URL ("+xhttp.settings.url+") failed");
+				errs.pushCode("PR102", "retrieval of URL ("+req.query.SLurl+") failed");
 		};
 		xhttp.open("GET", req.query.SLurl, false);
 		xhttp.send();
