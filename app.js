@@ -230,28 +230,33 @@ function loadSchema(into, schemafilename) {
  * @param {boolean} useURLs use network locations as the source rather than local files
  */
 function loadDataFiles(useURLs) {
-	console.log("loading classification schemes...");
-    allowedGenres=[];
-	loadCS(allowedGenres, useURLs, TVA_ContentCSFilename, TVA_ContentCSURL);
-	loadCS(allowedGenres, useURLs, TVA_FormatCSFilename, TVA_FormatCSURL);
-	loadCS(allowedGenres, useURLs, DVBI_ContentSubjectFilename, DVBI_ContentSubjectURL);
+	console.log("loading classification schemes...")
+    allowedGenres=[]
+	loadCS(allowedGenres, useURLs, TVA_ContentCSFilename, TVA_ContentCSURL, false)
+	loadCS(allowedGenres, useURLs, TVA_FormatCSFilename, TVA_FormatCSURL, false)
+	loadCS(allowedGenres, useURLs, DVBI_ContentSubjectFilename, DVBI_ContentSubjectURL, false)
 
-	loadCS(allowedPictureFormats, useURLs, TVA_PictureFormatCSFilename, TVA_PictureFormatCSURL);
+	loadCS(allowedPictureFormats, useURLs, TVA_PictureFormatCSFilename, TVA_PictureFormatCSURL, false)
    
-    allowedServiceTypes=[];
-	loadCS(allowedServiceTypes, useURLs, DVBI_ServiceTypeCSFilename, DVBI_ServiceTypeCSURL);
+    allowedServiceTypes=[]
+	loadCS(allowedServiceTypes, useURLs, DVBI_ServiceTypeCSFilename, DVBI_ServiceTypeCSURL, false)
 
-    allowedAudioSchemes=[]; allowedAudioConformancePoints=[];
-	loadCS(allowedAudioSchemes, useURLs, DVB_AudioCodecCSFilename, DVB_AudioCodecCSURL);
-	loadCS(allowedAudioSchemes, useURLs, DVB_AudioCodecCS2020Filename, DVB_AudioCodecCS2020URL);  // TODO: for now just add these as permitted values - might become 2007 OR 2020 later
-	loadCS(allowedAudioSchemes, useURLs, MPEG7_AudioCodingFormatCSFilename, MPEG7_AudioCodingFormatCSURL);
-	loadCS(allowedAudioConformancePoints, useURLs, DVB_AudioConformanceCSFilename, DVB_AudioConformanceCSURL);
+    allowedAudioSchemes=[]
+	allowedAudioConformancePoints=[]
+	loadCS(allowedAudioSchemes, useURLs, DVB_AudioCodecCSFilename, DVB_AudioCodecCSURL, true)
+	loadCS(allowedAudioSchemes, useURLs, DVB_AudioCodecCS2020Filename, DVB_AudioCodecCS2020URL, true)  
+	loadCS(allowedAudioSchemes, useURLs, MPEG7_AudioCodingFormatCSFilename, MPEG7_AudioCodingFormatCSURL, true)
+	loadCS(allowedAudioConformancePoints, useURLs, DVB_AudioConformanceCSFilename, DVB_AudioConformanceCSURL, true)
 	
-    allowedVideoSchemes=[]; allowedVideoConformancePoints=[]; AudioPresentationCS=[];
-	loadCS(allowedVideoSchemes, useURLs, DVB_VideoCodecCSFilename, DVB_VideoCodecCSURL);
-	loadCS(allowedVideoSchemes, useURLs, DVB_VideoCodecCS2020Filename, DVB_VideoCodecCS2020URL);  // TODO: for now just add these as permitted values - might become 2007 OR 2020 later
-	loadCS(allowedVideoSchemes, useURLs, MPEG7_VisualCodingFormatCSFilename, MPEG7_VisualCodingFormatCSURL);
-	loadCS(allowedVideoConformancePoints, useURLs, DVB_VideoConformanceCSFilename, DVB_VideoConformanceCSURL);
+    allowedVideoSchemes=[]
+	allowedVideoConformancePoints=[]
+
+	loadCS(allowedVideoSchemes, useURLs, DVB_VideoCodecCSFilename, DVB_VideoCodecCSURL, true)
+	loadCS(allowedVideoSchemes, useURLs, DVB_VideoCodecCS2020Filename, DVB_VideoCodecCS2020URL, true)
+	loadCS(allowedVideoSchemes, useURLs, MPEG7_VisualCodingFormatCSFilename, MPEG7_VisualCodingFormatCSURL, true)
+	loadCS(allowedVideoConformancePoints, useURLs, DVB_VideoConformanceCSFilename, DVB_VideoConformanceCSURL, true)
+
+	AudioPresentationCS=[]
 	loadCS(AudioPresentationCS, useURLs, MPEG7_AudioPresentationCSFilename, MPEG7_AudioPresentationCSURL)
 
 	RecordingInfoCSvalules=[];
