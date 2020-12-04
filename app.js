@@ -112,6 +112,8 @@ const DVBI_ServiceListSchemaFilename_v1=path.join("schema","dvbi_v1.0.xsd");
 var SLschema_v1;
 const DVBI_ServiceListSchemaFilename_v2=path.join("schema","dvbi_v2.0.xsd");
 var SLschema_v2;
+const DVBI_ServiceListSchemaFilename_v3=path.join("schema","dvbi_v3.0.xsd");
+var SLschema_v3;
 const TVA_SchemaFilename=path.join("schema","tva_metadata_3-1.xsd");
 const MPEG7_SchemaFilename=path.join("schema","tva_mpeg7.xsd");
 const XML_SchemaFilename=path.join("schema","xml.xsd");
@@ -274,9 +276,11 @@ function loadDataFiles(useURLs) {
 	console.log("loading schemas...");
 	//loadSchema(SLschema_v1, DVBI_ServiceListSchemaFilename_v1);
 	//loadSchema(SLschema_v2, DVBI_ServiceListSchemaFilename_v2);
+	//loadSchema(SLschema_v3, DVBI_ServiceListSchemaFilename_v3);
 
     SLschema_v1=fs.readFileSync(DVBI_ServiceListSchemaFilename_v1);
     SLschema_v2=fs.readFileSync(DVBI_ServiceListSchemaFilename_v2);
+    SLschema_v3=fs.readFileSync(DVBI_ServiceListSchemaFilename_v3);
     TVAschema=fs.readFileSync(TVA_SchemaFilename);
     MPEG7schema=fs.readFileSync(MPEG7_SchemaFilename);
     XMLschema=fs.readFileSync(XML_SchemaFilename);
@@ -309,6 +313,43 @@ function uniqueServiceIdentifier(identifier, identifiers) {
 
 
 /**
+ *
+ * @param {String} postcode  the postcode value to check
+ * @returns {boolean} true if the postcode argument is a valid postcode , otherwise false 
+ */
+function isPostcode(postcode, checkWild=false) {
+	if (!postcode) return false
+
+	let p=postcode.trim()
+	const postcodeRegex=/[A-Za-z\d]+([\- ][A-Za-z\d]+)?/
+	
+	let s=p.match(postcodeRegex);
+	return s?s[0]===p:false;
+}
+
+
+/**
+ *
+ * @param {String} postcode  the postcode value to check
+ * @returns {boolean} true if the postcode argument is a valid wildcarded postcode , otherwise false 
+ */
+function isWildcardPostcode(postcode) {
+	if (!postcode) return false
+
+	let p=postcode.trim()
+	const WildcardRegexFirst=/\*[A-Za-z\d]*[\- ]?[A-Za-z\d]+/
+	const WildcardRegexMiddle=/([A-Za-z\d]+\*[\- ]?[A-Za-z\d]+)|([A-Za-z\d]+[\- ]?\*[A-Za-z\d]+)/
+	const WildcardRegexLast=/[A-Za-z\d]+[\- ]?[A-Za-z\d]*\*/
+
+	let s1=p.match(WildcardRegexFirst)
+	let s2=p.match(WildcardRegexMiddle)
+	let s3=p.match(WildcardRegexLast)
+
+	return 	res=(s1&&s1[0]===p) || (s2&&s2[0]===p) || (s3&&s3[0]===p)
+
+}
+
+/**
  * parses the region element, checks the values and adds it and its children (through recursion) to the linear list of region ids
  *
  * @param {String} SL_SCHEMA      Used when constructing Xpath queries
@@ -333,12 +374,12 @@ function addRegion(SL_SCHEMA, SCHEMA_PREFIX, Region, depth, knownRegionIDs, errs
 			errs.pushCode("AR003", "Duplicate "+dvbi.a_regionId.attribute()+" "+regionID.quote(), "duplicate regionID")
 		else knownRegionIDs.push(regionID)
 	}
-    let countryCodeSpecified=Region.attr(dvbi.a_countryCodes)
-    if ((depth!=0) && countryCodeSpecified) 
+    let countryCodesSpecified=Region.attr(dvbi.a_countryCodes)
+    if ((depth!=0) && countryCodesSpecified) 
         errs.pushCode("AR004", dvbi.a_countryCodes.attribute(Region.name())+" not permitted for sub-region "+regionID.quote(), "ccode in subRegion")
 
-    if (countryCodeSpecified) {
-        let countries=countryCodeSpecified.value().split(",")
+    if (countryCodesSpecified) {
+        let countries=countryCodesSpecified.value().split(",")
         if (countries) 
 			countries.forEach(country => {
 				if (!knownCountries.isISO3166code(country)) 
@@ -349,13 +390,31 @@ function addRegion(SL_SCHEMA, SCHEMA_PREFIX, Region, depth, knownRegionIDs, errs
 	// Check that the @xml:lang values for each <DisplayName> element are unique and only one element does not have any language specified
 	checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, dvbi.e_RegionName, dvbi.a_regionID.attribute(dvbi.e_Region)+"="+regionID.quote(), Region, errs, "AR006")
 	
-	// TODO: <Region><Postcode>
+	// <Region><Postcode>
+	let pc=0, Postcode
+	while (Postcode=Region.get(xPath(SCHEMA_PREFIX, dvbi.e_Postcode, ++pc), SL_SCHEMA)) {
+		if (!isPostcode(Postcode.text()))
+			errs.pushCode("AR011", Postcode.text().quote()+" is not a valid postcode", "invalid postcode")
+	}
 	
-	// TODO: <Region><WildcardPostcode>
+	// <Region><WildcardPostcode>
+	let wp=0, WildcardPostcode
+	while (WildcardPostcode=Region.get(xPath(SCHEMA_PREFIX, dvbi.e_WildcardPostcode, ++wp), SL_SCHEMA)) {
+		if (!isWildcardPostcode(WildcardPostcode.text()))
+			errs.pushCode("AR021", WildcardPostcode.text().quote()+" is not a valid wildcarded postcode", "invalid postcode")		
+	}
 	
-	// TODO: <Region><PostcodeRange>
+	// <Region><PostcodeRange>
+	let pr=0, PostcodeRange
+	while (PostcodeRange=Region.get(xPath(SCHEMA_PREFIX, dvbi.e_PostcodeRange, ++pr), SL_SCHEMA)) {
+		checkAttributes(PostcodeRange, [dvbi.a_from, dvbi.a_to], [], errs, "AR031")
+		if (PostcodeRange.attr(dvbi.a_from) && !isPostcode(PostcodeRange.attr(dvbi.a_from).value()))
+			errs.pushCode("AR032", PostcodeRange.attr(dvbi.a_from).value().quote()+" is not a valid postcode", "invalid postcode")
+		if (PostcodeRange.attr(dvbi.a_to) && !isPostcode(PostcodeRange.attr(dvbi.a_to).value()))
+			errs.pushCode("AR033", PostcodeRange.attr(dvbi.a_to).value().quote()+" is not a valid postcode", "invalid postcode")
+	}
 	
-	// TODO: <Region><Coordinates>
+	// <Region><Coordinates>
 	let co=0, Coordinates
 	while (Coordinates=Region.get(xPath(SCHEMA_PREFIX, dvbi.e_Coordinates, ++co), SL_SCHEMA)) {
 		checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, Coordinates, [dvbi.e_Latitude, dvbi.e_Longitude, dvbi.e_Radius], [], errs, "AR041")
@@ -371,7 +430,6 @@ function addRegion(SL_SCHEMA, SCHEMA_PREFIX, Region, depth, knownRegionIDs, errs
 		let Raduis=Coordinates.get(xpath(SCHEMA_PREFIX, dvbi.e_Radius), SL_SCHEMA)
 		if (Radius && !isPositiveInteger(Radius))
 			errs.pushCode("AR044", dvbi.e_Radius.elementize()+" is not a valid value "+Radius.quote(), "invalid value")
-
 	}
 
     if (depth > dvbi.MAX_SUBREGION_LEVELS) 
@@ -400,7 +458,8 @@ function validServiceUnavailableApplication(val) {
  */
 function validServiceApplication(HowRelated) {
     // return true if val is a valid CS value for Service Related Applications (A177 5.2.3)
-    // urn:dvb:metadata:cs:LinkedApplicationCS:2019
+	// urn:dvb:metadata:cs:LinkedApplicationCS:2019
+	if (!HowRelated) return false
     var val=HowRelated.attr(dvbi.a_href)?HowRelated.attr(dvbi.a_href).value():null;
     return validServiceControlApplication(val)||validServiceUnavailableApplication(val)
 }
@@ -2478,7 +2537,7 @@ function validateServiceList(SLtext, errs) {
 		if (CGSR) {
 			let uniqueID=service.get(xPath(SCHEMA_PREFIX, dvbi.e_UniqueIdentifier), SL_SCHEMA);
 			if (!isIn(knownServices, CGSR.text())) 
-				errs.pushCodeW("SL220", dvbi.e_ContentGuideServiceRef.elementize()+"="+CGSR.text().quote()+(uniqueId?(" in service "+uniqueID.text().quote()):"")+" does not refer to another service", "invalid "+dvbi.e_ContentGuideServiceRef.elementize());
+				errs.pushCodeW("SL220", dvbi.e_ContentGuideServiceRef.elementize()+"="+CGSR.text().quote()+(uniqueID?(" in service "+uniqueID.text().quote()):"")+" does not refer to another service", "invalid "+dvbi.e_ContentGuideServiceRef.elementize());
 			if (uniqueID && (CGSR.text()==uniqueID.text()))
 				errs.pushCodeW("SL221", dvbi.e_ContentGuideServiceRef.elementize()+" is self", "self "+dvbi.e_ContentGuideServiceRef.elementize());
 		}
