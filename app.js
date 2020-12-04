@@ -337,16 +337,10 @@ function isWildcardPostcode(postcode) {
 	if (!postcode) return false
 
 	let p=postcode.trim()
-	const WildcardRegexFirst=/\*[A-Za-z\d]*[\- ]?[A-Za-z\d]+/
-	const WildcardRegexMiddle=/([A-Za-z\d]+\*[\- ]?[A-Za-z\d]+)|([A-Za-z\d]+[\- ]?\*[A-Za-z\d]+)/
-	const WildcardRegexLast=/[A-Za-z\d]+[\- ]?[A-Za-z\d]*\*/
+	const WildcardRegex=/(\*[A-Za-z\d]*[\- ]?[A-Za-z\d]+)|(([A-Za-z\d]+\*[\- ]?[A-Za-z\d]+)|([A-Za-z\d]+[\- ]?\*[A-Za-z\d]+))|([A-Za-z\d]+[\- ]?[A-Za-z\d]*\*)/
 
-	let s1=p.match(WildcardRegexFirst)
-	let s2=p.match(WildcardRegexMiddle)
-	let s3=p.match(WildcardRegexLast)
-
-	return 	res=(s1&&s1[0]===p) || (s2&&s2[0]===p) || (s3&&s3[0]===p)
-
+	let s=p.match(WildcardRegex)
+	return 	s&&s[0]===p
 }
 
 /**
