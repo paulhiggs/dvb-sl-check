@@ -431,15 +431,15 @@ function addRegion(SL_SCHEMA, SCHEMA_PREFIX, Region, depth, knownRegionIDs, errs
 	while (Coordinates=Region.get(xPath(SCHEMA_PREFIX, dvbi.e_Coordinates, ++co), SL_SCHEMA)) {
 		checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, Coordinates, [dvbi.e_Latitude, dvbi.e_Longitude, dvbi.e_Radius], [], errs, "AR041")
 
-		let Latitude=Coordinates.get(xpath(SCHEMA_PREFIX, dvbi.e_Latitude), SL_SCHEMA)
+		let Latitude=Coordinates.get(xPath(SCHEMA_PREFIX, dvbi.e_Latitude), SL_SCHEMA)
 		if (Latitude && !validLatitude(Latitude))
 			errs.pushCode("AR042", dvbi.e_Latitude.elementize()+" is not a valid latitude "+Latitude.quote(), "invalid value")
 
-		let Longitude=Coordinates.get(xpath(SCHEMA_PREFIX, dvbi.e_Longitude), SL_SCHEMA)
+		let Longitude=Coordinates.get(xPath(SCHEMA_PREFIX, dvbi.e_Longitude), SL_SCHEMA)
 		if (Longitude && !validLongitude(Longitude))
 			errs.pushCode("AR043", dvbi.e_Longitude.elementize()+" is not a valid longitude "+Longitude.quote(), "invalid value")
 			
-		let Raduis=Coordinates.get(xpath(SCHEMA_PREFIX, dvbi.e_Radius), SL_SCHEMA)
+		let Raduis=Coordinates.get(xPath(SCHEMA_PREFIX, dvbi.e_Radius), SL_SCHEMA)
 		if (Radius && !isPositiveInteger(Radius))
 			errs.pushCode("AR044", dvbi.e_Radius.elementize()+" is not a valid value "+Radius.quote(), "invalid value")
 	}
