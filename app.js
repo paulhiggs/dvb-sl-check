@@ -429,10 +429,9 @@ function addRegion(SL_SCHEMA, SCHEMA_PREFIX, Region, depth, knownRegionIDs, errs
     if (depth > dvbi.MAX_SUBREGION_LEVELS) 
         errs.pushCode("AR007", dvbi.e_Region.elementize()+" depth exceeded (>"+dvbi.MAX_SUBREGION_LEVELS+") for sub-region "+regionID.quote(), "region depth exceeded")
 
-    let i=0, RegionChild;
-    while ((RegionChild=Region.child(i++)) != null) 
-        if (RegionChild.type()==="element" && RegionChild.name()==dvbi.e_Region)      // its a child Region
-            addRegion(SL_SCHEMA, SCHEMA_PREFIX, RegionChild, depth+1, knownRegionIDs, errs);
+	let rc=0, RegionChild;
+	while (RegionChild=Region.get(xPath(SCHEMA_PREFIX, dvbi.e_Region, ++rc), SL_SCHEMA))
+		addRegion(SL_SCHEMA, SCHEMA_PREFIX, RegionChild, depth+1, knownRegionIDs, errs)
 }
 
 
@@ -721,7 +720,7 @@ function checkSignalledApplication(HowRelated, Format, MediaLocator, errs, Locat
  * @param {string} LocationType      The type of element containing the <RelatedMaterial> element. Different validation rules apply to different location types
  * @param {string} SCHEMA_NAMESPACE  The namespace of XML document
  * @param {string} errcode			 The prefix to use for any errors found
- * @returns {string} an href value is valid, else ""
+ * @returns {string} an href value if valid, else ""
  */
 function validateRelatedMaterial(RelatedMaterial, errs, Location, LocationType, SCHEMA_NAMESPACE, errcode=null) {
 	let rc=""
@@ -731,16 +730,14 @@ function validateRelatedMaterial(RelatedMaterial, errs, Location, LocationType, 
 	}
 	
     let HowRelated=null, Format=null, MediaLocator=[];
-    let elem=RelatedMaterial.child(0);
-    while (elem) {
+    let e=0, elem
+    while (elem=RelatedMaterial.child(e++)) {
         if (elem.name()===tva.e_HowRelated)
             HowRelated=elem;
         else if (elem.name()===tva.e_Format)
             Format=elem;
         else if (elem.name()===tva.e_MediaLocator)
             MediaLocator.push(elem);
-
-        elem=elem.nextElement();
     }
 
     if (!HowRelated) {
@@ -1482,14 +1479,25 @@ function validateAContentGuideSource(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE,
 	while (RelatedMaterial=source.get(xPath(SCHEMA_PREFIX, tva.e_RelatedMaterial, ++rm), SL_SCHEMA))
 		validateRelatedMaterial(RelatedMaterial, errs, loc, CONTENT_GUIDE_RM, SCHEMA_NAMESPACE, errCode?errCode+"e":"GS005")
 	
-	// TODO:  ContentGuideSourceType::ScheduleInfoEndpoint - should be a URL
+	// ContentGuideSourceType::ScheduleInfoEndpoint - should be a URL
+	let sie=source.get(xPath(SCHEMA_PREFIX, dvbi.e_ScheduleInfoEndpoint), SL_SCHEMA)
+	if (sie && !isURL(sie.text()))
+		errs.pushCode(errCode?errCode+"f":"GS006", dvbi.e_ScheduleInfoEndpoint.elementize()+" is not a valud URL", "not URL")
 	
-	// TODO:  ContentGuideSourceType::ProgramInfoEndpoint - should be a URL
+	// ContentGuideSourceType::ProgramInfoEndpoint - should be a URL
+	let pie=source.get(xPath(SCHEMA_PREFIX, dvbi.e_ProgramInfoEndpoint), SL_SCHEMA)
+	if (pie && !isURL(pie.text()))
+		errs.pushCode(errCode?errCode+"g":"GS007", dvbi.e_ProgramInfoEndpoint.elementize()+" is not a valud URL", "not URL")
 	
-	// TODO:  ContentGuideSourceType::GroupInfoEndpoint - should be a URL
+	// ContentGuideSourceType::GroupInfoEndpoint - should be a URL
+	let gie=source.get(xPath(SCHEMA_PREFIX, dvbi.e_GroupInfoEndpoint), SL_SCHEMA)
+	if (gie && !isURL(gie.text()))
+		errs.pushCode(errCode?errCode+"h":"GS008", dvbi.e_GroupInfoEndpoint.elementize()+" is not a valud URL", "not URL")
 	
-	// TODO:  ContentGuideSourceType::ModeEpisodesEndpoint - should be a URL
-	
+	// ContentGuideSourceType::MoreEpisodesEndpoint - should be a URL
+	let mee=source.get(xPath(SCHEMA_PREFIX, dvbi.e_MoreEpisodesEndpoint), SL_SCHEMA)
+	if (mee && !isURL(mee.text()))
+		errs.pushCode(errCode?errCode+"h":"GS008", dvbi.e_MoreEpisodesEndpoint.elementize()+" is not a valud URL", "not URL")
 }
 
 
