@@ -35,9 +35,7 @@ const morgan=require("morgan")
 // file upload for express - https://github.com/richardgirges/express-fileupload
 const fileupload=require("express-fileupload")
 
-
 const fs=require("fs"), path=require("path")
-//const request=require("request")
 
 // command line arguments - https://github.com/75lb/command-line-args
 const commandLineArgs=require('command-line-args')
@@ -57,8 +55,6 @@ var sprintf=require("sprintf-js").sprintf,
 const DVB_COMMON_DIR="dvb-common", 
       COMMON_REPO_RAW="https://raw.githubusercontent.com/paulhiggs/dvb-common/master/",
       DVB_METADATA="https://dvb.org/metadata/"
-
-
 
 const TVA_ContentCSFilename=path.join(DVB_COMMON_DIR, "tva","ContentCS.xml"),
 	  TVA_ContentCSURL=COMMON_REPO_RAW + "tva/" + "ContentCS.xml",
@@ -2624,13 +2620,7 @@ function validateServiceList(SLtext, errs) {
  * @returns true if the SLurl parameter is specified containing the URL to a service list
  */
 function checkQuery(req) {
-    if (req.query) {
-        if (req.query.SLurl)
-            return true;
-        
-        return false;
-    }
-    return true;
+	return (req && req.query && req.query.SLurl)
 }
 
 
@@ -2641,13 +2631,7 @@ function checkQuery(req) {
  * @returns true if the SLfile parameter is specified containing the file name a service list
  */
 function checkFile(req) {
-    if (req.files) {
-        if (req.files.SLfile)
-            return true;
-        
-        return false;
-    }
-    return true;
+	return (req && req.files && req.files.SLfile)
 }
 
 
@@ -2658,15 +2642,14 @@ function checkFile(req) {
  * @param {Object} res  The HTTP response to be sent to the client
  */ 
 function processQuery(req, res) {
-    if (isEmpty(req.query)) {
-        drawForm(true, res);  
-    } else if (!checkQuery(req)) {
+    if (isEmpty(req.query))
+        drawForm(true, res);
+    else if (!checkQuery(req)) {
         drawForm(true, res, req.query.SLurl, "URL not specified");
         res.status(400);
     }
     else {
-        var errs=new ErrorList();
-	
+        var errs=new ErrorList();	
 		var xhttp=new XmlHttpRequest();
 		xhttp.onreadystatechange=function() {
 			if (this.readyState==this.DONE && this.status==200) 
@@ -2676,7 +2659,7 @@ function processQuery(req, res) {
 		};
 		xhttp.open("GET", req.query.SLurl, false);
 		xhttp.send();
-		
+
         drawForm(true, res, req.query.SLurl, null, errs);
     }
     res.end()
@@ -2691,9 +2674,9 @@ function processQuery(req, res) {
  * @param {Object} res  The HTTP response to be sent to the client
  */ 
 function processFile(req, res) {
-    if (isEmpty(req.query)) {
+    if (isEmpty(req.query)) 
         drawForm(false, res);    
-    } else if (!checkFile(req)) {
+    else if (!checkFile(req)) {
         drawForm(false, res, req.query.SLfile, "File not specified");
         res.status(400);
     }
