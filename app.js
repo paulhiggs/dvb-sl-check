@@ -40,6 +40,9 @@ const fs=require("fs"), path=require("path")
 // command line arguments - https://github.com/75lb/command-line-args
 const commandLineArgs=require('command-line-args')
 
+// fetch API for node.js - https://www.npmjs.com/package/node-fetch
+const fetch=require('node-fetch')
+
 var XmlHttpRequest=require("xmlhttprequest").XMLHttpRequest
 
 const https=require("https")
@@ -245,6 +248,36 @@ function loadSchema(into, schemafilename) {
  *
  * @param {boolean} useURLs use network locations as the source rather than local files
  */
+function loadCSfromURL(values, csURL, leafNodesOnly=false) { 
+	console.log("retrieving CS from", csURL, "via Fetch()")
+	
+	function handleErrors(response) {
+		if (!response.ok) {
+			throw Error(response.statusText)
+		}
+		return response
+	}
+	
+	fetch(csURL)
+		.then(handleErrors)
+		.then(response => response.text())
+		.then(strXML => loadClassificationScheme(values, libxml.parseXmlString(strXML), leafNodesOnly))
+		.catch(error => console.log("error ("+error+") retrieving "+csURL))
+/*	
+	var xhttp = new XmlHttpRequest();
+	xhttp.onreadystatechange = function() {
+		if (this.readyState == 4) {
+			if (this.status == 200) 
+				loadClassificationScheme(values, libxml.parseXmlString(xhttp.responseText), leafNodesOnly);
+			else console.log("error ("+this.status+") retrieving "+csURL);	
+		}
+	};
+	xhttp.open("GET", csURL, true);
+	xhttp.send();
+*/
+}
+
+
 function loadDataFiles(useURLs) {
 	console.log("loading classification schemes...")
     allowedGenres=[]
@@ -1809,7 +1842,7 @@ function validZuluTimeType(val) {
 	// <pattern value="(([01]\d|2[0-3]):[0-5]\d:[0-5]\d(\.\d+)?|(24:00:00(\.0+)?))Z"/>
 	const ZuluRegex=/(([01]\d|2[0-3]):[0-5]\d:[0-5]\d(\.\d+)?|(24:00:00(\.0+)?))Z/
     var s=val.trim().match(ZuluRegex)
-    return s?s[0]===ext:false
+    return s?s[0]===val:false
 }
 
 
@@ -2797,7 +2830,7 @@ var https_options={
 
 if (https_options.key && https_options.cert) {
 	if (options.sport==options.port)
-		options.sport=options.port+1;
+		options.sport=options.port+1
 	
     var https_server=https.createServer(https_options, app);
     https_server.listen(options.sport, function(){
