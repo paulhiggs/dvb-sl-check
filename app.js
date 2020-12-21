@@ -205,17 +205,17 @@ function isIn(values, value){
  * check a language code and log its result
  *
  * @param {string} lang      the language to check
- * @param {string} location  the 'location' of the element containing the language value
+ * @param {string} loc       the 'location' of the element containing the language value
  * @param {Object} errs      the class where errors and warnings relating to the serivce list processing are stored 
  * @param {String} errCode   the error code to be reported
  */
-function checkLanguage(lang, location, errs, errCode) {
+function checkLanguage(lang, loc, errs, errCode) {
 	switch (knownLanguages.isKnown(lang)) {
 		case knownLanguages.languageUnknown:
-			errs.pushCode(errCode?errCode+"-1":"CL001", (location?location+" ":"language ")+"value "+lang.quote()+" is invalid", "invalid language");
+			errs.pushCode(errCode?errCode+"-1":"CL001", (loc?loc:"language")+" value "+lang.quote()+" is invalid", "invalid language")
 			break;
 		case knownLanguages.languageRedundant:
-			errs.pushCodeW(errCode?errCode+"-2":"CL002", (location?location+" ":"language ")+"value "+lang.quote()+" is redundant", "redundant language");
+			errs.pushCodeW(errCode?errCode+"-2":"CL002", (loc?loc:"language")+" value "+lang.quote()+" is redundant", "redundant language")
 			break;	
 	}
 }
@@ -1012,10 +1012,10 @@ function drawForm(URLmode, res, lastInput=null, error=null, errors=null) {
 
 	if (error) 
 		res.write("<p>"+error+"</p>");
-	var resultsShown=false;
+	let resultsShown=false
 	if (errors) {
-		var tableHeader=false;
-		for (var i in errors.counts) {
+		let tableHeader=false
+		for (let i in errors.counts) {
 			if (errors.counts[i]!=0) {
 				if (!tableHeader) {
 					res.write(SUMMARY_FORM_HEADER);
@@ -1025,7 +1025,7 @@ function drawForm(URLmode, res, lastInput=null, error=null, errors=null) {
 				resultsShown=true;
 			}
 		}
-		for (var i in errors.countsWarn) {
+		for (let i in errors.countsWarn) {
 			if (errors.countsWarn[i]!=0) {
 				if (!tableHeader) {
 					res.write(SUMMARY_FORM_HEADER);
@@ -1043,13 +1043,12 @@ function drawForm(URLmode, res, lastInput=null, error=null, errors=null) {
 				res.write("<table><tr><th>code</th><th>errors</th></tr>");
 				tableHeader=true;                    
 			}
-			var t=value.replace(/</g,"&lt;").replace(/>/g,"&gt;");
 			if (value.includes(errors.delim)) {
-				var x=value.split(errors.delim);
+				let x=value.split(errors.delim)
 				res.write("<tr><td>"+x[0]+"</td><td>"+HTMLize(x[1])+"</td></tr>");	
 			}
 			else 
-				res.write("<tr><td></td><td>"+HTMLize(t)+"</td></tr>");
+				res.write("<tr><td></td><td>"+HTMLize(value)+"</td></tr>");
 			resultsShown=true;
 		});
 		if (tableHeader) res.write("</table>");
@@ -1060,13 +1059,12 @@ function drawForm(URLmode, res, lastInput=null, error=null, errors=null) {
 				res.write("<table><tr><th>code</th><th>warnings</th></tr>");
 				tableHeader=true;                    
 			}
-			var t=value.replace(/</g,"&lt;").replace(/>/g,"&gt;");
 			if (value.includes(errors.delim)) {
-				var x=value.split(errors.delim);
+				let x=value.split(errors.delim)
 				res.write("<tr><td>"+x[0]+"</td><td>"+HTMLize(x[1])+"</td></tr>");	
 			}
 			else 
-				res.write("<tr><td></td><td>"+HTMLize(t)+"</td></tr>");
+				res.write("<tr><td></td><td>"+HTMLize(value)+"</td></tr>");
 
 			resultsShown=true;
 		});
@@ -1221,153 +1219,6 @@ function checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, elem, mandatoryChildElements
 }
 
 
-
-// TODO: THIS IS NOT COMPLETE
-/**
- * check that the specified child elements are in the parent element with the correct cardinality and order
- *
- * @param {string} SL_SCHEMA      Used when constructing Xpath queries
- * @param {string} SCHEMA_PREFIX  Used when constructing Xpath queries
- * @param {Object} elem           The element whose children should be checked
- * @param {Array}  childElements  An 'ordered' array of objects {name, minoccurs, maxoccurs} representing the child elements
- * @param {Class}  errs           Errors found in validaton
- * @param {string} errCode        Error code to be used for any error found 
- * @returns {boolean} true if no errors are found (all mandatory elements are present and no extra elements are specified)
- */ 
-const UNBOUNDED=65535
-function checkTopElements2(SL_SCHEMA, SCHEMA_PREFIX, elem, childElements, errs, errCode=null) {
-	
-	function countSubElements(SL_SCHEMA, SCHEMA_PREFIX, elem, subElementName) {
-		var count=0, i=0, se;
-		while (se=elem.child(i++))
-			if (se.name()==subElementName)
-				count++;
-		return count;
-	}	
-	
-	if (!elem) {
-		errs.pushCode(errCode?errCode+"-0":"te000", "checkTopElements() called with a 'null' element to check");
-		return false;
-	}
-	var initialErrorCount=errs.length;
-	var thisElemLabel=((typeof elem.parent().name === 'function')?elem.parent().name().elementize():"")+elem.name().elementize();
-	var allowAny=false, // true if any 'xs:any' is permitted
-	    allowedChildren=[]; // the element names passed to the function
-
-	// first,  check the 'counts'
-	childElements.forEach( elemS => {
-		if (elemS.name==OTHER_ELEMENTS_OK)
-			allowAny=true
-		else {
-			allowedChildren.push(elemS.name)
-			var count=countSubElements(SL_SCHEMA, SCHEMA_PREFIX, elem, elemS.name)
-			
-			if (count==0 && elemS.minoccurs>0)
-				errs.pushCode(errCode?errCode+"-1":"te001", "Mandatory element "+elemS.name.elementize()+" is not specified in "+thisElemLabel, 'missing element');
-			else if (count < elemS.minoccurs || count > elemS.maxoccurs)
-				errs.pushCode(errCode?errCode+"-2":"te002", "Cardinality error for "+(elem.name()+"."+elemS.name).elementize()+", require "+elemS.minoccurs+"-"+elemS.maxoccurs+", found "+count, "excess elements")
-		}
-	})
-	
-	// second, check for any 'additional' elements 
-	if (!allowAny) {  // if xs:any is specified, then no point checking for additional elements
-		var c=0, child;
-		while (child=elem.child(c++)) {
-			if (child.type()=='element') 
-				if (!isIn(allowedChildren, child.name()))
-					errs.pushCode(errCode?errCode+"-3":"te003", "Element "+child.name().elementize()+" is not permitted in "+thisElem, "extra element");
-		}
-	}
-	
-	// third, check the order of the elements
-	var foundElements=[], c=0, child;
-	while (child=elem.child(c++)) {
-		if (child.type()=='element')
-			foundElements.push(child.name())
-	}
-
-	var kpos=0, // this is the current element we are looking for in the ordered list (childElements[kpos].name))
-	    fpos=0; // this is the element we are looking at in the found list (foundElems[fpos])
-
-	while (kpos<childElements.length && fpos<foundElements.length) {
-
-		// if we are at an xs:any in the known element, skip over found elements until we get to the next known element
-		if (childElements[kpos].name==OTHER_ELEMENTS_OK) {   	
-			while (fpos<foundElements.length && !isIn(allowedChildren, foundElements[fpos])) {
-				fpos++
-			}
-			kpos++
-		}
-		
-		// skip over matching elements
-		while (childElements[kpos].name==foundElements[fpos] && fpos<foundElements.length)  {
-			var incK=false;
-			while (childElements[kpos].name==foundElements[fpos] && fpos<foundElements.length)  {
-				fpos++; incK=true;
-			}
-			if (incK) kpos++;
-		}
-	
-	
-		console.log("scan k", kpos, childElements.length, "f", fpos, foundElements.length)
-	
-		if (fpos<foundElements.length) {
-					
-			console.log("stop", kpos, childElements[kpos].name, ":", kpos+1, childElements[kpos+1]?childElements[kpos+1].name:"kpos+1", ":", fpos, foundElements[fpos])
-			
-			if (childElements[kpos] && childElements[kpos].name==OTHER_ELEMENTS_OK && foundElements[fpos]!=childElements[kpos])
-			
-			if (kpos==0 && fpos==0 && childElements[kpos].name!=foundElements[fpos] && childElements[kpos].minoccurs>0 ) {
-				
-				var message="element "+(foundElements[fpos]?foundElements[fpos].elementize():"fpos="+fpos)+" is not expected as first child"
-				
-				errs.pushCode(errCode?errCode+"-5":"te005", message, "element sequence")
-				console.log(message)
-				fpos++
-			}
-			else if (childElements[kpos+1] && foundElements[fpos]!=childElements[kpos+1].name &&  childElements[kpos+1].name!=OTHER_ELEMENTS_OK && !isIn(allowedChildren, foundElements[fpos])) {
-				// the element we found at fpos does not match what is expected
-				
-				var message="element "+(foundElements[fpos]?foundElements[fpos].elementize():"fpos="+fpos)+" is not expected after "+(childElements[kpos]?childElements[kpos].name.elementize():"kpos")
-				
-				errs.pushCode(errCode?errCode+"-4":"te004", message, "element sequence")
-				console.log(message)
-				fpos++
-			}
-		}
-	}
-
-	
-	
-/*
-	for (kpos=0; kpos<childElements.length && fpos<foundElements.length; kpos++) {
-		while (fpos<foundElements.length && childElements[kpos].name==foundElements[fpos])  // look for first mismatching found element
-			fpos++;
-
-//	console.log("stop1-mismatch", kpos, childElements[kpos].name, ":", fpos, foundElements[fpos])
-
-		if (childElements[kpos].name==OTHER_ELEMENTS_OK) {   	// if we are at an xs:any in the known element
-			while (foundElements[fpos] && !isIn(allowedChildren, foundElements[fpos]))  // skip over found elements until we get to the next known element
-				fpos++
-		}
-	
-	console.log("stop2-skip any", kpos, childElements[kpos].name, ":", fpos, foundElements[fpos])
-	
-		if ((fpos<foundElements.length && !isIn(allowedChildren, foundElements[fpos])) || ((kpos+1)<childElements.length && childElements[kpos+1].minoccurs!=0 && childElements[kpos+1].name!=foundElements[fpos])) {
-			errs.pushCode(errCode?errCode+"-4":"te004", "element "+(foundElements[fpos]?foundElements[fpos].elementize():"fpos="+fpos)+" is not expected after "+(childElements[kpos]?childElements[kpos].name.elementize():"kpos"), "element sequence")
-			console.log("err")
-			
-			if (!isIn(allowedChildren, foundElements[fpos])) fpos++
-		}
-		else 
-			console.log("ok")
-	}
-*/
-	return errs.length==initialErrorCount
-}
-
-
-
 /**
  * check that the specified child elements are in the parent element
  *
@@ -1379,21 +1230,25 @@ function checkTopElements2(SL_SCHEMA, SCHEMA_PREFIX, elem, childElements, errs, 
  */
 function checkAttributes(elem, requiredAttributes, optionalAttributes, errs, errCode=null)
 {
-	if (!requiredAttributes || !elem) {
-		errs.pushCode(errCode?errCode+"-0":"AT000", "checkAttributes() called with elem==null or requiredAttributes==null")
+	if (!!elem)
+		errs.pushCode(errCode?errCode+"-1":"AT001", "checkAttributes() called with elem==null")
+
+	if (!requiredAttributes) 
+		errs.pushCode(errCode?errCode+"-2":"AT002", "checkAttributes() called with requiredAttributes==null")
+		
+	if (!(elem && requiredAttributes))
 		return;
-	}
-	
+		
 	requiredAttributes.forEach(attributeName => {
 		if (!elem.attr(attributeName)) {
 			var src=(typeof elem.parent()=='object' && typeof elem.parent().name=='function' ? elem.parent().name()+"." : "")
-			errs.pushCode(errCode?errCode+"-1":"AT001", src+attributeName.attribute(typeof elem.name=='function'?elem.name():"")+" is a required attribute");	
+			errs.pushCode(errCode?errCode+"-10":"AT010", src+attributeName.attribute(typeof elem.name=='function'?elem.name():"")+" is a required attribute");	
 		}
 	});
 	
 	elem.attrs().forEach(attribute => {
 		if (!isIn(requiredAttributes, attribute.name()) && !isIn(optionalAttributes, attribute.name()))
-			errs.pushCode(errCode?errCode+"-2":"AT002", 
+			errs.pushCode(errCode?errCode+"-11":"AT011", 
 			  attribute.name().attribute()+" is not permitted in "
 				+((typeof elem.parent().name==='function')?elem.parent().name().elementize():"")
 				+elem.name().elementize());
