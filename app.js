@@ -23,8 +23,8 @@ const {loadCS}=require("./dvb-common/CS_handler.js")
 const ISOcountries=require("./dvb-common/ISOcountries.js")
 const IANAlanguages=require("./dvb-common/IANAlanguages.js")
 
-// libxmljs - https://github.com/libxmljs/libxmljs
-const libxml=require("libxmljs")
+// libxmljs2 - github.com/marudor/libxmljs2
+const libxml=require("libxmljs2")
 
 //TODO: validation against schema; package.json: 		"xmllint": "0.1.1",
 //const xmllint=require("xmllint")
@@ -1244,12 +1244,13 @@ function checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, elem, mandatoryChildElements
 	
 	// check that no additional child elements existance if the "Other Child Elements are OK" flag is not set
 	if (!isIn(optionalChildElements, OTHER_ELEMENTS_OK)) {
-		let c=0, child
-		while (child=elem.child(c++)) {
-			let childName=child.name()
-			if (child.type()=='element')
+		let c=0, ch
+		while (ch=elem.child(c++)) {
+			if (ch.type()=='element') {
+				let childName=ch.name()
 				if (!isIn(mandatoryChildElements, childName) && !isIn(optionalChildElements, childName)) 		
 					errs.pushCode(errCode?errCode+"-2":"TE002", "Element "+childName.elementize()+" is not permitted in "+thisElem);
+			}
 		}
 	}
 	return errs.length==initialErrorCount;
@@ -2602,7 +2603,7 @@ function processQuery(req, res) {
 			.then(res=>validateServiceList(res.replace(/(\r\n|\n|\r|\t)/gm,"")))
 			.then(errs=>drawForm(true, res, req.query.SLurl, null, errs))
 			.then(res=>res.end())
-			.catch(error => console.log("error ("+error+") handling "+csURL))
+			.catch(error => console.log("error ("+error+") handling "+req.query.SLurl))
    }
 }
 
