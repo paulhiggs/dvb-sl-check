@@ -135,8 +135,6 @@ const XML_SchemaFilename=path.join("schema","xml.xsd");
 var TVAschema, MPEG7schema, XMLschema;
 */
 
-//const allowed_arguments=["serviceList", ];
-
 /*
  * formatters
  */
@@ -233,10 +231,11 @@ function HTMLize(str) {
 
 /*
 //TODO: validation against schema
+// for the libxml method
 function loadSchema(into, schemafilename) {
 	fs.readFile(schemafilename, {encoding: "utf-8"}, function(err,data){
         if (!err) {
-			into=libxml.parseXmlString(data.replace(/(\r\n|\n|\r|\t)/gm,""));
+			into=libxml.parseXml(data.replace(/(\r\n|\n|\r|\t)/gm,""));
 		}
 	});
 }
@@ -310,19 +309,20 @@ function loadDataFiles(useURLs) {
 	if (useURLs) 
 		knownLanguages.loadLanguagesFromURL(IANA_Subtag_Registry_URL, true);
 	else knownLanguages.loadLanguagesFromFile(IANA_Subtag_Registry_Filename, true);
+
 /*
 //TODO: validation against schema
 	console.log("loading schemas...");
-	//loadSchema(SLschema_v1, DVBI_ServiceListSchemaFilename_v1);
-	//loadSchema(SLschema_v2, DVBI_ServiceListSchemaFilename_v2);
-	//loadSchema(SLschema_v3, DVBI_ServiceListSchemaFilename_v3);
+	loadSchema(SLschema_v1, DVBI_ServiceListSchemaFilename_v1);
+	loadSchema(SLschema_v2, DVBI_ServiceListSchemaFilename_v2);
+	loadSchema(SLschema_v3, DVBI_ServiceListSchemaFilename_v3);
 
-    SLschema_v1=fs.readFileSync(DVBI_ServiceListSchemaFilename_v1);
-    SLschema_v2=fs.readFileSync(DVBI_ServiceListSchemaFilename_v2);
-    SLschema_v3=fs.readFileSync(DVBI_ServiceListSchemaFilename_v3);
-    TVAschema=fs.readFileSync(TVA_SchemaFilename);
-    MPEG7schema=fs.readFileSync(MPEG7_SchemaFilename);
-    XMLschema=fs.readFileSync(XML_SchemaFilename);
+ //   SLschema_v1=fs.readFileSync(DVBI_ServiceListSchemaFilename_v1);
+ //   SLschema_v2=fs.readFileSync(DVBI_ServiceListSchemaFilename_v2);
+ //   SLschema_v3=fs.readFileSync(DVBI_ServiceListSchemaFilename_v3);
+ //   TVAschema=fs.readFileSync(TVA_SchemaFilename);
+ //   MPEG7schema=fs.readFileSync(MPEG7_SchemaFilename);
+ //   XMLschema=fs.readFileSync(XML_SchemaFilename);
 */
 }
 
@@ -343,7 +343,7 @@ function validServiceIdentifier(identifier){
  * determines if the identifer provided is unique against a list of known identifiers
  *
  * @param {String} identifier  The service identifier
- * @param (Array} identifiers  The list of known service identifiers
+ * @param {Array} identifiers  The list of known service identifiers
  * @returns {boolean} true if the service identifier is unique otherwise false
  */
 function uniqueServiceIdentifier(identifier, identifiers) {
@@ -2245,6 +2245,7 @@ function doValidateServiceList(SLtext, errs) {
 
 //TODO: look into why both of these validation approaches are failing
 /*
+// the xmllint method
 	var lintResult=null;
 	lintResult=xmllint.validateXML({
 		xml: SLtext,
@@ -2256,12 +2257,16 @@ function doValidateServiceList(SLtext, errs) {
 	console.log( lintResult.errors );
 */
 /*
+// the libxmljs2 method
 	if (!SL.validate(SLschema_v1)){
 		SL.validationErrors.forEach(err => console.log("validation error(1):", err));
-	};
+	}
 	if (!SL.validate(SLschema_v2)){
 		SL.validationErrors.forEach(err => console.log("validation error(2):", err));
-	};
+	}
+	if (!SL.validate(SLschema_v3)){
+		SL.validationErrors.forEach(err => console.log("validation error(3):", err));
+	}
 */	
 	if (SL.root().name() !== dvbi.e_ServiceList) {
 		errs.pushCode("SL003", "Root element is not "+dvbi.e_ServiceList.elementize());
@@ -2603,7 +2608,11 @@ function processQuery(req, res) {
 			.then(res=>validateServiceList(res.replace(/(\r\n|\n|\r|\t)/gm,"")))
 			.then(errs=>drawForm(true, res, req.query.SLurl, null, errs))
 			.then(res=>res.end())
-			.catch(error => console.log("error ("+error+") handling "+req.query.SLurl))
+			.catch(error => {
+				//console.log("error ("+error+") handling "+req.query.SLurl); 
+				drawForm(true, res, req.query.SLurl, "error ("+error+") handling "+req.query.SLurl, null)
+				res.end()
+			})
    }
 }
 
