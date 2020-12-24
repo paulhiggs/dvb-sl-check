@@ -2609,7 +2609,7 @@ function processQuery(req, res) {
 			.then(errs=>drawForm(true, res, req.query.SLurl, null, errs))
 			.then(res=>res.end())
 			.catch(error => {
-				//console.log("error ("+error+") handling "+req.query.SLurl); 
+				console.log("error ("+error+") handling "+req.query.SLurl) 
 				drawForm(true, res, req.query.SLurl, "error ("+error+") handling "+req.query.SLurl, null)
 				res.end()
 			})
