@@ -1021,6 +1021,7 @@ function isBoolean(arg) {
  * @param {string}  lastInput  The url of the service list - used to keep the form intact
  * @param {string}  error      a single error message to display on the form, genrrally related to loading the content to validate
  * @param {Object}  errors     the errors and warnings found during the content guide validation
+ * @returns {Promise} the output stream (res) for further async processing
  */
 function drawForm(URLmode, res, lastInput=null, error=null, errors=null) {
 	
@@ -1150,7 +1151,7 @@ function InvalidHrefValue(value, src, loc, errs, errCode=null) {
  * @param {String} errCode  The error code to be reported
  */
 function InvalidCountryCode(value, src, loc, errs, errCode=null) {
-	errs.pushCode(errCode?errCode:"XX104", "invalid country code ("+value+") for "+src+" parameters in "+loc, "invalid country code")
+	errs.pushCode(errCode?errCode:"XX104", "invalid country code "+value.quote()+" for "+src+" parameters in "+loc, "invalid country code")
 }
 
 
@@ -1163,7 +1164,7 @@ function InvalidCountryCode(value, src, loc, errs, errCode=null) {
  * @param {String} errCode  The error code to be reported
  */
 function UnspecifiedTargetRegion(region, loc, errs, errCode=null) {
-	errs.pushCode(errCode?errCode:"XX105", loc+" has an unspecified "+dvbi.e_TargetRegion.elementize()+region, "target region")	
+	errs.pushCode(errCode?errCode:"XX105", loc+" has an unspecified "+dvbi.e_TargetRegion.elementize()+" "+region.quote(), "target region")	
 }
 
 
