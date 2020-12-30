@@ -722,12 +722,14 @@ function checkValidLogo(HowRelated, Format, MediaLocator, errs, Location, Locati
                     if (Format && ((isJPEGmime(contentType) && !isJPEG) || (isPNGmime(contentType) && !isPNG))) 
                         errs.pushCode("VL023", "conflicting media types in "+tva.e_Format.elementize()+" and "+tva.e_MediaUri.elementize()+" for "+Location, "conflicting mime types");					
 				}
+				if (!isHTTPURL(child.text())) 
+					errs.pushCode("VL024", "invalid URL "+child.text().quote()+" specified for "+child.name().elementize(), "ivalild resourse URL")
             }
         });
         if (!hasMediaURI) 
-			NoMediaLocator("logo", Location, errs, "VL024");
+			NoMediaLocator("logo", Location, errs, "VL025")
     }
-    else errs.pushCode("VL025", tva.e_MediaLocator+" not specified for "+tva.e_RelatedMaterial.elementize()+" in "+Location, "no "+tva.e_MediaLocator);
+    else errs.pushCode("VL026", tva.e_MediaLocator+" not specified for "+tva.e_RelatedMaterial.elementize()+" in "+Location, "no "+tva.e_MediaLocator)
 }
 
 
@@ -759,10 +761,12 @@ function checkSignalledApplication(HowRelated, Format, MediaLocator, errs, Locat
 					if (!validApplicationType(child.attr(tva.a_contentType).value)) 
                         errs.pushCodeW("SA003", tva.a_contentType.attribute()+" "+child.attr(tva.a_contentType).value().quote()+" is not DVB AIT for "+tva.e_RelatedMaterial.elementize()+tva.e_MediaLocator.elementize()+" in "+Location, "invalid "+tva.a_contentType.attribute(tva.e_MediaUri));
 				}
+				if (!isHTTPURL(child.text())) 
+					errs.pushCode("SA004", "invalid URL "+child.text().quote()+" specified for "+child.name().elementize(), "ivalild resourse URL")
             }
         });
         if (!hasMediaURI) 
-			NoMediaLocator("application", Location, errs, "SA004");
+			NoMediaLocator("application", Location, errs, "SA005");
     }
 }
 
@@ -890,23 +894,37 @@ function isEmpty(obj) {
 }
 
 
-
+/**
+ * checks of the specified argument matches an HTTP or HTTPS URL (or no protocol is specified)
+ *
+ * @param {string} arg  The value whose format is to be checked
+ * @returns {boolean} true if the argument is an HTTP URL
+ */
 function isURL(arg) {
-	return true
+	let pattern = new RegExp('^(https?:\\/\\/)?'+ // protocol
+		'((([a-z\\d]([a-z\\d-]*[a-z\\d])*)\\.)+[a-z]{2,}|'+ // domain name
+		'((\\d{1,3}\\.){3}\\d{1,3}))'+ // OR ip (v4) address
+		'(\\:\\d+)?(\\/[-a-z\\d%_.~+]*)*'+ // port and path
+		'(\\?[;&a-z\\d%_.~+=-]*)?'+ // query string
+		'(\\#[-a-z\\d_]*)?$','i') // fragment locator
+	return !!pattern.test(arg)
 }
 
 
 /**
- * checks of the specified argument matches an HTTP URL
+ * checks of the specified argument matches an HTTP(s) URL
  *
  * @param {string} arg  The value whose format is to be checked
  * @returns {boolean} true if the argument is an HTTP URL
  */
 function isHTTPURL(arg) {
-	if (!(arg && isURL(arg))) return false
-	const HTTPURL=/^(http:\/\/|https:\/\/)?[a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,5}(:[0-9]{1,5})?(\/.*)?$/g
-    let s=arg.trim().match(HTTPURL)
-    return s?s[0]===arg:false
+	let pattern = new RegExp('^(https?:\\/\\/)'+ // protocol
+		'((([a-z\\d]([a-z\\d-]*[a-z\\d])*)\\.)+[a-z]{2,}|'+ // domain name
+		'((\\d{1,3}\\.){3}\\d{1,3}))'+ // OR ip (v4) address
+		'(\\:\\d+)?(\\/[-a-z\\d%_.~+]*)*'+ // port and path
+		'(\\?[;&a-z\\d%_.~+=-]*)?'+ // query string
+		'(\\#[-a-z\\d_]*)?$','i') // fragment locator
+	return !!pattern.test(arg)
 }
 
 /**
@@ -2758,7 +2776,3 @@ if (https_options.key && https_options.cert) {
     });
 }
 
-
-console.log(isIPv4(
-	"291.234.23.33"
-))
