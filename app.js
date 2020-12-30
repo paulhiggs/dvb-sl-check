@@ -422,7 +422,6 @@ function addRegion(SL_SCHEMA, SCHEMA_PREFIX, Region, depth, knownRegionIDs, errs
 			})
     }
 
-	// Check that the @xml:lang values for each <DisplayName> element are unique and only one element does not have any language specified
 	checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, dvbi.e_RegionName, dvbi.a_regionID.attribute(dvbi.e_Region)+"="+regionID.quote(), Region, errs, "AR006")
 	
 	// <Region><Postcode>
@@ -850,7 +849,7 @@ function validateRelatedMaterial(RelatedMaterial, errs, Location, LocationType, 
 
 
 /**
- * checks that all the @xml:lang values for an element are unique
+ * checks that all the @xml:lang values for an element are unique and that only one instace of the element does not contain an xml:lang attribute
  *
  * @param {String} SL_SCHEMA        Used when constructing Xpath queries
  * @param {String} SCHEMA_PREFIX    Used when constructing Xpath queries
@@ -912,7 +911,7 @@ function isURL(arg) {
 
 
 /**
- * checks of the specified argument matches an HTTP(s) URL
+ * checks of the specified argument matches an HTTP(s) URL where the protocol is required to be provided
  *
  * @param {string} arg  The value whose format is to be checked
  * @returns {boolean} true if the argument is an HTTP URL
@@ -1382,7 +1381,7 @@ function validLongitude(position) {
 /**
  * determine if the value provided represents a valid latitude value (i.e. -90.0 -> +90.0)
  *
- * @param {String} position  A string containing a latituse
+ * @param {String} position  A string containing a latitude
  * @returns {boolean} true if the argument represents a latidudial angle
  */
 function validLatitude(position) {
@@ -1426,12 +1425,7 @@ function validateAContentGuideSource(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE,
 	checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, source, [dvbi.e_ProviderName, dvbi.e_ScheduleInfoEndpoint], [dvbi.e_Name, tva.e_RelatedMaterial, dvbi.e_ProgramInfoEndpoint, dvbi.e_GroupInfoEndpoint, dvbi.e_MoreEpisodesEndpoint], errs, errCode?errCode+"a":"GS001")
 	checkAttributes(source, [dvbi.a_CGSID], [dvbi.a_minimumMetadataUpdatePeriod], errs, errCode?errCode+"b":"GS002")
 
-	// Check that the @xml:lang values for each <Name> element are unique and only one element 
-	// does not have any language specified
 	checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, dvbi.e_Name, loc, source, errs, errCode?errCode+"c":"GS003")
-
-	// Check that the @xml:lang values for each <ProviderName> element are unique and only one element 
-	// does not have any language specified
 	checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, dvbi.e_ProviderName, loc, source, errs, errCode?errCode+"d":"GS004")
 	
 	let rm=0, RelatedMaterial;
@@ -1777,7 +1771,6 @@ function validateServiceInstance(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, Ser
 	
 	checkAttributes(ServiceInstance, [], [dvbi.a_priority], errs, "SI002")
 
-	// Check that the @xml:lang values for each <DisplayName> element are unique and only one element does not have any language specified
 	checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, dvbi.e_DisplayName, "service instance in service="+thisServiceId.quote(), ServiceInstance, errs, "SI010");
 
 	// check @href of <ServiceInstance><RelatedMaterial>
@@ -2329,10 +2322,7 @@ function doValidateServiceList(SLtext, errs) {
 			errs.pushCode("SL012", dvbi.a_version.attribute(dvbi.e_ServiceList)+" is not a positiveInteger ("+SL.root().attr(dvbi.a_version).value()+")")
 	}
 
-	// Check that the @xml:lang values for each <Name> element are unique and only one element does not have any language specified
 	checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, dvbi.e_Name, dvbi.e_ServiceList, SL, errs, "SL020");
-
-	// Check that the @xml:lang values for each <ProviderName> element are unique and only one elementdoes not have any language specified
 	checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, dvbi.e_ProviderName, dvbi.e_ServiceList, SL, errs, "SL030");
 
 	//check <ServiceList><RelatedMaterial>
@@ -2437,11 +2427,8 @@ function doValidateServiceList(SLtext, errs) {
 			if (!isIn(knownRegionIDs, TargetRegion.text())) 
 				UnspecifiedTargetRegion(TargetRegion.text(), "service "+thisServiceId.quote(), errs, "SL130");
 
-		// Check that the @xml:lang values for each <ServiceName> element are unique and only one element does not have any language specified
 		checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, dvbi.e_ServiceName, "service="+thisServiceId.quote(), service, errs, "SL140");
-
-		// Check that the @xml:lang values for each <ProviderName> element are unique and only one element does not have any language specified
-		checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, dvbi.e_ProviderName, "service="+thisServiceId.quote(), service, errs, "SL140");
+		checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, dvbi.e_ProviderName, "service="+thisServiceId.quote(), service, errs, "SL141");
 
 		//check <Service><RelatedMaterial>
 		let rm=0, RelatedMaterial
