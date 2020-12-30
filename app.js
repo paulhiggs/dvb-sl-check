@@ -52,6 +52,8 @@ const {parse}=require("querystring")
 // https://github.com/alexei/sprintf.js
 var sprintf=require("sprintf-js").sprintf,
     vsprintf=require("sprintf-js").vsprintf
+const { isIPv4, isIPv6 } = require("net")
+const { networkInterfaces } = require("os")
 
 const DVB_COMMON_DIR="dvb-common", 
       COMMON_REPO_RAW="https://raw.githubusercontent.com/paulhiggs/dvb-common/master/",
@@ -889,10 +891,8 @@ function isEmpty(obj) {
 
 
 
-
-// TODO:
 function isURL(arg) {
-	return true;
+	return true
 }
 
 
@@ -1471,9 +1471,11 @@ function validateContentProtection(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, C
 		checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, DRMSystemId, [dvbi.e_DRMSystemId], [], errs, errcode?errcode+"d":"CP004")
 		checkAttributes(DRMSystemId, [dvbi.a_encryptionScheme], [dvbi.a_cpsIndex], errs, errcode?errcode+"e":"CP005")
 		
-		let scheme=DRMSystemId.attr(dvbi.a_encryptionScheme).value()
-		if (scheme && !isIn(dvbi.ENCRYPTION_VALID_TYPES, scheme)) 
-			errs.pushCode(errcode?errcode+"-6":"CP006", scheme.quote()+" is not valid for "+dvbi.a_encryptionScheme.attribute(ContentProtection.name()))
+		if (DRMSystemId.attr(dvbi.a_encryptionScheme)) {
+			let scheme=DRMSystemId.attr(dvbi.a_encryptionScheme).value()
+			if (scheme && !isIn(dvbi.ENCRYPTION_VALID_TYPES, scheme)) 
+				errs.pushCode(errcode?errcode+"-6":"CP006", scheme.quote()+" is not valid for "+dvbi.a_encryptionScheme.attribute(ContentProtection.name()))
+		}
 	}
 }
 
@@ -1521,8 +1523,7 @@ function checkBitRate(child, errs, errCode=null) {
  * @returns true is the arg contains an IP address (v4 or v6) or a domain name, else false 
  */
 function isIPorDomain(arg) {
-	// TODO:
-	return true
+	return isDomainName(arg) || isIPv4(arg) || isIPv6(arg)
 }
 
 /**
@@ -2756,3 +2757,8 @@ if (https_options.key && https_options.cert) {
         console.log("HTTPS listening on port number", https_server.address().port);
     });
 }
+
+
+console.log(isIPv4(
+	"291.234.23.33"
+))
