@@ -723,7 +723,7 @@ function checkValidLogo(HowRelated, Format, MediaLocator, errs, Location, Locati
                         errs.pushCode("VL023", "conflicting media types in "+tva.e_Format.elementize()+" and "+tva.e_MediaUri.elementize()+" for "+Location, "conflicting mime types");					
 				}
 				if (!isHTTPURL(child.text())) 
-					errs.pushCode("VL024", "invalid URL "+child.text().quote()+" specified for "+child.name().elementize(), "ivalild resourse URL")
+					errs.pushCode("VL024", "invalid URL "+child.text().quote()+" specified for "+child.name().elementize(), "invalid resource URL")
             }
         });
         if (!hasMediaURI) 
@@ -762,7 +762,7 @@ function checkSignalledApplication(HowRelated, Format, MediaLocator, errs, Locat
                         errs.pushCodeW("SA003", tva.a_contentType.attribute()+" "+child.attr(tva.a_contentType).value().quote()+" is not DVB AIT for "+tva.e_RelatedMaterial.elementize()+tva.e_MediaLocator.elementize()+" in "+Location, "invalid "+tva.a_contentType.attribute(tva.e_MediaUri));
 				}
 				if (!isHTTPURL(child.text())) 
-					errs.pushCode("SA004", "invalid URL "+child.text().quote()+" specified for "+child.name().elementize(), "ivalild resourse URL")
+					errs.pushCode("SA004", "invalid URL "+child.text().quote()+" specified for "+child.name().elementize(), "invalid resource URL")
             }
         });
         if (!hasMediaURI) 
@@ -2078,22 +2078,26 @@ function validateServiceInstance(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, Ser
 			let uriContentType=URILoc.attr(dvbi.a_contentType)
 			if (uriContentType && !validDASHcontentType(uriContentType.value()))
 				errs.pushCode("SI173", dvbi.a_contentType.attribute()+"="+uriContentType.value().quote()+" in service "+thisServiceId.quote()+" is not valid", "no "+dvbi.a_contentType.attribute()+" for DASH");	
+			
+			let URI=DASHDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_URI), SL_SCHEMA)
+			if (URI && !isHTTPURL(URI.text()))
+				errs.pushCode("SI174", "invalid URL "+URI.text().quote()+" specified for "+dvbi.e_URI).elementize(), "invalid resource URL")
 		}
 		
 		// <DASHDeliveryParameters><MinimumBitRate>
 		let MinimumBitRate=DASHDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_MinimumBitRate), SL_SCHEMA)
 		if (MinimumBitRate && !isUnsignedInt(MinimumBitRate.text()))
-			errs.pushCode("SI174", MinimumBitRate.text().quote()+" is not valid for "+dvbi.e_MinimumBitRate.elementize(), "invalid value")			
+			errs.pushCode("SI175", MinimumBitRate.text().quote()+" is not valid for "+dvbi.e_MinimumBitRate.elementize(), "invalid value")			
 	
 		// <DASHDeliveryParameters><Extension>		
 		let e=0, extension
 		while (extension=DASHDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_Extension, ++e), SL_SCHEMA)) {
 			if (extension.attr(dvbi.a_extensionName)) {
 				if (!validExtensionName(extension.attr(dvbi.a_extensionName).value())) 
-					errs.pushCode("SI175", dvbi.a_extensionName.attribute()+"="+extension.attr(dvbi.a_extensionName).value().quote()+" is not valid in service "+thisServiceId.quote(), "invalid "+dvbi.a_extensionName.attribute());
+					errs.pushCode("SI176", dvbi.a_extensionName.attribute()+"="+extension.attr(dvbi.a_extensionName).value().quote()+" is not valid in service "+thisServiceId.quote(), "invalid "+dvbi.a_extensionName.attribute())
 			}
 			else 
-				errs.pushCode("SI175", dvbi.a_extensionName.attribute()+" not specified for DASH extension in "+thisServiceId.quote(), "no "+dvbi.a_extensionName.attribute());
+				errs.pushCode("SI177", dvbi.a_extensionName.attribute()+" not specified for DASH extension in "+thisServiceId.quote(), "no "+dvbi.a_extensionName.attribute())
 		}
 	}
 	let haveDVBT=false, haveDVBS=false
