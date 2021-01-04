@@ -35,6 +35,9 @@ const morgan=require("morgan")
 // file upload for express - https://github.com/richardgirges/express-fileupload
 const fileupload=require("express-fileupload")
 
+// favourite icon - https://www.npmjs.com/package/serve-favicon
+const favicon=require("serve-favicon")
+
 const fs=require("fs"), path=require("path")
 
 // command line arguments - https://github.com/75lb/command-line-args
@@ -2691,6 +2694,7 @@ let app=express()
 app.use(express.static(__dirname));
 app.set('view engine', 'ejs');
 app.use(fileupload());
+app.use(favicon('favicon.ico'))
 
 
 morgan.token("protocol", function getProtocol(req) {

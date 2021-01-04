@@ -10,6 +10,7 @@
 		"libxmljs2": "^0.26.5",
 		"morgan": "^1.10.0",
 		"node-fetch": "^2.6.1",
+		"serve-favicon": "^2.5.0",
 		"sprintf-js": "^1.1.2"
 	}
 }
