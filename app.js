@@ -681,7 +681,7 @@ function checkValidLogo(HowRelated, Format, MediaLocator, errs, Location, Locati
         let subElems=Format.childNodes(), 
 		    hasStillPictureFormat=false
         if (subElems) subElems.forEach(child => {
-            if (child.name()==dvbi.e_StillPictureFormat) {
+            if (child.type()=='element' && child.name()==dvbi.e_StillPictureFormat) {
                 hasStillPictureFormat=true;
 				checkAttributes(child, [dvbi.a_href], [dvbi.a_horizontalSize, dvbi.a_verticalSize], errs, "VL015")
                 if (!child.attr(dvbi.a_horizontalSize)) 
@@ -710,7 +710,7 @@ function checkValidLogo(HowRelated, Format, MediaLocator, errs, Location, Locati
     if (MediaLocator) {
         let subElems=MediaLocator.childNodes(), hasMediaURI=false
         if (subElems) subElems.forEach(child => {
-            if (child.name()==tva.e_MediaUri) {
+            if (child.type()=='element' && child.name()==tva.e_MediaUri) {
                 hasMediaURI=true;
 				checkAttributes(child, [tva.a_contentType], [tva.a_uriType], errs, "VL021")
 				
@@ -753,7 +753,7 @@ function checkSignalledApplication(HowRelated, Format, MediaLocator, errs, Locat
 	else {
         let subElems=MediaLocator.childNodes(), hasMediaURI=false
         if (subElems) subElems.forEach(child => {
-            if (child.name()==tva.e_MediaUri) {
+            if (child.type()=='element' && child.name()==tva.e_MediaUri) {
                 hasMediaURI=true;
 				checkAttributes(child, [tva.a_contentType], [tva.a_uriType], errs, "SA002")
                 if (child.attr(tva.a_contentType)) {
@@ -789,15 +789,21 @@ function validateRelatedMaterial(RelatedMaterial, errs, Location, LocationType, 
 	}
 	
     let HowRelated=null, Format=null, MediaLocator=[]
-    let e=0, elem
-    while (elem=RelatedMaterial.child(e++)) {
-        if (elem.name()===tva.e_HowRelated)
-            HowRelated=elem;
-        else if (elem.name()===tva.e_Format)
-            Format=elem;
-        else if (elem.name()===tva.e_MediaLocator)
-            MediaLocator.push(elem);
-    }
+	let elems=RelatedMaterial.childNodes()
+	if (elems) elems.forEach(elem => {
+		if (elem.type=='element')
+			switch (element.name()) {
+				case tva.e_HowRelated:
+					HowRelated=elem
+					break
+				case tva.e_Format:
+					Format=elem
+					break
+				case tva.e_MediaLocator:
+					MediaLocator.push(elem)
+					break
+			}
+	})
 
     if (!HowRelated) {
         errs.pushCode(errcode?errcode+"-1":"RM001", tva.e_HowRelated.elementize()+" not specified for "+tva.e_RelatedMaterial.elementize()+" in "+Location, "no "+tva.e_HowRelated);
@@ -906,7 +912,7 @@ function isURL(arg) {
 		'(\\:\\d+)?(\\/[-a-z\\d%_.~+]*)*'+ // port and path
 		'(\\?[;&a-z\\d%_.~+=-]*)?'+ // query string
 		'(\\#[-a-z\\d_]*)?$','i') // fragment locator
-	return !!pattern.test(arg)
+	return pattern.test(arg)
 }
 
 
@@ -923,7 +929,7 @@ function isHTTPURL(arg) {
 		'(\\:\\d+)?(\\/[-a-z\\d%_.~+]*)*'+ // port and path
 		'(\\?[;&a-z\\d%_.~+=-]*)?'+ // query string
 		'(\\#[-a-z\\d_]*)?$','i') // fragment locator
-	return !!pattern.test(arg)
+	return pattern.test(arg)
 }
 
 /**
@@ -1054,10 +1060,12 @@ function drawForm(URLmode, res, lastInput=null, error=null, errors=null) {
 	const FORM_BOTTOM="</body></html>";
 	
     res.write(FORM_TOP);    
-    res.write(PAGE_HEADING);    
-    if (URLmode) 
+	res.write(PAGE_HEADING);   
+	
+	res.write(sprintf(URLmode?ENTRY_FORM_URL:ENTRY_FORM_FILE, lastInput?lastInput:""))
+/*    if (URLmode) 
 		res.write(sprintf(ENTRY_FORM_URL, lastInput?lastInput:""));
-	else res.write(sprintf(ENTRY_FORM_FILE, lastInput?lastInput:""));
+	else res.write(sprintf(ENTRY_FORM_FILE, lastInput?lastInput:"")); */
 
     res.write(RESULT_WITH_INSTRUCTION);
 
@@ -1262,14 +1270,14 @@ function checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, elem, mandatoryChildElements
 	
 	// check that no additional child elements existance if the "Other Child Elements are OK" flag is not set
 	if (!isIn(optionalChildElements, OTHER_ELEMENTS_OK)) {
-		let c=0, ch
-		while (ch=elem.child(c++)) {
+		let c=0, ch, children=elem.childNodes()
+		if (children) children.forEach(ch => {
 			if (ch.type()=='element') {
 				let childName=ch.name()
 				if (!isIn(mandatoryChildElements, childName) && !isIn(optionalChildElements, childName)) 		
 					errs.pushCode(errCode?errCode+"-2":"TE002", "Element "+childName.elementize()+" is not permitted in "+thisElem);
 			}
-		}
+		})
 	}
 	return errs.length==initialErrorCount;
 }
@@ -1798,40 +1806,41 @@ function validateServiceInstance(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, Ser
 		while (conf=ContentAttributes.get(xPath(SCHEMA_PREFIX, tva.e_AudioAttributes, ++cp), SL_SCHEMA)) {
 			checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, conf, [], [tva.e_Coding, tva.e_NumOfChannels, tva.e_MixType, tva.e_AudioLanguage, tva.e_SampleFrequency, tva.e_BitsPerSample, tva.e_BitRate], errs, "SI050")
 			
-			let ch=0, child 
-			while (child=conf.child(ch++)) {
-				switch (child.name()) {
-					case tva.e_Coding:
-						checkAttributes(child, [dvbi.a_href], [], errs, "SL051")
-						if (child.attr(dvbi.a_href) && !isIn(allowedAudioSchemes, child.attr(dvbi.a_href).value())) 
-							errs.pushCode("SI052", "invalid "+dvbi.a_href.attribute(child.name())+" value for ("+child.attr(dvbi.a_href).value()+")", "audio codec");
-						break;
-					case tva.e_NumOfChannels:
-						if (!isUnsignedShort(child.text()))
-							invalidValue(errs, "SI053", child.name(), null, child.text(), conf.name())
-						break;
-					case tva.e_MixType:
-						// taken from MPEG-7 AudioPresentationCS
-						checkAttributes(child, [dvbi.a_href], [], errs, "SL054")
-						if (child.attr(dvbi.a_href) && !isIn(AudioPresentationCS, child.attr(dvbi.a_href).value())) 
-							errs.pushCode("SI055", "invalid "+dvbi.a_href.attribute(child.name())+" value for ("+child.attr(dvbi.a_href).value()+")", "audio codec");
-						break;
-					case tva.e_AudioLanguage:
-						// TODO:
-						break;
-					case tva.e_SampleFrequency:
-						if (!isUnsignedInt(child.text()))
-							invalidValue(errs, "SI057", child.name(), null, child.text())
-						break;
-					case tva.e_BitsPerSample:
-						if (!isUnsignedShort(child.text()))
-							invalidValue(errs, "SI058", child.name(), null, child.text(), conf.name())
-						break;
-					case tva.e_BitRate:
-						checkBitRate(child, errs, "SI059")
-						break;
-				}
-			}
+			let children=conf.childNodes()
+			if (children) children.forEach(child => {
+				if (child.type=='element')
+					switch (child.name()) {
+						case tva.e_Coding:
+							checkAttributes(child, [dvbi.a_href], [], errs, "SL051")
+							if (child.attr(dvbi.a_href) && !isIn(allowedAudioSchemes, child.attr(dvbi.a_href).value())) 
+								errs.pushCode("SI052", "invalid "+dvbi.a_href.attribute(child.name())+" value for ("+child.attr(dvbi.a_href).value()+")", "audio codec");
+							break;
+						case tva.e_NumOfChannels:
+							if (!isUnsignedShort(child.text()))
+								invalidValue(errs, "SI053", child.name(), null, child.text(), conf.name())
+							break;
+						case tva.e_MixType:
+							// taken from MPEG-7 AudioPresentationCS
+							checkAttributes(child, [dvbi.a_href], [], errs, "SL054")
+							if (child.attr(dvbi.a_href) && !isIn(AudioPresentationCS, child.attr(dvbi.a_href).value())) 
+								errs.pushCode("SI055", "invalid "+dvbi.a_href.attribute(child.name())+" value for ("+child.attr(dvbi.a_href).value()+")", "audio codec");
+							break;
+						case tva.e_AudioLanguage:
+							// TODO:
+							break;
+						case tva.e_SampleFrequency:
+							if (!isUnsignedInt(child.text()))
+								invalidValue(errs, "SI057", child.name(), null, child.text())
+							break;
+						case tva.e_BitsPerSample:
+							if (!isUnsignedShort(child.text()))
+								invalidValue(errs, "SI058", child.name(), null, child.text(), conf.name())
+							break;
+						case tva.e_BitRate:
+							checkBitRate(child, errs, "SI059")
+							break;
+					}
+			})
 		}
 		
 		// Check @href of ContentAttributes/AudioConformancePoints
@@ -1852,53 +1861,55 @@ function validateServiceInstance(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, Ser
 				videoSubelements.push(dvbi.e_Colorimetry)
 			checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, conf, [], videoSubelements, errs, "SI070")
 			
-			let ch=0, child
-			while (child=conf.child(ch++)) {
-				switch (child.name()) {
-					case tva.e_Coding:
-						checkAttributes(child, [dvbi.a_href], [], errs, "SI071")
-						if (child.attr(dvbi.a_href) && !isIn(allowedVideoSchemes, child.attr(dvbi.a_href).value())) 
-							errs.pushCode("SI072", "invalid "+dvbi.a_href.attribute(tva.e_VideoAttributes)+" ("+child.attr(dvbi.a_href).value()+")", "video codec");
-						break;
-					case tva.e_Scan:
-						if (!isIn(tva.SCAN_TYPES, child.text()))
-							errs.pushCode("SI073", "invalid "+tva.e_Scan.elementize()+" value "+child.text().quote(), "video atributes")
-						break;
-					case tva.e_HorizontalSize:
-						if (!isUnsignedShort(child.text()))
-							errs.pushCode("SI074", "invalid "+tva.e_HorizontalSize.elementize()+" value "+child.text().quote(), "video attributes")
-						break;
-					case tva.e_VerticalSize:
-						if (!isUnsignedShort(child.text()))
-							errs.pushCode("SI075", "invalid "+tva.e_VerticalSize.elementize()+" value "+child.text().quote(), "video attributes")
-						break;
-					case tva.e_AspectRatio:
-						checkAspectRatioType(child, errs, "SI076")
-						break;
-					case tva.e_Color:
-						checkAttributes(child, [tva.a_type], [], errs, "SI077")
-						if (child.attr(tva.a_type) && !isIn(tva.COLOR_TYPES,child.text()))
-							errs.pushCode("SI078", "invalid "+tva.e_Color.elementize()+" value "+child.text().quote(), "video attributes")
-						break;
-					case tva.e_FrameRate:
-						if (!validFrameRate(child.text()))
-							errs.pushCode("SI079", "invalid "+tva.e_FrameRate.elementize()+" value "+child.text().quote(), "video attributes")
-						break;
-					case tva.e_BitRate:
-						checkBitRate(child, errs, "SI080")
-						break;
-					case tva.e_PictureFormat:
-						checkAttributes(child, [dvbi.a_href], [], errs, "SI081")
-						if (child.attr(dvbi.a_href) && !isIn(allowedPictureFormats, child.attr(dvbi.a_href).value())) 
-							errs.pushCode("SI082", "invalid "+dvbi.a_href.attribute(tva.e_PictureFormat)+" value ("+child.attr(dvbi.a_href).value()+")", tva.e_PictureFormat);
-						break;
-					case dvbi.e_Colorimetry:
-						checkAttributes(child, [dvbi.a_href], [], errs, "SI083")
-						if (child.attr(dvbi.a_href) && !isIn(dvbi.ALLOWED_COLORIMETRY, child.attr(dvbi.a_href).value())) 
-							errs.pushCode("SI084", "invalid "+dvbi.a_href.attribute(tva.e_Colorimetry)+" value ("+child.attr(dvbi.a_href).value()+")", tva.e_Colorimetry);
-						break;
-				}
-			}
+
+			let children=conf.childNodes()
+			if (children) children.forEach(child => {
+				if (child.type=='element')
+					switch (child.name()) {
+						case tva.e_Coding:
+							checkAttributes(child, [dvbi.a_href], [], errs, "SI071")
+							if (child.attr(dvbi.a_href) && !isIn(allowedVideoSchemes, child.attr(dvbi.a_href).value())) 
+								errs.pushCode("SI072", "invalid "+dvbi.a_href.attribute(tva.e_VideoAttributes)+" ("+child.attr(dvbi.a_href).value()+")", "video codec");
+							break;
+						case tva.e_Scan:
+							if (!isIn(tva.SCAN_TYPES, child.text()))
+								errs.pushCode("SI073", "invalid "+tva.e_Scan.elementize()+" value "+child.text().quote(), "video atributes")
+							break;
+						case tva.e_HorizontalSize:
+							if (!isUnsignedShort(child.text()))
+								errs.pushCode("SI074", "invalid "+tva.e_HorizontalSize.elementize()+" value "+child.text().quote(), "video attributes")
+							break;
+						case tva.e_VerticalSize:
+							if (!isUnsignedShort(child.text()))
+								errs.pushCode("SI075", "invalid "+tva.e_VerticalSize.elementize()+" value "+child.text().quote(), "video attributes")
+							break;
+						case tva.e_AspectRatio:
+							checkAspectRatioType(child, errs, "SI076")
+							break;
+						case tva.e_Color:
+							checkAttributes(child, [tva.a_type], [], errs, "SI077")
+							if (child.attr(tva.a_type) && !isIn(tva.COLOR_TYPES,child.text()))
+								errs.pushCode("SI078", "invalid "+tva.e_Color.elementize()+" value "+child.text().quote(), "video attributes")
+							break;
+						case tva.e_FrameRate:
+							if (!validFrameRate(child.text()))
+								errs.pushCode("SI079", "invalid "+tva.e_FrameRate.elementize()+" value "+child.text().quote(), "video attributes")
+							break;
+						case tva.e_BitRate:
+							checkBitRate(child, errs, "SI080")
+							break;
+						case tva.e_PictureFormat:
+							checkAttributes(child, [dvbi.a_href], [], errs, "SI081")
+							if (child.attr(dvbi.a_href) && !isIn(allowedPictureFormats, child.attr(dvbi.a_href).value())) 
+								errs.pushCode("SI082", "invalid "+dvbi.a_href.attribute(tva.e_PictureFormat)+" value ("+child.attr(dvbi.a_href).value()+")", tva.e_PictureFormat);
+							break;
+						case dvbi.e_Colorimetry:
+							checkAttributes(child, [dvbi.a_href], [], errs, "SI083")
+							if (child.attr(dvbi.a_href) && !isIn(dvbi.ALLOWED_COLORIMETRY, child.attr(dvbi.a_href).value())) 
+								errs.pushCode("SI084", "invalid "+dvbi.a_href.attribute(tva.e_Colorimetry)+" value ("+child.attr(dvbi.a_href).value()+")", tva.e_Colorimetry);
+							break;
+					}
+			})
 		}
 
 		// Check @href of ContentAttributes/VideoConformancePoints
@@ -2074,7 +2085,7 @@ function validateServiceInstance(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, Ser
 			
 			let URI=DASHDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_URI), SL_SCHEMA)
 			if (URI && !isHTTPURL(URI.text()))
-				errs.pushCode("SI174", "invalid URL "+URI.text().quote()+" specified for "+dvbi.e_URI).elementize(), "invalid resource URL")
+				errs.pushCode("SI174", "invalid URL "+URI.text().quote()+" specified for "+dvbi.e_URI.elementize(), "invalid resource URL")
 		}
 		
 		// <DASHDeliveryParameters><MinimumBitRate>
