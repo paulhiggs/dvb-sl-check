@@ -2,6 +2,8 @@
 // express framework - https://expressjs.com/en/4x/api.html
 const express=require("express")
 
+const phlib=require('./phlib/phlib.js')
+
 /* TODO:
 
  - also look for TODO in the code itself
@@ -223,15 +225,6 @@ function checkLanguage(lang, loc, errs, errCode) {
 }
 
 
-/** 
- * convert characters in the string to HTML entities
- *
- * @param {string} str String that should be displayed in HTML
- * @returns {string} A string with ENTITY representations of < and >
- */
-function HTMLize(str) {
-	return str.replace(/</g,"&lt;").replace(/>/g,"&gt;");              
-}
 
 
 /*
@@ -1083,7 +1076,7 @@ function drawForm(URLmode, res, lastInput=null, error=null, errors=null) {
 					res.write(SUMMARY_FORM_HEADER);
 					tableHeader=true;
 				}
-				res.write("<tr><td>"+HTMLize(i)+"</td><td>"+errors.counts[i]+"</td></tr>");
+				res.write("<tr><td>"+phlib.HTMLize(i)+"</td><td>"+errors.counts[i]+"</td></tr>");
 				resultsShown=true;
 			}
 		}
@@ -1093,7 +1086,7 @@ function drawForm(URLmode, res, lastInput=null, error=null, errors=null) {
 					res.write(SUMMARY_FORM_HEADER);
 					tableHeader=true;
 				}
-				res.write("<tr><td><i>"+HTMLize(i)+"</i></td><td>"+errors.countsWarn[i]+"</td></tr>");
+				res.write("<tr><td><i>"+phlib.HTMLize(i)+"</i></td><td>"+errors.countsWarn[i]+"</td></tr>");
 				resultsShown=true;
 			}
 		}
@@ -1107,10 +1100,10 @@ function drawForm(URLmode, res, lastInput=null, error=null, errors=null) {
 			}
 			if (value.includes(errors.delim)) {
 				let x=value.split(errors.delim)
-				res.write("<tr><td>"+x[0]+"</td><td>"+HTMLize(x[1])+"</td></tr>");	
+				res.write("<tr><td>"+x[0]+"</td><td>"+phlib.HTMLize(x[1])+"</td></tr>");	
 			}
 			else 
-				res.write("<tr><td></td><td>"+HTMLize(value)+"</td></tr>");
+				res.write("<tr><td></td><td>"+phlib.HTMLize(value)+"</td></tr>");
 			resultsShown=true;
 		});
 		if (tableHeader) res.write("</table>");
@@ -1123,10 +1116,10 @@ function drawForm(URLmode, res, lastInput=null, error=null, errors=null) {
 			}
 			if (value.includes(errors.delim)) {
 				let x=value.split(errors.delim)
-				res.write("<tr><td>"+x[0]+"</td><td>"+HTMLize(x[1])+"</td></tr>");	
+				res.write("<tr><td>"+x[0]+"</td><td>"+phlib.HTMLize(x[1])+"</td></tr>");	
 			}
 			else 
-				res.write("<tr><td></td><td>"+HTMLize(value)+"</td></tr>");
+				res.write("<tr><td></td><td>"+phlib.HTMLize(value)+"</td></tr>");
 
 			resultsShown=true;
 		});
