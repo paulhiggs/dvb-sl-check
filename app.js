@@ -2,6 +2,7 @@
 // express framework - https://expressjs.com/en/4x/api.html
 const express=require("express")
 
+// pauls useful tools
 const phlib=require('./phlib/phlib.js')
 
 /* TODO:
@@ -142,12 +143,7 @@ const XML_SchemaFilename=path.join("schema","xml.xsd");
 var TVAschema, MPEG7schema, XMLschema;
 */
 
-/*
- * formatters
- */
-String.prototype.quote=function(using='"') {return using+this+using}
-String.prototype.elementize=function() {return '<'+this+'>'}
-String.prototype.attribute=function(elemName="") {return elemName+'@'+this}
+require('./phstrings.js')
 
 
 const SCHEMA_v1=1,
@@ -787,8 +783,8 @@ function validateRelatedMaterial(RelatedMaterial, errs, Location, LocationType, 
     let HowRelated=null, Format=null, MediaLocator=[]
 	let elems=RelatedMaterial.childNodes()
 	if (elems) elems.forEach(elem => {
-		if (elem.type=='element')
-			switch (element.name()) {
+		if (elem.type()=='element')
+			switch (elem.name()) {
 				case tva.e_HowRelated:
 					HowRelated=elem
 					break
@@ -800,7 +796,7 @@ function validateRelatedMaterial(RelatedMaterial, errs, Location, LocationType, 
 					break
 			}
 	})
-
+	
     if (!HowRelated) {
         errs.pushCode(errcode?errcode+"-1":"RM001", tva.e_HowRelated.elementize()+" not specified for "+tva.e_RelatedMaterial.elementize()+" in "+Location, "no "+tva.e_HowRelated);
 		return rc
@@ -1804,7 +1800,7 @@ function validateServiceInstance(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, Ser
 			
 			let children=conf.childNodes()
 			if (children) children.forEach(child => {
-				if (child.type=='element')
+				if (child.type()=='element')
 					switch (child.name()) {
 						case tva.e_Coding:
 							checkAttributes(child, [dvbi.a_href], [], errs, "SL051")
@@ -1860,7 +1856,7 @@ function validateServiceInstance(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, Ser
 
 			let children=conf.childNodes()
 			if (children) children.forEach(child => {
-				if (child.type=='element')
+				if (child.type()=='element')
 					switch (child.name()) {
 						case tva.e_Coding:
 							checkAttributes(child, [dvbi.a_href], [], errs, "SI071")
@@ -2349,7 +2345,7 @@ function doValidateServiceList(SLtext, errs) {
 		checkAttributes(RegionList, [dvbi.a_version], [], errs, "SL051")
 
 		//check RegionList@version
-		if (RegionList.attr(dvbi.a_version) && !isPositiveInteger(RegionList.attr(dvbi.a_version).value()))
+		if (RegionList.attr(dvbi.a_version) && !isPositiveInteger(RegionList.attr(dvbi.a_version).value())) 
 			errs.pushCode("SL052", dvbi.a_version.attribute(dvbi.e_RegionList)+" is not a positiveInteger ("+RegionList.attr(dvbi.a_version).value()+")")
 
 		// recurse the regionlist - Regions can be nested in Regions
