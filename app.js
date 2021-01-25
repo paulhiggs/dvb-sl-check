@@ -932,7 +932,7 @@ function isHTTPURL(arg) {
  */
 function isDomainName(arg) {
 	if (!arg) return false
-	const DomainNameRegex=/^[a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,5}(:[0-9]{1,5})?(\/.*)?$/g
+	const DomainNameRegex=/^[a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,5}(:[0-9]{1,5})?(\/.*)?$/gi
 	let s=arg.trim().match(DomainNameRegex)
     return s?s[0]===arg:false
 }
@@ -948,7 +948,8 @@ function isDomainName(arg) {
  */
 function isRTSPURL(arg) {
 	if (!(arg && isURL(arg))) return false;
-    let s=arg.trim().match(/rtsp:\/\/.*/g)
+	const RTSPRegex=/rtsp:\/\/.*/gi
+    let s=arg.trim().match(RTSPRegex)
     return s?s[0]===arg:false;	
 }
 
@@ -1731,8 +1732,8 @@ function ValidateSynopsisType(SCHEMA, SCHEMA_PREFIX, Element, ElementName, requi
 function validServiceDaysList(val) {
 	if (!val) return false
 	// list of values 1-7 separeted by spaces
-	const ListRegex=/([1-7]\s+)*[1-7]/
-    let s=val.trim().match(ListRegex)
+	const DaysListRegex=/([1-7]\s+)*[1-7]/
+    let s=val.trim().match(DaysListRegex)
     return s?s[0]===ext:false
 }
 
