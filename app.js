@@ -353,11 +353,8 @@ function uniqueServiceIdentifier(identifier, identifiers) {
 function isPostcode(postcode) {
 	if (!postcode) return false
 
-	let p=postcode.trim()
-	const postcodeRegex=/[A-Za-z\d]+([\- ][A-Za-z\d]+)?/
-	
-	let s=p.match(postcodeRegex);
-	return s?s[0]===p:false;
+	let postcodeRegex=new RegExp('^[a-z\\d]+([\\- ][a-z\\d]+)?$', 'i')
+	return postcodeRegex.test(postcode.trim())
 }
 
 
@@ -369,11 +366,10 @@ function isPostcode(postcode) {
 function isWildcardPostcode(postcode) {
 	if (!postcode) return false
 
-	let p=postcode.trim()
-	const WildcardRegex=/(\*[A-Za-z\d]*[\- ]?[A-Za-z\d]+)|(([A-Za-z\d]+\*[\- ]?[A-Za-z\d]+)|([A-Za-z\d]+[\- ]?\*[A-Za-z\d]+))|([A-Za-z\d]+[\- ]?[A-Za-z\d]*\*)/
-
-	let s=p.match(WildcardRegex)
-	return 	s&&s[0]===p
+	let WildcardFirstRegex=new RegExp('^(\\*[a-z\\d]*[\\- ]?[a-z\\d]+)', 'i')
+	let WildcardMiddleRegex=new RegExp('^(([a-z\\d]+\\*[\\- ]?[a-z\\d]+)|([a-z\\d]+[\\- ]?\\*[a-z\\d]+))$', 'i')
+	let WildcardEndRegex=new RegExp('^([a-z\\d]+[\\- ]?[a-z\\d]*\\*)$', 'i')
+	return WildcardEndRegex.test(postcode.trim()) || WildcardMiddleRegex.test(postcode.trim())|| WildcardFirstRegex.test(postcode.trim())
 }
 
 /**
@@ -629,9 +625,8 @@ function validContentGuideSourceLogo(HowRelated, namespace) {
  * @returns {boolean} true if the signalled extensionName is in the specification defined format, else false
  */
 function validExtensionName(ext) {
-	const ExtensionRegex=/[A-Za-z\d][A-Za-z\d:\-/\.]*[A-Za-z\d]/g
-    let s=ext.trim().match(ExtensionRegex)
-    return s?s[0]===ext:false
+	let ExtensionRegex=new RegExp('^[a-z\\d][a-z\\d:\\-/\\.]*[a-z\\d]$','i')
+	return ExtensionRegex.test(ext.trim())
 }
 
 
@@ -643,12 +638,10 @@ function validExtensionName(ext) {
  * @returns {boolean} true if the signalled frameRate is a valid TV-Anytime FrameRateType, else false
  */
 function validFrameRate(str) {
-	const FrameRateRegex1=/\d{1,3}(\.\d{1,3})?/;
-	const FrameRateRegex2=/\d{1,3}\/1\.001/;
-	let s1=str.trim().match(FrameRateRegex1), 
-	    s2=str.trim().match(FrameRateRegex2)
+	let FrameRateRegex1=new RegExp('^\\d{1,3}(\\.\\d{1,3})?$')
+	let FrameRateRegex2=new RegExp('^\\d{1,3}\\/1\\.001$')
 	
-	return ((s2 && s2[0]===str) || (s1 && s1[0]===str))
+	return FrameRateRegex1.test(str.trim()) || FrameRateRegex2.test(str.trim())
 }
 
 
@@ -898,13 +891,17 @@ function isEmpty(obj) {
  * @returns {boolean} true if the argument is an HTTP URL
  */
 function isURL(arg) {
-	let pattern = new RegExp('^(https?:\\/\\/)?'+ // protocol
+	// genericurl as defined in RFC1738 - https://tools.ietf.org/html/rfc1738
+	
+	let genericURL = new RegExp('[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}\\b([-a-zA-Z0-9()@:%_\\+.~#?&//=]*)', 'i')
+/*	
+	let URLregex = new RegExp('^(https?:\\/\\/)?'+ // protocol
 		'((([a-z\\d]([a-z\\d-]*[a-z\\d])*)\\.)+[a-z]{2,}|'+ // domain name
 		'((\\d{1,3}\\.){3}\\d{1,3}))'+ // OR ip (v4) address
 		'(\\:\\d+)?(\\/[-a-z\\d%_.~+]*)*'+ // port and path
 		'(\\?[;&a-z\\d%_.~+=-]*)?'+ // query string
-		'(\\#[-a-z\\d_]*)?$','i') // fragment locator
-	return pattern.test(arg)
+		'(\\#[-a-z\\d_]*)?$','i') // fragment locator  */
+	return genericURL.test(arg)
 }
 
 
@@ -915,13 +912,13 @@ function isURL(arg) {
  * @returns {boolean} true if the argument is an HTTP URL
  */
 function isHTTPURL(arg) {
-	let pattern = new RegExp('^(https?:\\/\\/)'+ // protocol
+	let HTTPURLregex = new RegExp('^(https?:\\/\\/)'+ // protocol
 		'((([a-z\\d]([a-z\\d-]*[a-z\\d])*)\\.)+[a-z]{2,}|'+ // domain name
 		'((\\d{1,3}\\.){3}\\d{1,3}))'+ // OR ip (v4) address
 		'(\\:\\d+)?(\\/[-a-z\\d%_.~+]*)*'+ // port and path
 		'(\\?[;&a-z\\d%_.~+=-]*)?'+ // query string
 		'(\\#[-a-z\\d_]*)?$','i') // fragment locator
-	return pattern.test(arg)
+	return HTTPURLregex.test(arg)
 }
 
 /**
@@ -932,9 +929,8 @@ function isHTTPURL(arg) {
  */
 function isDomainName(arg) {
 	if (!arg) return false
-	const DomainNameRegex=/^[a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,5}(:[0-9]{1,5})?(\/.*)?$/gi
-	let s=arg.trim().match(DomainNameRegex)
-    return s?s[0]===arg:false
+	let DomainNameRegex=new RegExp('^[a-z0-9]+([\\-\\.]{1}[a-z0-9]+)*\\.[a-z]{2,5}(:[0-9]{1,5})?(\\/.*)?$', 'i')
+    return DomainNameRegex.test(arg.trim())
 }
 
 
@@ -948,9 +944,9 @@ function isDomainName(arg) {
  */
 function isRTSPURL(arg) {
 	if (!(arg && isURL(arg))) return false;
-	const RTSPRegex=/rtsp:\/\/.*/gi
-    let s=arg.trim().match(RTSPRegex)
-    return s?s[0]===arg:false;	
+	
+	let RTSPRegex=new RegExp('^rtsp:\\/\\/.*$', 'i')
+	return RTSPRegex.test(arg.trim())
 }
 
 /**
@@ -974,8 +970,8 @@ function isUnsignedShort(arg) {
  */
 function isNonNegativeInteger(arg) {
 	if (!arg || arg=="") return false
-    let s=arg.trim().match(/\d+/g)
-    return s?s[0]===arg:false
+	let DigitsRegex=new RegExp('^\\d+$')
+	return DigitsRegex.test(arg.trim())
 }
 
 
@@ -1435,22 +1431,22 @@ function validateAContentGuideSource(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE,
 	
 	// ContentGuideSourceType::ScheduleInfoEndpoint - should be a URL
 	let sie=source.get(xPath(SCHEMA_PREFIX, dvbi.e_ScheduleInfoEndpoint), SL_SCHEMA)
-	if (sie && !isURL(sie.text()))
+	if (sie && !isHTTPURL(sie.text()))
 		errs.pushCode(errCode?errCode+"f":"GS006", dvbi.e_ScheduleInfoEndpoint.elementize()+" is not a valud URL", "not URL")
 	
 	// ContentGuideSourceType::ProgramInfoEndpoint - should be a URL
 	let pie=source.get(xPath(SCHEMA_PREFIX, dvbi.e_ProgramInfoEndpoint), SL_SCHEMA)
-	if (pie && !isURL(pie.text()))
+	if (pie && !isHTTPURL(pie.text()))
 		errs.pushCode(errCode?errCode+"g":"GS007", dvbi.e_ProgramInfoEndpoint.elementize()+" is not a valud URL", "not URL")
 	
 	// ContentGuideSourceType::GroupInfoEndpoint - should be a URL
 	let gie=source.get(xPath(SCHEMA_PREFIX, dvbi.e_GroupInfoEndpoint), SL_SCHEMA)
-	if (gie && !isURL(gie.text()))
+	if (gie && !isHTTPURL(gie.text()))
 		errs.pushCode(errCode?errCode+"h":"GS008", dvbi.e_GroupInfoEndpoint.elementize()+" is not a valud URL", "not URL")
 	
 	// ContentGuideSourceType::MoreEpisodesEndpoint - should be a URL
 	let mee=source.get(xPath(SCHEMA_PREFIX, dvbi.e_MoreEpisodesEndpoint), SL_SCHEMA)
-	if (mee && !isURL(mee.text()))
+	if (mee && !isHTTPURL(mee.text()))
 		errs.pushCode(errCode?errCode+"h":"GS008", dvbi.e_MoreEpisodesEndpoint.elementize()+" is not a valud URL", "not URL")
 }
 
@@ -1582,8 +1578,8 @@ function checkFECLayerAddressType(layerParams, errs, errcode=null) {
 function checkAspectRatioType(node, errs, errcode=null) {
 	
 	function isRatioType(arg) {
-		let s=arg.trim().match(/\d+:\d+/g)
-		return s?s[0]===arg:false;
+		let AspectRatioRegex=new RegExp('^\\d+:\\d+$')
+		return AspectRatioRegex.test(arg.trim())
 	}
 	
 	if (!node) {
@@ -1732,9 +1728,8 @@ function ValidateSynopsisType(SCHEMA, SCHEMA_PREFIX, Element, ElementName, requi
 function validServiceDaysList(val) {
 	if (!val) return false
 	// list of values 1-7 separeted by spaces
-	const DaysListRegex=/([1-7]\s+)*[1-7]/
-    let s=val.trim().match(DaysListRegex)
-    return s?s[0]===ext:false
+	let DaysListRegex=new RegExp('^([1-7]\\s+)*[1-7]$')
+	return DaysListRegex.test(val.trim())
 }
 
 
@@ -1747,9 +1742,9 @@ function validServiceDaysList(val) {
 function validZuluTimeType(val) {
 	if (!val) return false
 	// <pattern value="(([01]\d|2[0-3]):[0-5]\d:[0-5]\d(\.\d+)?|(24:00:00(\.0+)?))Z"/>
-	const ZuluRegex=/(([01]\d|2[0-3]):[0-5]\d:[0-5]\d(\.\d+)?|(24:00:00(\.0+)?))Z/
-    let s=val.trim().match(ZuluRegex)
-    return s?s[0]===val:false
+	
+	let ZuluRegex=new RegExp('^(([01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(\\.\\d+)?|(24:00:00(\\.0+)?))Z$')
+	return ZuluRegex.test(val.trim())
 }
 
 
