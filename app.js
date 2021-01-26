@@ -23,6 +23,8 @@ const {isJPEGmime, isPNGmime}=require("./dvb-common/MIME_checks.js")
 const {isTAGURI}=require("./dvb-common/URI_checks.js")
 const {loadCS}=require("./dvb-common/CS_handler.js")
 
+const patterns=require("./dvb-common/pattern_checks.js")
+
 const ISOcountries=require("./dvb-common/ISOcountries.js")
 const IANAlanguages=require("./dvb-common/IANAlanguages.js")
 
@@ -113,10 +115,6 @@ const TVA_ContentCSFilename=path.join(DVB_COMMON_DIR, "tva","ContentCS.xml"),
 	  DVBI_RecordingInfoCSFilename=path.join(DVB_COMMON_DIR, "dvbi","DVBRecordingInfoCS-2019.xml"),
 	  DVBI_RecordingInfoCSURL=COMMON_REPO_RAW + "dvbi/" + "DVBRecordingInfoCS-2019.xml"
 
-// curl from https://www.iana.org/assignments/language-subtag-registry/language-subtag-registry
-const IANA_Subtag_Registry_Filename=path.join(DVB_COMMON_DIR, "language-subtag-registry"),
-      IANA_Subtag_Registry_URL="https://www.iana.org/assignments/language-subtag-registry/language-subtag-registry"
-
 const SERVICE_LIST_RM="service list",
       SERVICE_RM="service",
 	  SERVICE_INSTANCE_RM="service instance",
@@ -128,6 +126,9 @@ var allowedGenres=[], allowedServiceTypes=[], allowedAudioSchemes=[], allowedVid
 
 var knownCountries=new ISOcountries(false, true)
 var knownLanguages=new IANAlanguages()
+
+const IANA_Subtag_Registry_Filename=path.join(DVB_COMMON_DIR, knownLanguages.LanguagesFileName),
+      IANA_Subtag_Registry_URL=knownLanguages.LanguagesURL
 
 /*
 //TODO: validation against schema
@@ -346,33 +347,6 @@ function uniqueServiceIdentifier(identifier, identifiers) {
 
 
 /**
- *
- * @param {String} postcode  the postcode value to check
- * @returns {boolean} true if the postcode argument is a valid postcode , otherwise false 
- */
-function isPostcode(postcode) {
-	if (!postcode) return false
-
-	let postcodeRegex=new RegExp('^[a-z\\d]+([\\- ][a-z\\d]+)?$', 'i')
-	return postcodeRegex.test(postcode.trim())
-}
-
-
-/**
- *
- * @param {String} postcode  the postcode value to check
- * @returns {boolean} true if the postcode argument is a valid wildcarded postcode , otherwise false 
- */
-function isWildcardPostcode(postcode) {
-	if (!postcode) return false
-
-	let WildcardFirstRegex=new RegExp('^(\\*[a-z\\d]*[\\- ]?[a-z\\d]+)', 'i')
-	let WildcardMiddleRegex=new RegExp('^(([a-z\\d]+\\*[\\- ]?[a-z\\d]+)|([a-z\\d]+[\\- ]?\\*[a-z\\d]+))$', 'i')
-	let WildcardEndRegex=new RegExp('^([a-z\\d]+[\\- ]?[a-z\\d]*\\*)$', 'i')
-	return WildcardEndRegex.test(postcode.trim()) || WildcardMiddleRegex.test(postcode.trim())|| WildcardFirstRegex.test(postcode.trim())
-}
-
-/**
  * parses the region element, checks the values and adds it and its children (through recursion) to the linear list of region ids
  *
  * @param {String} SL_SCHEMA      Used when constructing Xpath queries
@@ -415,14 +389,14 @@ function addRegion(SL_SCHEMA, SCHEMA_PREFIX, Region, depth, knownRegionIDs, errs
 	// <Region><Postcode>
 	let pc=0, Postcode
 	while (Postcode=Region.get(xPath(SCHEMA_PREFIX, dvbi.e_Postcode, ++pc), SL_SCHEMA)) {
-		if (!isPostcode(Postcode.text()))
+		if (!patterns.isPostcode(Postcode.text()))
 			errs.pushCode("AR011", Postcode.text().quote()+" is not a valid postcode", "invalid postcode")
 	}
 	
 	// <Region><WildcardPostcode>
 	let wp=0, WildcardPostcode
 	while (WildcardPostcode=Region.get(xPath(SCHEMA_PREFIX, dvbi.e_WildcardPostcode, ++wp), SL_SCHEMA)) {
-		if (!isWildcardPostcode(WildcardPostcode.text()))
+		if (!patterns.isWildcardPostcode(WildcardPostcode.text()))
 			errs.pushCode("AR021", WildcardPostcode.text().quote()+" is not a valid wildcarded postcode", "invalid postcode")		
 	}
 	
@@ -430,9 +404,9 @@ function addRegion(SL_SCHEMA, SCHEMA_PREFIX, Region, depth, knownRegionIDs, errs
 	let pr=0, PostcodeRange
 	while (PostcodeRange=Region.get(xPath(SCHEMA_PREFIX, dvbi.e_PostcodeRange, ++pr), SL_SCHEMA)) {
 		checkAttributes(PostcodeRange, [dvbi.a_from, dvbi.a_to], [], errs, "AR031")
-		if (PostcodeRange.attr(dvbi.a_from) && !isPostcode(PostcodeRange.attr(dvbi.a_from).value()))
+		if (PostcodeRange.attr(dvbi.a_from) && !patterns.isPostcode(PostcodeRange.attr(dvbi.a_from).value()))
 			errs.pushCode("AR032", PostcodeRange.attr(dvbi.a_from).value().quote()+" is not a valid postcode", "invalid postcode")
-		if (PostcodeRange.attr(dvbi.a_to) && !isPostcode(PostcodeRange.attr(dvbi.a_to).value()))
+		if (PostcodeRange.attr(dvbi.a_to) && !patterns.isPostcode(PostcodeRange.attr(dvbi.a_to).value()))
 			errs.pushCode("AR033", PostcodeRange.attr(dvbi.a_to).value().quote()+" is not a valid postcode", "invalid postcode")
 	}
 	
@@ -619,33 +593,6 @@ function validContentGuideSourceLogo(HowRelated, namespace) {
 
 
 /**
- * check if the argument is in the correct format for an DVB-I extension identifier
- *
- * @param {string} ext  the signalled extensionName
- * @returns {boolean} true if the signalled extensionName is in the specification defined format, else false
- */
-function validExtensionName(ext) {
-	let ExtensionRegex=new RegExp('^[a-z\\d][a-z\\d:\\-/\\.]*[a-z\\d]$','i')
-	return ExtensionRegex.test(ext.trim())
-}
-
-
-/**
- * check if the argument is in the correct format for a TV-Anytime FrameRateType
- *    <pattern value="([0-9]{1,3}(.[0-9]{1,3})?)|([0-9]{1,3}/1.001)"/>
- *
- * @param {string} str  the signalled frameRate
- * @returns {boolean} true if the signalled frameRate is a valid TV-Anytime FrameRateType, else false
- */
-function validFrameRate(str) {
-	let FrameRateRegex1=new RegExp('^\\d{1,3}(\\.\\d{1,3})?$')
-	let FrameRateRegex2=new RegExp('^\\d{1,3}\\/1\\.001$')
-	
-	return FrameRateRegex1.test(str.trim()) || FrameRateRegex2.test(str.trim())
-}
-
-
-/**
  * verifies if the specified logo is valid according to specification
  *
  * @param {Object} HowRelated    The <HowRelated> subelement (a libxmls ojbect tree) of the <RelatedMaterial> element
@@ -706,7 +653,7 @@ function checkValidLogo(HowRelated, Format, MediaLocator, errs, Location, Locati
                     if (Format && ((isJPEGmime(contentType) && !isJPEG) || (isPNGmime(contentType) && !isPNG))) 
                         errs.pushCode("VL023", "conflicting media types in "+tva.e_Format.elementize()+" and "+tva.e_MediaUri.elementize()+" for "+Location, "conflicting mime types");					
 				}
-				if (!isHTTPURL(child.text())) 
+				if (!patterns.isHTTPURL(child.text())) 
 					errs.pushCode("VL024", "invalid URL "+child.text().quote()+" specified for "+child.name().elementize(), "invalid resource URL")
             }
         });
@@ -745,7 +692,7 @@ function checkSignalledApplication(HowRelated, Format, MediaLocator, errs, Locat
 					if (!validApplicationType(child.attr(tva.a_contentType).value)) 
                         errs.pushCodeW("SA003", tva.a_contentType.attribute()+" "+child.attr(tva.a_contentType).value().quote()+" is not DVB AIT for "+tva.e_RelatedMaterial.elementize()+tva.e_MediaLocator.elementize()+" in "+Location, "invalid "+tva.a_contentType.attribute(tva.e_MediaUri));
 				}
-				if (!isHTTPURL(child.text())) 
+				if (!patterns.isHTTPURL(child.text())) 
 					errs.pushCode("SA004", "invalid URL "+child.text().quote()+" specified for "+child.name().elementize(), "invalid resource URL")
             }
         });
@@ -883,71 +830,6 @@ function isEmpty(obj) {
     return true;
 }
 
-
-/**
- * checks of the specified argument matches an HTTP or HTTPS URL (or no protocol is specified)
- *
- * @param {string} arg  The value whose format is to be checked
- * @returns {boolean} true if the argument is an HTTP URL
- */
-function isURL(arg) {
-	// genericurl as defined in RFC1738 - https://tools.ietf.org/html/rfc1738
-	
-	let genericURL = new RegExp('[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}\\b([-a-zA-Z0-9()@:%_\\+.~#?&//=]*)', 'i')
-/*	
-	let URLregex = new RegExp('^(https?:\\/\\/)?'+ // protocol
-		'((([a-z\\d]([a-z\\d-]*[a-z\\d])*)\\.)+[a-z]{2,}|'+ // domain name
-		'((\\d{1,3}\\.){3}\\d{1,3}))'+ // OR ip (v4) address
-		'(\\:\\d+)?(\\/[-a-z\\d%_.~+]*)*'+ // port and path
-		'(\\?[;&a-z\\d%_.~+=-]*)?'+ // query string
-		'(\\#[-a-z\\d_]*)?$','i') // fragment locator  */
-	return genericURL.test(arg)
-}
-
-
-/**
- * checks of the specified argument matches an HTTP(s) URL where the protocol is required to be provided
- *
- * @param {string} arg  The value whose format is to be checked
- * @returns {boolean} true if the argument is an HTTP URL
- */
-function isHTTPURL(arg) {
-	let HTTPURLregex = new RegExp('^(https?:\\/\\/)'+ // protocol
-		'((([a-z\\d]([a-z\\d-]*[a-z\\d])*)\\.)+[a-z]{2,}|'+ // domain name
-		'((\\d{1,3}\\.){3}\\d{1,3}))'+ // OR ip (v4) address
-		'(\\:\\d+)?(\\/[-a-z\\d%_.~+]*)*'+ // port and path
-		'(\\?[;&a-z\\d%_.~+=-]*)?'+ // query string
-		'(\\#[-a-z\\d_]*)?$','i') // fragment locator
-	return HTTPURLregex.test(arg)
-}
-
-/**
- * checks of the specified argument matches an domain name (RFC 1034)
- *
- * @param {string} arg  The value whose format is to be checked
- * @returns {boolean} true if the argument is a domain name
- */
-function isDomainName(arg) {
-	if (!arg) return false
-	let DomainNameRegex=new RegExp('^[a-z0-9]+([\\-\\.]{1}[a-z0-9]+)*\\.[a-z]{2,5}(:[0-9]{1,5})?(\\/.*)?$', 'i')
-    return DomainNameRegex.test(arg.trim())
-}
-
-
-
-/**
- * checks of the specified argument matches an RTSP URL
- *  <restriction base="anyURI"><pattern value="rtsp://.*"/></restriction>
- *
- * @param {string} arg  The value whose format is to be checked
- * @returns {boolean} true if the argument is an RTSP URL
- */
-function isRTSPURL(arg) {
-	if (!(arg && isURL(arg))) return false;
-	
-	let RTSPRegex=new RegExp('^rtsp:\\/\\/.*$', 'i')
-	return RTSPRegex.test(arg.trim())
-}
 
 /**
  * determine if the value provided represents a valid unsignedShort (between 0 and 65535)
@@ -1431,22 +1313,22 @@ function validateAContentGuideSource(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE,
 	
 	// ContentGuideSourceType::ScheduleInfoEndpoint - should be a URL
 	let sie=source.get(xPath(SCHEMA_PREFIX, dvbi.e_ScheduleInfoEndpoint), SL_SCHEMA)
-	if (sie && !isHTTPURL(sie.text()))
+	if (sie && !patterns.isHTTPURL(sie.text()))
 		errs.pushCode(errCode?errCode+"f":"GS006", dvbi.e_ScheduleInfoEndpoint.elementize()+" is not a valud URL", "not URL")
 	
 	// ContentGuideSourceType::ProgramInfoEndpoint - should be a URL
 	let pie=source.get(xPath(SCHEMA_PREFIX, dvbi.e_ProgramInfoEndpoint), SL_SCHEMA)
-	if (pie && !isHTTPURL(pie.text()))
+	if (pie && !patterns.isHTTPURL(pie.text()))
 		errs.pushCode(errCode?errCode+"g":"GS007", dvbi.e_ProgramInfoEndpoint.elementize()+" is not a valud URL", "not URL")
 	
 	// ContentGuideSourceType::GroupInfoEndpoint - should be a URL
 	let gie=source.get(xPath(SCHEMA_PREFIX, dvbi.e_GroupInfoEndpoint), SL_SCHEMA)
-	if (gie && !isHTTPURL(gie.text()))
+	if (gie && !patterns.isHTTPURL(gie.text()))
 		errs.pushCode(errCode?errCode+"h":"GS008", dvbi.e_GroupInfoEndpoint.elementize()+" is not a valud URL", "not URL")
 	
 	// ContentGuideSourceType::MoreEpisodesEndpoint - should be a URL
 	let mee=source.get(xPath(SCHEMA_PREFIX, dvbi.e_MoreEpisodesEndpoint), SL_SCHEMA)
-	if (mee && !isHTTPURL(mee.text()))
+	if (mee && !patterns.isHTTPURL(mee.text()))
 		errs.pushCode(errCode?errCode+"h":"GS008", dvbi.e_MoreEpisodesEndpoint.elementize()+" is not a valud URL", "not URL")
 }
 
@@ -1532,7 +1414,7 @@ function checkBitRate(child, errs, errCode=null) {
  * @returns true is the arg contains an IP address (v4 or v6) or a domain name, else false 
  */
 function isIPorDomain(arg) {
-	return isDomainName(arg) || isIPv4(arg) || isIPv6(arg)
+	return patterns.isDomainName(arg) || isIPv4(arg) || isIPv6(arg)
 }
 
 /**
@@ -1557,7 +1439,7 @@ function checkFECLayerAddressType(layerParams, errs, errcode=null) {
 	if (layerParams.attr(dvbi.a_MaxBitrate) && !isPositiveInteger(layerParams.attr(dvbi.a_MaxBitrate).value()))
 		invalidValue(errs, errcode?errcode+"-5":"LA005", layerParams.name(), dvbi.a_MaxBitrate, layerParams.attr(dvbi.a_MaxBitrate).value())	
 	
-	if (layerParams.attr(dvbi.a_RTSPControlURL) && !isRTSPURL(layerParams.attr(dvbi.a_RTSPControlURL).value())) 
+	if (layerParams.attr(dvbi.a_RTSPControlURL) && !patterns.isRTSPURL(layerParams.attr(dvbi.a_RTSPControlURL).value())) 
 		invalidValue(errs, errcode?errcode+"-6":"LA006", layerParams.name(), dvbi.a_RTSPControlURL, layerParams.attr(dvbi.a_RTSPControlURL).value())	
 			
 	if (layerParams.attr(dvbi.a_PayloadTypeNumber) && !isUnsignedInt(layerParams.attr(dvbi.a_MaxBitrate).value()))
@@ -1577,11 +1459,6 @@ function checkFECLayerAddressType(layerParams, errs, errcode=null) {
  */
 function checkAspectRatioType(node, errs, errcode=null) {
 	
-	function isRatioType(arg) {
-		let AspectRatioRegex=new RegExp('^\\d+:\\d+$')
-		return AspectRatioRegex.test(arg.trim())
-	}
-	
 	if (!node) {
 		errs.pushCode("AR010", "checkAspectRatioType() called with node==null", "args")
 		return
@@ -1591,7 +1468,7 @@ function checkAspectRatioType(node, errs, errcode=null) {
 	if (node.attr(tva.a_type)&& !isIn(tva.ALLOWED_ASPECT_RATIO_TYPES, node.attr(tva.a_type).value()))
 		invalidValue(errs, errcode?errcode+"-02":"AR012", node.name(), tva.a_type, node.attr(tva.a_type).value())
 	
-	if (!isRatioType(node.text()))
+	if (!patterns.isRatioType(node.text()))
 		errs.pushCode(errcode?errcode+"-03":"ARo13", node.text.quote()+" is not a valid aspect ratio", "invalid value")
 }
 
@@ -1716,35 +1593,6 @@ function ValidateSynopsisType(SCHEMA, SCHEMA_PREFIX, Element, ElementName, requi
 		errs.pushCode(errCode?errCode+"-34":"SY034",requiredSynopsisError(tva.SYNOPSIS_LONG_LABEL), "synopsis");	
 	if (isIn(requiredLengths, tva.SYNOPSIS_EXTENDED_LABEL) && !hasExtended)
 		errs.pushCode(errCode?errCode+"-35":"SY035",requiredSynopsisError(tva.SYNOPSIS_EXTENDED_LABEL), "synopsis");	
-}
-
-
-/**
- * check that a values conforms to the ServiceDaysList type
- *
- * @param {string} the value to check, likely from an Interval@days attribute
- * @returns {boolean} true if the value is properly formated
- */
-function validServiceDaysList(val) {
-	if (!val) return false
-	// list of values 1-7 separeted by spaces
-	let DaysListRegex=new RegExp('^([1-7]\\s+)*[1-7]$')
-	return DaysListRegex.test(val.trim())
-}
-
-
-/**
- * check that a values conforms to the ZuluTimeType type
- *
- * @param {string} val the value to check, likely from an Interval@startTime or @endTime attributes
- * @returns {boolean} true if the value is properly formated
- */
-function validZuluTimeType(val) {
-	if (!val) return false
-	// <pattern value="(([01]\d|2[0-3]):[0-5]\d:[0-5]\d(\.\d+)?|(24:00:00(\.0+)?))Z"/>
-	
-	let ZuluRegex=new RegExp('^(([01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(\\.\\d+)?|(24:00:00(\\.0+)?))Z$')
-	return ZuluRegex.test(val.trim())
 }
 
 
@@ -1880,7 +1728,7 @@ function validateServiceInstance(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, Ser
 								errs.pushCode("SI078", "invalid "+tva.e_Color.elementize()+" value "+child.text().quote(), "video attributes")
 							break;
 						case tva.e_FrameRate:
-							if (!validFrameRate(child.text()))
+							if (!patterns.validFrameRate(child.text()))
 								errs.pushCode("SI079", "invalid "+tva.e_FrameRate.elementize()+" value "+child.text().quote(), "video attributes")
 							break;
 						case tva.e_BitRate:
@@ -1944,16 +1792,16 @@ function validateServiceInstance(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, Ser
 			while (Interval=Period.get(xPath(SCHEMA_PREFIX, dvbi.e_Interval, ++i), SL_SCHEMA)) {
 				checkAttributes(Interval, [], [dvbi.a_days, dvbi.a_recurrence, dvbi.a_startTime, dvbi.a_endTime], errs, "SI125")
 				
-				if (Interval.attr(dvbi.a_days) && !validServiceDaysList(Interval.attr(dvbi.a_days).value()))
+				if (Interval.attr(dvbi.a_days) && !patterns.validServiceDaysList(Interval.attr(dvbi.a_days).value()))
 					errs.pushCode("SI126", dvbi.a_days.attribute(dvbi.e_Interval)+" is invalid ("+Interval.attr(dvbi.a_days).value().quote()+")")
 				
 				if (Interval.attr(dvbi.a_recurrence) && !isUnsignedInt(Interval.attr(dvbi.a_recurrence).value()))
 					errs.pushCode("SI127", dvbi.a_recurrence.a_startTime(dvbi.e_Interval)+" is invalid ("+Interval.attr(dvbi.a_recurrence).value().quote()+")")
 					
-				if (Interval.attr(dvbi.a_startTime) && !validZuluTimeType(Interval.attr(dvbi.a_startTime).value())) 
+				if (Interval.attr(dvbi.a_startTime) && !patterns.validZuluTimeType(Interval.attr(dvbi.a_startTime).value())) 
 					errs.pushCode("SI128", dvbi.a_days.a_startTime(dvbi.e_Interval)+" is invalid ("+Interval.attr(dvbi.a_startTime).value().quote()+")")
 
-				if (Interval.attr(dvbi.a_endTime) && !validZuluTimeType(Interval.attr(dvbi.a_endTime).value())) 
+				if (Interval.attr(dvbi.a_endTime) && !patterns.validZuluTimeType(Interval.attr(dvbi.a_endTime).value())) 
 					errs.pushCode("SI129", dvbi.a_days.a_endTime(dvbi.e_Interval)+" is invalid ("+Interval.attr(dvbi.a_endTime).value().quote()+")")
 			}
 		}
@@ -2072,7 +1920,7 @@ function validateServiceInstance(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, Ser
 				errs.pushCode("SI173", dvbi.a_contentType.attribute()+"="+uriContentType.value().quote()+" in service "+thisServiceId.quote()+" is not valid", "no "+dvbi.a_contentType.attribute()+" for DASH");	
 			
 			let URI=DASHDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_URI), SL_SCHEMA)
-			if (URI && !isHTTPURL(URI.text()))
+			if (URI && !patterns.isHTTPURL(URI.text()))
 				errs.pushCode("SI174", "invalid URL "+URI.text().quote()+" specified for "+dvbi.e_URI.elementize(), "invalid resource URL")
 		}
 		
@@ -2085,7 +1933,7 @@ function validateServiceInstance(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, Ser
 		let e=0, extension
 		while (extension=DASHDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_Extension, ++e), SL_SCHEMA)) {
 			if (extension.attr(dvbi.a_extensionName)) {
-				if (!validExtensionName(extension.attr(dvbi.a_extensionName).value())) 
+				if (!patterns.validExtensionName(extension.attr(dvbi.a_extensionName).value())) 
 					errs.pushCode("SI176", dvbi.a_extensionName.attribute()+"="+extension.attr(dvbi.a_extensionName).value().quote()+" is not valid in service "+thisServiceId.quote(), "invalid "+dvbi.a_extensionName.attribute())
 			}
 			else 
@@ -2176,7 +2024,7 @@ function validateServiceInstance(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, Ser
 		let RTSPURL=RTSPDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_RTSPURL), SL_SCHEMA)
 		if (RTSPURL) {
 			checkAttributes(RTSPURL, [], [dvbi.a_RTSPControlURL], errs, "SI222")
-			if (!isRTSPURL(RTSPURL.text()))
+			if (!patterns.isRTSPURL(RTSPURL.text()))
 				errs.pushCode("SI223", RTSPURL.text().quote()+" is not a valid RTSP URL", "invalid URL")
 		}
 
@@ -2208,7 +2056,7 @@ function validateServiceInstance(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, Ser
 			
 			let CNAME=IPMulticastAddress.get(xPath(SCHEMA_PREFIX, dvbi.e_CNAME), SL_SCHEMA)
 			if (CNAME) {
-				if (!isDomainName(CNAME.text()))
+				if (!patterns.isDomainName(CNAME.text()))
 					errs.pushCode("SI235", dvbi.e_IPMulticastAddress.elementize()+dvbi.e_CNAME.elementize()+" is not a valid domain name for use as a CNAME", "incalid CNAME")
 			}
 			
@@ -2232,7 +2080,7 @@ function validateServiceInstance(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, Ser
 	if (OtherDeliveryParameters) {
 		checkAttributes(OtherDeliveryParameters, [dvbi.a_extensionName], [], errs, "SI250")
 
-		if (OtherDeliveryParameters.attr(dvbi.a_extensionName) && !validExtensionName(OtherDeliveryParameters.attr(dvbi.a_extensionName).value()))
+		if (OtherDeliveryParameters.attr(dvbi.a_extensionName) && !patterns.validExtensionName(OtherDeliveryParameters.attr(dvbi.a_extensionName).value()))
 			errs.pushCode("SI251", dvbi.a_extensionName.attribute()+"="+OtherDeliveryParameters.attr(dvbi.a_extensionName).value().quote()+" is not valid in service "+thisServiceId.quote(), "invalid "+dvbi.a_extensionName.attribute());
 	}
 }
