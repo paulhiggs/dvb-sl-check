@@ -144,9 +144,6 @@ const XML_SchemaFilename=path.join("schema","xml.xsd");
 var TVAschema, MPEG7schema, XMLschema;
 */
 
-require('./phstrings.js')
-
-
 const SCHEMA_v1=1,
       SCHEMA_v2=2,
 	  SCHEMA_v3=3,
@@ -224,7 +221,7 @@ function checkLanguage(lang, loc, errs, errCode) {
 
 
 
-/*
+
 //TODO: validation against schema
 // for the libxml method
 function loadSchema(into, schemafilename) {
@@ -234,7 +231,7 @@ function loadSchema(into, schemafilename) {
 		}
 	});
 }
-*/
+
 
 /**
  * loads necessary classification schemes for validation
@@ -312,12 +309,12 @@ function loadDataFiles(useURLs) {
 	loadSchema(SLschema_v2, DVBI_ServiceListSchemaFilename_v2);
 	loadSchema(SLschema_v3, DVBI_ServiceListSchemaFilename_v3);
 
- //   SLschema_v1=fs.readFileSync(DVBI_ServiceListSchemaFilename_v1);
- //   SLschema_v2=fs.readFileSync(DVBI_ServiceListSchemaFilename_v2);
- //   SLschema_v3=fs.readFileSync(DVBI_ServiceListSchemaFilename_v3);
- //   TVAschema=fs.readFileSync(TVA_SchemaFilename);
- //   MPEG7schema=fs.readFileSync(MPEG7_SchemaFilename);
- //   XMLschema=fs.readFileSync(XML_SchemaFilename);
+    SLschema_v1=fs.readFileSync(DVBI_ServiceListSchemaFilename_v1);
+    SLschema_v2=fs.readFileSync(DVBI_ServiceListSchemaFilename_v2);
+    SLschema_v3=fs.readFileSync(DVBI_ServiceListSchemaFilename_v3);
+    TVAschema=fs.readFileSync(TVA_SchemaFilename);
+    MPEG7schema=fs.readFileSync(MPEG7_SchemaFilename);
+    XMLschema=fs.readFileSync(XML_SchemaFilename);
 */
 }
 
@@ -2111,6 +2108,8 @@ function doValidateServiceList(SLtext, errs) {
 /*
 // the xmllint method
 	var lintResult=null;
+
+	console.log(SLschema_v1.toString())
 	lintResult=xmllint.validateXML({
 		xml: SLtext,
 		schema: [SLschema_v1.toString(), 
@@ -2118,7 +2117,7 @@ function doValidateServiceList(SLtext, errs) {
 				MPEG7schema.toString(),
 				XMLschema.toString()]
 	});
-	console.log( lintResult.errors );
+	console.log(lintResult.errors);
 */
 /*
 // the libxmljs2 method
