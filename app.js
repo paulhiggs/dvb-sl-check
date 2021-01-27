@@ -55,10 +55,9 @@ const keyFilename=path.join(".","selfsigned.key"), certFilename=path.join(".","s
 const {parse}=require("querystring")
 
 // https://github.com/alexei/sprintf.js
-var sprintf=require("sprintf-js").sprintf,
-    vsprintf=require("sprintf-js").vsprintf
-const { isIPv4, isIPv6 } = require("net")
-const { networkInterfaces } = require("os")
+var sprintf=require("sprintf-js").sprintf
+
+const {isIPv4,isIPv6} = require("net")
 
 const DVB_COMMON_DIR="dvb-common", 
       COMMON_REPO_RAW="https://raw.githubusercontent.com/paulhiggs/dvb-common/master/",
@@ -127,14 +126,12 @@ var knownLanguages=new IANAlanguages()
 const IANA_Subtag_Registry_Filename=path.join(DVB_COMMON_DIR, knownLanguages.LanguagesFileName),
       IANA_Subtag_Registry_URL=knownLanguages.LanguagesURL
 
-
 const DVBI_ServiceListSchemaFilename_v1=path.join(".","dvbi_v1.0.xsd");
 var SLschema_v1;
 const DVBI_ServiceListSchemaFilename_v2=path.join(".","dvbi_v2.0.xsd");
 var SLschema_v2;
 const DVBI_ServiceListSchemaFilename_v3=path.join(".","dvbi_v3.0.xsd");
 var SLschema_v3;
-
 
 const SCHEMA_v1=1,
       SCHEMA_v2=2,
@@ -148,7 +145,6 @@ const SCHEMA_v1=1,
  * @returns {integer} Representation of the schema version or error code if unknown 
  */
 function SchemaVersion(namespace) {
-
 	if (namespace == dvbi.A177v1_Namespace)
 		return SCHEMA_v1;
 	else if (namespace == dvbi.A177v2_Namespace)
@@ -331,7 +327,9 @@ function addRegion(SL_SCHEMA, SCHEMA_PREFIX, Region, depth, knownRegionIDs, errs
 	checkAttributes(Region, [dvbi.a_regionID], [dvbi.a_countryCodes], errs, "AR002")
 	
     let regionID=Region.attr(dvbi.a_regionID)?Region.attr(dvbi.a_regionID).value():""
-	if (regionID!="") {
+	if (regionID=="")
+		regionID="unspecified"
+	else {
 		if (isIn(knownRegionIDs, regionID)) 
 			errs.pushCode("AR003", "Duplicate "+dvbi.a_regionId.attribute()+" "+regionID.quote(), "duplicate regionID")
 		else knownRegionIDs.push(regionID)
@@ -641,9 +639,7 @@ function checkValidLogo(HowRelated, Format, MediaLocator, errs, Location, Locati
  */
 function checkSignalledApplication(HowRelated, Format, MediaLocator, errs, Location, LocationType) {
 	
-	function validApplicationType(val) {
-		return val==dvbi.XML_AIT_CONTENT_TYPE || val==dvbi.HTML5_APP || val==dvbi.XHTML_APP
-	}
+	const validApplicationTypes=[dvbi.XML_AIT_CONTENT_TYPE, dvbi.HTML5_APP, dvbi.XHTML_APP]
 	
     if (!MediaLocator) 
 		NoMediaLocator("application", Location, errs, "SA001");
@@ -654,7 +650,7 @@ function checkSignalledApplication(HowRelated, Format, MediaLocator, errs, Locat
                 hasMediaURI=true;
 				checkAttributes(child, [tva.a_contentType], [tva.a_uriType], errs, "SA002")
                 if (child.attr(tva.a_contentType)) {
-					if (!validApplicationType(child.attr(tva.a_contentType).value)) 
+					if (!isIn(validApplicationTypes, child.attr(tva.a_contentType).value)) 
                         errs.pushCodeW("SA003", tva.a_contentType.attribute()+" "+child.attr(tva.a_contentType).value().quote()+" is not DVB AIT for "+tva.e_RelatedMaterial.elementize()+tva.e_MediaLocator.elementize()+" in "+Location, "invalid "+tva.a_contentType.attribute(tva.e_MediaUri));
 				}
 				if (!patterns.isHTTPURL(child.text())) 
@@ -884,15 +880,16 @@ function isBoolean(arg) {
  */
 function drawForm(URLmode, res, lastInput=null, error=null, errors=null) {
 	
-	const FORM_TOP="<html><head><title>DVB-I Service List Validator</title></head><body>";
+	function nonBreakingHyphen(s) { return s.replace(/-/g,"&#8209;")  }
 
+	const TABLE_STYLE="<style>table {border-collapse: collapse;border: 1px solid black;} th, td {text-align: left; padding: 8px; }	tr:nth-child(even) {background-color: #f2f2f2;}	</style>"
+	const FORM_TOP="<html><head>"+TABLE_STYLE+"<title>DVB-I Service List Validator</title></head><body>";
 	const PAGE_HEADING="<h1>DVB-I Service List Validator</h1>";
 	const ENTRY_FORM_URL="<form method=\"post\"><p><i>URL:</i></p><input type=\"url\" name=\"SLurl\" value=\"%s\"><input type=\"submit\" value=\"submit\"></form>";
-
 	const ENTRY_FORM_FILE="<form method=\"post\" encType=\"multipart/form-data\"><p><i>FILE:</i></p><input type=\"file\" name=\"SLfile\" value=\"%s\"><input type=\"submit\" value=\"submit\"></form>";
-
 	const RESULT_WITH_INSTRUCTION="<br><p><i>Results:</i></p>";
 	const SUMMARY_FORM_HEADER="<table><tr><th>item</th><th>count</th></tr>";
+	const DETAIL_FORM_HEADER="<table><tr><th>code</th><th>%s</th></tr>"
 	const FORM_BOTTOM="</body></html>";
 	
     res.write(FORM_TOP);    
@@ -925,17 +922,17 @@ function drawForm(URLmode, res, lastInput=null, error=null, errors=null) {
 				resultsShown=true;
 			}
 		}
-		if (tableHeader) res.write("</table>");
+		if (tableHeader) res.write("</table><br/>");
 
 		tableHeader=false;
 		errors.messages.forEach(function(value) {
 			if (!tableHeader) {
-				res.write("<table><tr><th>code</th><th>errors</th></tr>");
+				res.write(sprintf(DETAIL_FORM_HEADER, "errors"))
 				tableHeader=true;                    
 			}
 			if (value.includes(errors.delim)) {
 				let x=value.split(errors.delim)
-				res.write("<tr><td>"+x[0]+"</td><td>"+phlib.HTMLize(x[1])+"</td></tr>");	
+				res.write("<tr><td>"+nonBreakingHyphen(x[0])+"</td><td>"+phlib.HTMLize(x[1])+"</td></tr>");	
 			}
 			else 
 				res.write("<tr><td></td><td>"+phlib.HTMLize(value)+"</td></tr>");
@@ -946,12 +943,12 @@ function drawForm(URLmode, res, lastInput=null, error=null, errors=null) {
 		tableHeader=false;
 		errors.messagesWarn.forEach(function(value) {
 			if (!tableHeader) {
-				res.write("<table><tr><th>code</th><th>warnings</th></tr>");
+				res.write(sprintf(DETAIL_FORM_HEADER, "warnings"))
 				tableHeader=true;                    
 			}
 			if (value.includes(errors.delim)) {
 				let x=value.split(errors.delim)
-				res.write("<tr><td>"+x[0]+"</td><td>"+phlib.HTMLize(x[1])+"</td></tr>");	
+				res.write("<tr><td>"+nonBreakingHyphen(x[0])+"</td><td>"+phlib.HTMLize(x[1])+"</td></tr>");	
 			}
 			else 
 				res.write("<tr><td></td><td>"+phlib.HTMLize(value)+"</td></tr>");
@@ -1175,10 +1172,10 @@ function hasElement(SL_SCHEMA, SCHEMA_PREFIX, node, elementName) {
  */ 
 function validateTriplet(triplet, errs, errCode=null) {
 
-	function checkTripletAttributeValue(attr, parentElemName, errs, errCode=null) {
+	function checkTripletAttributeValue(attr, parentElemName, errs, errCode) {
 		if (!attr) return;
 		if (!isUnsignedShort(attr.value()))
-			invalidValue(errs, errCode?errCode:"AtV001", parentElemName, attr.name(), attr.value())
+			invalidValue(errs, errCode, parentElemName, attr.name(), attr.value())
 	}
 
 	if (!triplet) {
@@ -1457,14 +1454,6 @@ function ValidateSynopsisType(SCHEMA, SCHEMA_PREFIX, Element, ElementName, requi
 	function requiredSynopsisError(elem, length) {
 		return "a "+elementize(elem)+" element with "+tva.a_length.attribute()+"="+quote(length)+" is required"; }
 	
-	/**
-	 * replace ENTITY strings with a generic characterSet
-     *
-     * @param {string} str string containing HTML or XML entities (starts with & ends with ;)
-     * @returns {string} the string with entities replaced with a single character '*'
-     */
-	function unEntity(str) { return str.replace(/(&.+;)/ig,"*"); }
-
 	if (!Element) {
 		errs.pushCode("SY000", "ValidateSynopsisType() called with Element==null")
 		return
@@ -1479,30 +1468,31 @@ function ValidateSynopsisType(SCHEMA, SCHEMA_PREFIX, Element, ElementName, requi
 		let synopsisLength=ste.attr(tva.a_length)?ste.attr(tva.a_length).value():null;
 		
 		if (synopsisLength) {
+			let cleanSynopsisLength=ste.text().replace(/(&.+;)/ig,"*")  // replace ENTITY strings with a generic characterSet
 			if (isIn(requiredLengths, synopsisLength) || isIn(optionalLengths, synopsisLength)) {
 				switch (synopsisLength) {
 					case tva.SYNOPSIS_BRIEF_LABEL:
-						if ((unEntity(ste.text()).length) > tva.SYNOPSIS_BRIEF_LENGTH)
+						if (cleanSynopsisLength > tva.SYNOPSIS_BRIEF_LENGTH)
 							errs.pushCode(errCode?errCode+"-10":"SY010", synopsisLengthError(ElementName, tva.SYNOPSIS_BRIEF_LABEL, tva.SYNOPSIS_BRIEF_LENGTH), "synopsis");
 						hasBrief=true;
 						break;
 					case tva.SYNOPSIS_SHORT_LABEL:
-						if ((unEntity(ste.text()).length) > tva.SYNOPSIS_SHORT_LENGTH)
+						if (cleanSynopsisLength > tva.SYNOPSIS_SHORT_LENGTH)
 							errs.pushCode(errCode?errCode+"-11":"SY011", synopsisLengthError(ElementName, tva.SYNOPSIS_SHORT_LABEL, tva.SYNOPSIS_SHORT_LENGTH), "synopsis");
 						hasShort=true;
 						break;
 					case tva.SYNOPSIS_MEDIUM_LABEL:
-						if ((unEntity(ste.text()).length) > tva.SYNOPSIS_MEDIUM_LENGTH)
+						if (cleanSynopsisLength > tva.SYNOPSIS_MEDIUM_LENGTH)
 							errs.pushCode(errCode?errCode+"-12":"SY012", synopsisLengthError(ElementName, tva.SYNOPSIS_MEDIUM_LABEL, tva.SYNOPSIS_MEDIUM_LENGTH), "synopsis");
 						hasMedium=true;
 						break;
 					case tva.SYNOPSIS_LONG_LABEL:
-						if ((unEntity(ste.text()).length) > tva.SYNOPSIS_LONG_LENGTH)
+						if (cleanSynopsisLength > tva.SYNOPSIS_LONG_LENGTH)
 							errs.pushCode(errCode?errCode+"-13":"SY013", synopsisLengthError(ElementName, tva.SYNOPSIS_LONG_LABEL, tva.SYNOPSIS_LONG_LENGTH), "synopsis");
 						hasLong=true;
 						break;						
 					case tva.SYNOPSIS_EXTENDED_LABEL:
-						if ((unEntity(ste.text()).length) < tva.SYNOPSIS_LENGTH_LENGTH)
+						if (cleanSynopsisLength < tva.SYNOPSIS_LENGTH_LENGTH)
 							errs.pushCode(errCode?errCode+"-14":"SY014", synopsisToShortError(ElementName, tva.SYNOPSIS_EXTENDED_LABEL, tva.SYNOPSIS_LONG_LENGTH), "synopsis");
 						hasExtended=true;
 						break;
@@ -1571,10 +1561,9 @@ function validateServiceInstance(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, Ser
 		errs.pushCode("SI000", "validateServiceInstance() called with ServiceInstance==null")
 		return
 	}
-	checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, ServiceInstance, [], [dvbi.e_DisplayName, tva.e_RelatedMaterial, dvbi.e_ContentProtection, dvbi.e_ContentAttributes, dvbi.e_Availability, dvbi.e_SubscriptionPackage, dvbi.e_FTAContentManagement, dvbi.e_SourceType, dvbi.e_DVBTDeliveryParameters, dvbi.e_DVBSDeliveryParameters, dvbi.e_DVBCDeliveryParameters, dvbi.e_SATIPDeliveryParameters, dvbi.e_RTSPDeliveryParameters, dvbi.e_MulticastTSDeliveryParameters, dvbi.e_DASHDeliveryParameters, dvbi.e_OtherDeliveryParameters], errs, "SI001")
-	
-	checkAttributes(ServiceInstance, [], [dvbi.a_priority], errs, "SI002")
 
+	checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, ServiceInstance, [], [dvbi.e_DisplayName, tva.e_RelatedMaterial, dvbi.e_ContentProtection, dvbi.e_ContentAttributes, dvbi.e_Availability, dvbi.e_SubscriptionPackage, dvbi.e_FTAContentManagement, dvbi.e_SourceType, dvbi.e_DVBTDeliveryParameters, dvbi.e_DVBSDeliveryParameters, dvbi.e_DVBCDeliveryParameters, dvbi.e_SATIPDeliveryParameters, dvbi.e_RTSPDeliveryParameters, dvbi.e_MulticastTSDeliveryParameters, dvbi.e_DASHDeliveryParameters, dvbi.e_OtherDeliveryParameters], errs, "SI001")
+	checkAttributes(ServiceInstance, [], [dvbi.a_priority], errs, "SI002")
 	checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, dvbi.e_DisplayName, "service instance in service="+thisServiceId.quote(), ServiceInstance, errs, "SI010");
 
 	// check @href of <ServiceInstance><RelatedMaterial>
