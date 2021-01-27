@@ -277,9 +277,9 @@ function loadDataFiles(useURLs) {
 	else knownLanguages.loadLanguagesFromFile(IANA_Subtag_Registry_Filename, true);
 
 	console.log("loading schemas...");
-	SLschema_v1=fs.readFileSync(DVBI_ServiceListSchemaFilename_v1)
-    SLschema_v2=fs.readFileSync(DVBI_ServiceListSchemaFilename_v2)
-    SLschema_v3=fs.readFileSync(DVBI_ServiceListSchemaFilename_v3)
+	SLschema_v1=libxml.parseXmlString(fs.readFileSync(DVBI_ServiceListSchemaFilename_v1))
+    SLschema_v2=libxml.parseXmlString(fs.readFileSync(DVBI_ServiceListSchemaFilename_v2))
+    SLschema_v3=libxml.parseXmlString(fs.readFileSync(DVBI_ServiceListSchemaFilename_v3))
 }
 
 
@@ -1374,6 +1374,7 @@ function isIPorDomain(arg) {
 	return patterns.isDomainName(arg) || isIPv4(arg) || isIPv6(arg)
 }
 
+
 /**
  * validate an element against a DVB FECLayerAddressType
  *
@@ -2043,7 +2044,7 @@ function validateServiceInstance(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, Ser
  * @param {string} errCode the error code to report with each error 
  */
 function SchemaCheck( XML, XSD, errs, errCode) {
-	if (!XML.validate(libxml.parseXmlString(XSD))) 
+	if (!XML.validate(XSD)) 
 		XML.validationErrors.forEach(ve => {
 			let s=ve.toString().split('\r')
 			s.forEach(err => errs.pushCode(errCode, err)); 
