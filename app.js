@@ -31,9 +31,6 @@ const IANAlanguages=require("./dvb-common/IANAlanguages.js")
 // libxmljs2 - github.com/marudor/libxmljs2
 const libxml=require("libxmljs2")
 
-//TODO: validation against schema; package.json: 		"xmllint": "0.1.1",
-//const xmllint=require("xmllint")
-
 // morgan - https://github.com/expressjs/morgan
 const morgan=require("morgan")
 
@@ -130,19 +127,14 @@ var knownLanguages=new IANAlanguages()
 const IANA_Subtag_Registry_Filename=path.join(DVB_COMMON_DIR, knownLanguages.LanguagesFileName),
       IANA_Subtag_Registry_URL=knownLanguages.LanguagesURL
 
-/*
-//TODO: validation against schema
-const DVBI_ServiceListSchemaFilename_v1=path.join("schema","dvbi_v1.0.xsd");
+
+const DVBI_ServiceListSchemaFilename_v1=path.join(".","dvbi_v1.0.xsd");
 var SLschema_v1;
-const DVBI_ServiceListSchemaFilename_v2=path.join("schema","dvbi_v2.0.xsd");
+const DVBI_ServiceListSchemaFilename_v2=path.join(".","dvbi_v2.0.xsd");
 var SLschema_v2;
-const DVBI_ServiceListSchemaFilename_v3=path.join("schema","dvbi_v3.0.xsd");
+const DVBI_ServiceListSchemaFilename_v3=path.join(".","dvbi_v3.0.xsd");
 var SLschema_v3;
-const TVA_SchemaFilename=path.join("schema","tva_metadata_3-1.xsd");
-const MPEG7_SchemaFilename=path.join("schema","tva_mpeg7.xsd");
-const XML_SchemaFilename=path.join("schema","xml.xsd");
-var TVAschema, MPEG7schema, XMLschema;
-*/
+
 
 const SCHEMA_v1=1,
       SCHEMA_v2=2,
@@ -219,20 +211,6 @@ function checkLanguage(lang, loc, errs, errCode) {
 }
 
 
-
-
-
-//TODO: validation against schema
-// for the libxml method
-function loadSchema(into, schemafilename) {
-	fs.readFile(schemafilename, {encoding: "utf-8"}, function(err,data){
-        if (!err) {
-			into=libxml.parseXml(data.replace(/(\r\n|\n|\r|\t)/gm,""));
-		}
-	});
-}
-
-
 /**
  * loads necessary classification schemes for validation
  *
@@ -302,20 +280,10 @@ function loadDataFiles(useURLs) {
 		knownLanguages.loadLanguagesFromURL(IANA_Subtag_Registry_URL, true);
 	else knownLanguages.loadLanguagesFromFile(IANA_Subtag_Registry_Filename, true);
 
-/*
-//TODO: validation against schema
 	console.log("loading schemas...");
-	loadSchema(SLschema_v1, DVBI_ServiceListSchemaFilename_v1);
-	loadSchema(SLschema_v2, DVBI_ServiceListSchemaFilename_v2);
-	loadSchema(SLschema_v3, DVBI_ServiceListSchemaFilename_v3);
-
-    SLschema_v1=fs.readFileSync(DVBI_ServiceListSchemaFilename_v1);
-    SLschema_v2=fs.readFileSync(DVBI_ServiceListSchemaFilename_v2);
-    SLschema_v3=fs.readFileSync(DVBI_ServiceListSchemaFilename_v3);
-    TVAschema=fs.readFileSync(TVA_SchemaFilename);
-    MPEG7schema=fs.readFileSync(MPEG7_SchemaFilename);
-    XMLschema=fs.readFileSync(XML_SchemaFilename);
-*/
+	SLschema_v1=fs.readFileSync(DVBI_ServiceListSchemaFilename_v1)
+    SLschema_v2=fs.readFileSync(DVBI_ServiceListSchemaFilename_v2)
+    SLschema_v3=fs.readFileSync(DVBI_ServiceListSchemaFilename_v3)
 }
 
 
@@ -929,12 +897,7 @@ function drawForm(URLmode, res, lastInput=null, error=null, errors=null) {
 	
     res.write(FORM_TOP);    
 	res.write(PAGE_HEADING);   
-	
 	res.write(sprintf(URLmode?ENTRY_FORM_URL:ENTRY_FORM_FILE, lastInput?lastInput:""))
-/*    if (URLmode) 
-		res.write(sprintf(ENTRY_FORM_URL, lastInput?lastInput:""));
-	else res.write(sprintf(ENTRY_FORM_FILE, lastInput?lastInput:"")); */
-
     res.write(RESULT_WITH_INSTRUCTION);
 
 	if (error) 
@@ -1694,7 +1657,6 @@ function validateServiceInstance(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, Ser
 				videoSubelements.push(dvbi.e_Colorimetry)
 			checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, conf, [], videoSubelements, errs, "SI070")
 			
-
 			let children=conf.childNodes()
 			if (children) children.forEach(child => {
 				if (child.type()=='element')
@@ -2084,6 +2046,23 @@ function validateServiceInstance(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, Ser
 
 
 /**
+ * validate a XML document gainst the specified schema (included schemas must be in the same directory)
+ * 
+ * @param {Document} XML the XML document to check
+ * @param {Document} XSD the schema
+ * @param {object} errs array to record any errors
+ * @param {string} errCode the error code to report with each error 
+ */
+function SchemaCheck( XML, XSD, errs, errCode) {
+	if (!XML.validate(libxml.parseXmlString(XSD))) 
+		XML.validationErrors.forEach(ve => {
+			let s=ve.toString().split('\r')
+			s.forEach(err => errs.pushCode(errCode, err)); 
+		})
+}
+
+
+/**
  * validate the service list and record any errors
  *
  * @param {String} SLtext  The service list text to be validated
@@ -2101,49 +2080,31 @@ function doValidateServiceList(SLtext, errs) {
 		return;
 	}
 	
-	// check the retrieved service list against the schema
-	// https://syssgx.github.io/xml.js/
+	let SL_SCHEMA={}, 
+		SCHEMA_PREFIX=SL.root().namespace().prefix(), 
+		SCHEMA_NAMESPACE=SL.root().namespace().href()
+		SL_SCHEMA[SCHEMA_PREFIX]=SCHEMA_NAMESPACE;
 
-//TODO: look into why both of these validation approaches are failing
-/*
-// the xmllint method
-	var lintResult=null;
-
-	console.log(SLschema_v1.toString())
-	lintResult=xmllint.validateXML({
-		xml: SLtext,
-		schema: [SLschema_v1.toString(), 
-				TVAschema.toString(), 
-				MPEG7schema.toString(),
-				XMLschema.toString()]
-	});
-	console.log(lintResult.errors);
-*/
-/*
-// the libxmljs2 method
-	if (!SL.validate(SLschema_v1)){
-		SL.validationErrors.forEach(err => console.log("validation error(1):", err));
-	}
-	if (!SL.validate(SLschema_v2)){
-		SL.validationErrors.forEach(err => console.log("validation error(2):", err));
-	}
-	if (!SL.validate(SLschema_v3)){
-		SL.validationErrors.forEach(err => console.log("validation error(3):", err));
-	}
-*/	
 	if (SL.root().name() !== dvbi.e_ServiceList) {
 		errs.pushCode("SL003", "Root element is not "+dvbi.e_ServiceList.elementize());
 		return;
 	}
-	
-	let SL_SCHEMA={}, 
-		SCHEMA_PREFIX=SL.root().namespace().prefix(), 
-		SCHEMA_NAMESPACE=SL.root().namespace().href()
-	SL_SCHEMA[SCHEMA_PREFIX]=SCHEMA_NAMESPACE;
 
 	if (SchemaVersion(SCHEMA_NAMESPACE)==SCHEMA_unknown) {
 		errs.pushCode("SL004", "Unsupported namespace "+SCHEMA_NAMESPACE.quote());
 		return;
+	}
+
+	switch (SchemaVersion(SCHEMA_NAMESPACE)) {
+		case SCHEMA_v1:
+			SchemaCheck(SL, SLschema_v1, errs, "SL005-1")
+			break;
+		case SCHEMA_v2:
+			SchemaCheck(SL, SLschema_v2, errs, "SL005-2")
+			break;
+		case SCHEMA_v3:
+			SchemaCheck(SL, SLschema_v3, errs, "SL005-3")
+			break;		
 	}
 
 	checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, SL.root(), [dvbi.e_Name, dvbi.e_ProviderName], [tva.e_RelatedMaterial, dvbi.e_RegionList, dvbi.e_TargetRegion, dvbi.e_LCNTableList, dvbi.e_ContentGuideSourceList, dvbi.e_ContentGuideSource, dvbi.e_Service, OTHER_ELEMENTS_OK], errs, "SL010")
