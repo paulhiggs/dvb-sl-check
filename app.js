@@ -384,17 +384,17 @@ function addRegion(SL_SCHEMA, SCHEMA_PREFIX, Region, depth, knownRegionIDs, errs
 	checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, dvbi.e_RegionName, dvbi.a_regionID.attribute(dvbi.e_Region)+"="+regionID.quote(), Region, errs, "AR006")
 	
 	// <Region><Postcode>
-	let pc=0, Postcode
+	let pc=0, Postcode, PostcodeErrorMessage="invalid postcode"
 	while (Postcode=Region.get(xPath(SCHEMA_PREFIX, dvbi.e_Postcode, ++pc), SL_SCHEMA)) {
 		if (!patterns.isPostcode(Postcode.text()))
-			errs.pushCode("AR011", Postcode.text().quote()+" is not a valid postcode", "invalid postcode")
+			errs.pushCode("AR011", Postcode.text().quote()+" is not a valid postcode", PostcodeErrorMessage)
 	}
 	
 	// <Region><WildcardPostcode>
 	let wp=0, WildcardPostcode
 	while (WildcardPostcode=Region.get(xPath(SCHEMA_PREFIX, dvbi.e_WildcardPostcode, ++wp), SL_SCHEMA)) {
 		if (!patterns.isWildcardPostcode(WildcardPostcode.text()))
-			errs.pushCode("AR021", WildcardPostcode.text().quote()+" is not a valid wildcarded postcode", "invalid postcode")		
+			errs.pushCode("AR021", WildcardPostcode.text().quote()+" is not a valid wildcarded postcode", PostcodeErrorMessage)		
 	}
 	
 	// <Region><PostcodeRange>
@@ -402,27 +402,27 @@ function addRegion(SL_SCHEMA, SCHEMA_PREFIX, Region, depth, knownRegionIDs, errs
 	while (PostcodeRange=Region.get(xPath(SCHEMA_PREFIX, dvbi.e_PostcodeRange, ++pr), SL_SCHEMA)) {
 		checkAttributes(PostcodeRange, [dvbi.a_from, dvbi.a_to], [], errs, "AR031")
 		if (PostcodeRange.attr(dvbi.a_from) && !patterns.isPostcode(PostcodeRange.attr(dvbi.a_from).value()))
-			errs.pushCode("AR032", PostcodeRange.attr(dvbi.a_from).value().quote()+" is not a valid postcode", "invalid postcode")
+			errs.pushCode("AR032", PostcodeRange.attr(dvbi.a_from).value().quote()+" is not a valid postcode", PostcodeErrorMessage)
 		if (PostcodeRange.attr(dvbi.a_to) && !patterns.isPostcode(PostcodeRange.attr(dvbi.a_to).value()))
-			errs.pushCode("AR033", PostcodeRange.attr(dvbi.a_to).value().quote()+" is not a valid postcode", "invalid postcode")
+			errs.pushCode("AR033", PostcodeRange.attr(dvbi.a_to).value().quote()+" is not a valid postcode", PostcodeErrorMessage)
 	}
 	
 	// <Region><Coordinates>
-	let co=0, Coordinates
+	let co=0, Coordinates, CoordinateErrorMessage="invalid coordinate value"
 	while (Coordinates=Region.get(xPath(SCHEMA_PREFIX, dvbi.e_Coordinates, ++co), SL_SCHEMA)) {
 		checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, Coordinates, [dvbi.e_Latitude, dvbi.e_Longitude, dvbi.e_Radius], [], errs, "AR041")
 
 		let Latitude=Coordinates.get(xPath(SCHEMA_PREFIX, dvbi.e_Latitude), SL_SCHEMA)
 		if (Latitude && !validLatitude(Latitude))
-			errs.pushCode("AR042", dvbi.e_Latitude.elementize()+" is not a valid latitude "+Latitude.quote(), "invalid value")
+			errs.pushCode("AR042", dvbi.e_Latitude.elementize()+" is not a valid latitude "+Latitude.quote(), CoordinateErrorMessage)
 
 		let Longitude=Coordinates.get(xPath(SCHEMA_PREFIX, dvbi.e_Longitude), SL_SCHEMA)
 		if (Longitude && !validLongitude(Longitude))
-			errs.pushCode("AR043", dvbi.e_Longitude.elementize()+" is not a valid longitude "+Longitude.quote(), "invalid value")
+			errs.pushCode("AR043", dvbi.e_Longitude.elementize()+" is not a valid longitude "+Longitude.quote(), CoordinateErrorMessage)
 			
-		let Raduis=Coordinates.get(xPath(SCHEMA_PREFIX, dvbi.e_Radius), SL_SCHEMA)
+		let Radius=Coordinates.get(xPath(SCHEMA_PREFIX, dvbi.e_Radius), SL_SCHEMA)
 		if (Radius && !isPositiveInteger(Radius))
-			errs.pushCode("AR044", dvbi.e_Radius.elementize()+" is not a valid value "+Radius.quote(), "invalid value")
+			errs.pushCode("AR044", dvbi.e_Radius.elementize()+" is not a valid value "+Radius.quote(), CoordinateErrorMessage)
 	}
 
     if (depth > dvbi.MAX_SUBREGION_LEVELS) 
@@ -1138,7 +1138,7 @@ function checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, elem, mandatoryChildElements
 	
 	// check that no additional child elements existance if the "Other Child Elements are OK" flag is not set
 	if (!isIn(optionalChildElements, OTHER_ELEMENTS_OK)) {
-		let c=0, ch, children=elem.childNodes()
+		let children=elem.childNodes()
 		if (children) children.forEach(ch => {
 			if (ch.type()=='element') {
 				let childName=ch.name()
@@ -2413,28 +2413,6 @@ function validateServiceList(SLtext) {
 
 
 /**
- * checks is the service list URL is provided in an argument to the query
- * 
- * @param {Object} req  The request from Express
- * @returns true if the SLurl parameter is specified containing the URL to a service list
- */
-function checkQuery(req) {
-	return (req && req.query && req.query.SLurl)
-}
-
-
-/**
- * checks if the service list file name is provided in an argument to the query
- * 
- * @param {Object} req  The request from Express
- * @returns true if the SLfile parameter is specified containing the file name a service list
- */
-function checkFile(req) {
-	return (req && req.files && req.files.SLfile)
-}
-
-
-/**
  * Process the service list specificed for errors and display them
  *
  * @param {Object} req  The request from Express
@@ -2445,12 +2423,7 @@ function processQuery(req, res) {
 		drawForm(true, res);
 		res.end()
 	}
-	else if (!checkQuery(req)) {
-        drawForm(true, res, req.query.SLurl, "URL not specified");
-		res.status(400);
-		res.end()
-    }
-    else {
+	else if (req && req.query && req.query.SLurl) {
 		let errs=new ErrorList()
 			
 		function handleErrors(response) {
@@ -2471,8 +2444,12 @@ function processQuery(req, res) {
 				res.end()
 			})
    }
+   else {
+        drawForm(true, res, req.query.SLurl, "URL not specified");
+		res.status(400);
+		res.end()
+    }
 }
-
 
 
 /**
@@ -2484,11 +2461,7 @@ function processQuery(req, res) {
 function processFile(req, res) {
     if (isEmpty(req.query)) 
         drawForm(false, res);    
-    else if (!checkFile(req)) {
-        drawForm(false, res, req.query.SLfile, "File not specified");
-        res.status(400);
-    }
-    else {
+	else if (req && req.files && req.files.SLfile) {
         let SLxml=null
         let errs=new ErrorList()
         try {
@@ -2502,6 +2475,11 @@ function processFile(req, res) {
 
         drawForm(false, res, req.query.SLfile, null, errs);
     }
+	else {
+        drawForm(false, res, req.query.SLfile, "File not specified");
+        res.status(400);
+    }
+    
     res.end();
 }
 
