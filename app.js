@@ -2455,7 +2455,7 @@ let app=express()
 app.use(express.static(__dirname));
 app.set('view engine', 'ejs');
 app.use(fileupload());
-app.use(favicon('favicon.ico'))
+app.use(favicon(path.join('phlib','ph-icon.ico')))
 
 
 morgan.token("protocol", function getProtocol(req) {
