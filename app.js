@@ -126,11 +126,11 @@ var knownLanguages=new IANAlanguages()
 const IANA_Subtag_Registry_Filename=path.join(DVB_COMMON_DIR, knownLanguages.LanguagesFileName),
       IANA_Subtag_Registry_URL=knownLanguages.LanguagesURL
 
-const DVBI_ServiceListSchemaFilename_v1=path.join(".","dvbi_v1.0.xsd");
+const DVBI_ServiceListSchemaFilename_v1=path.join(".", "dvbi_v1.0.xsd");
 var SLschema_v1;
-const DVBI_ServiceListSchemaFilename_v2=path.join(".","dvbi_v2.0.xsd");
+const DVBI_ServiceListSchemaFilename_v2=path.join(".", "dvbi_v2.0.xsd");
 var SLschema_v2;
-const DVBI_ServiceListSchemaFilename_v3=path.join(".","dvbi_v3.0.xsd");
+const DVBI_ServiceListSchemaFilename_v3=path.join(".", "dvbi_v3.0.xsd");
 var SLschema_v3;
 
 const SCHEMA_v1=1,
@@ -204,29 +204,6 @@ function checkLanguage(lang, loc, errs, errCode) {
 			errs.pushCodeW(errCode?errCode+"-2":"CL002", (loc?loc:"language")+" value "+lang.quote()+" is redundant", "redundant language")
 			break;	
 	}
-}
-
-
-/**
- * loads necessary classification schemes for validation
- *
- * @param {boolean} useURLs use network locations as the source rather than local files
- */
-function loadCSfromURL(values, csURL, leafNodesOnly=false) { 
-	console.log("retrieving CS from", csURL, "via Fetch()")
-	
-	function handleErrors(response) {
-		if (!response.ok) {
-			throw Error(response.statusText)
-		}
-		return response
-	}
-	
-	fetch(csURL)
-		.then(handleErrors)
-		.then(response => response.text())
-		.then(strXML => loadClassificationScheme(values, libxml.parseXmlString(strXML), leafNodesOnly))
-		.catch(error => console.log("error ("+error+") retrieving "+csURL))
 }
 
 
@@ -323,8 +300,6 @@ function addRegion(SL_SCHEMA, SCHEMA_PREFIX, Region, depth, knownRegionIDs, errs
 		errs.pushCode("AR000", "addRegion() called with Region==null")
 		return
 	}
-	checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, Region, [], [dvbi.e_RegionName, dvbi.e_Postcode, dvbi.e_WildcardPostcode, dvbi.e_PostcodeRange, dvbi.e_Coordinates, dvbi.e_Region], errs, "AR001")
-	checkAttributes(Region, [dvbi.a_regionID], [dvbi.a_countryCodes], errs, "AR002")
 	
     let regionID=Region.attr(dvbi.a_regionID)?Region.attr(dvbi.a_regionID).value():""
 	if (regionID=="")
@@ -354,41 +329,6 @@ function addRegion(SL_SCHEMA, SCHEMA_PREFIX, Region, depth, knownRegionIDs, errs
 	while (Postcode=Region.get(xPath(SCHEMA_PREFIX, dvbi.e_Postcode, ++pc), SL_SCHEMA)) {
 		if (!patterns.isPostcode(Postcode.text()))
 			errs.pushCode("AR011", Postcode.text().quote()+" is not a valid postcode", PostcodeErrorMessage)
-	}
-	
-	// <Region><WildcardPostcode>
-	let wp=0, WildcardPostcode
-	while (WildcardPostcode=Region.get(xPath(SCHEMA_PREFIX, dvbi.e_WildcardPostcode, ++wp), SL_SCHEMA)) {
-		if (!patterns.isWildcardPostcode(WildcardPostcode.text()))
-			errs.pushCode("AR021", WildcardPostcode.text().quote()+" is not a valid wildcarded postcode", PostcodeErrorMessage)		
-	}
-	
-	// <Region><PostcodeRange>
-	let pr=0, PostcodeRange
-	while (PostcodeRange=Region.get(xPath(SCHEMA_PREFIX, dvbi.e_PostcodeRange, ++pr), SL_SCHEMA)) {
-		checkAttributes(PostcodeRange, [dvbi.a_from, dvbi.a_to], [], errs, "AR031")
-		if (PostcodeRange.attr(dvbi.a_from) && !patterns.isPostcode(PostcodeRange.attr(dvbi.a_from).value()))
-			errs.pushCode("AR032", PostcodeRange.attr(dvbi.a_from).value().quote()+" is not a valid postcode", PostcodeErrorMessage)
-		if (PostcodeRange.attr(dvbi.a_to) && !patterns.isPostcode(PostcodeRange.attr(dvbi.a_to).value()))
-			errs.pushCode("AR033", PostcodeRange.attr(dvbi.a_to).value().quote()+" is not a valid postcode", PostcodeErrorMessage)
-	}
-	
-	// <Region><Coordinates>
-	let co=0, Coordinates, CoordinateErrorMessage="invalid coordinate value"
-	while (Coordinates=Region.get(xPath(SCHEMA_PREFIX, dvbi.e_Coordinates, ++co), SL_SCHEMA)) {
-		checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, Coordinates, [dvbi.e_Latitude, dvbi.e_Longitude, dvbi.e_Radius], [], errs, "AR041")
-
-		let Latitude=Coordinates.get(xPath(SCHEMA_PREFIX, dvbi.e_Latitude), SL_SCHEMA)
-		if (Latitude && !validLatitude(Latitude))
-			errs.pushCode("AR042", dvbi.e_Latitude.elementize()+" is not a valid latitude "+Latitude.quote(), CoordinateErrorMessage)
-
-		let Longitude=Coordinates.get(xPath(SCHEMA_PREFIX, dvbi.e_Longitude), SL_SCHEMA)
-		if (Longitude && !validLongitude(Longitude))
-			errs.pushCode("AR043", dvbi.e_Longitude.elementize()+" is not a valid longitude "+Longitude.quote(), CoordinateErrorMessage)
-			
-		let Radius=Coordinates.get(xPath(SCHEMA_PREFIX, dvbi.e_Radius), SL_SCHEMA)
-		if (Radius && !isPositiveInteger(Radius))
-			errs.pushCode("AR044", dvbi.e_Radius.elementize()+" is not a valid value "+Radius.quote(), CoordinateErrorMessage)
 	}
 
     if (depth > dvbi.MAX_SUBREGION_LEVELS) 
@@ -578,7 +518,6 @@ function checkValidLogo(HowRelated, Format, MediaLocator, errs, Location, Locati
         if (subElems) subElems.forEach(child => {
             if (child.type()=='element' && child.name()==dvbi.e_StillPictureFormat) {
                 hasStillPictureFormat=true;
-				checkAttributes(child, [dvbi.a_href], [dvbi.a_horizontalSize, dvbi.a_verticalSize], errs, "VL015")
                 if (!child.attr(dvbi.a_horizontalSize)) 
                     errs.pushCode("VL010", dvbi.a_horizontalSize.attribute()+" not specified for "+tva.e_RelatedMaterial.elementize()+tva.e_Format.elementize()+dvbi.e_StillPictureFormat.elementize()+" in "+Location, "no "+dvbi.a_horizontalSize.attribute());
                 if (!child.attr(dvbi.a_verticalSize)) 
@@ -607,7 +546,6 @@ function checkValidLogo(HowRelated, Format, MediaLocator, errs, Location, Locati
         if (subElems) subElems.forEach(child => {
             if (child.type()=='element' && child.name()==tva.e_MediaUri) {
                 hasMediaURI=true;
-				checkAttributes(child, [tva.a_contentType], [tva.a_uriType], errs, "VL021")
 				
                 if (child.attr(tva.a_contentType)) {
                     let contentType=child.attr(tva.a_contentType).value();
@@ -648,7 +586,6 @@ function checkSignalledApplication(HowRelated, Format, MediaLocator, errs, Locat
         if (subElems) subElems.forEach(child => {
             if (child.type()=='element' && child.name()==tva.e_MediaUri) {
                 hasMediaURI=true;
-				checkAttributes(child, [tva.a_contentType], [tva.a_uriType], errs, "SA002")
                 if (child.attr(tva.a_contentType)) {
 					if (!isIn(validApplicationTypes, child.attr(tva.a_contentType).value)) 
                         errs.pushCodeW("SA003", tva.a_contentType.attribute()+" "+child.attr(tva.a_contentType).value().quote()+" is not DVB AIT for "+tva.e_RelatedMaterial.elementize()+tva.e_MediaLocator.elementize()+" in "+Location, "invalid "+tva.a_contentType.attribute(tva.e_MediaUri));
@@ -702,7 +639,6 @@ function validateRelatedMaterial(RelatedMaterial, errs, Location, LocationType, 
         errs.pushCode(errcode?errcode+"-1":"RM001", tva.e_HowRelated.elementize()+" not specified for "+tva.e_RelatedMaterial.elementize()+" in "+Location, "no "+tva.e_HowRelated);
 		return rc
     }
-	checkAttributes(HowRelated, [dvbi.a_href], [], errs, errcode?errcode+"-2":"RM002")
 
 	if (HowRelated.attr(dvbi.a_href)) {	
 		switch (LocationType) {
@@ -793,19 +729,6 @@ function isEmpty(obj) {
 
 
 /**
- * determine if the value provided represents a valid unsignedShort (between 0 and 65535)
- *
- * @param {String}  Value a string containing a integer
- * @returns {boolean} true if the argument represents a positiveInteger - https://www.w3.org/TR/xmlschema-2/#unsignedShort
- */
-function isUnsignedShort(arg) {
-	if (!arg || arg=="") return false
-	let val=parseInt(arg)
-	return !(isNaN(val) || val<0 || val>MAX_UNSIGNED_SHORT)
-}
-
-
-/**
  * determine if the value provided represents a valid nonNegativeInteger 
  *
  * @param {String}  Value a string containing a integer
@@ -815,56 +738,6 @@ function isNonNegativeInteger(arg) {
 	if (!arg || arg=="") return false
 	let DigitsRegex=new RegExp('^\\d+$')
 	return DigitsRegex.test(arg.trim())
-}
-
-
-/**
- * determine if the value provided represents a valid positiveInteger (greater than or equal to 1)
- *
- * @param {String}  Value a string containing a integer
- * @returns {boolean} true if the argument represents a positiveInteger - https://www.w3.org/TR/xmlschema-2/#positiveInteger
- */
-function isPositiveInteger(value) {
-	let x=Number(value)
-	if (isNaN(x)) return false
-	return (x >= 1)
-}
-
-
-/**
- * determine if the value provided represents a valid unsignedInteger
- *
- * @param {String}  Value a string containing a integer
- * @returns {boolean} true if the argument represents a positiveInteger - https://www.w3.org/TR/xmlschema-2/#unsignedInt
- */
-function isUnsignedInt(arg) {
-	if (!arg || arg=="") return false
-	let val=parseInt(arg)
-	return !(isNaN(val) || val<0 || val>MAX_UNSIGNED_INT)
-}
-
-
-/**
- * determine if the value provided represents a valid unsignedLong
- *
- * @param {String}  Value a string containing a integer
- * @returns {boolean} true if the argument represents a positiveInteger - https://www.w3.org/TR/xmlschema-2/#unsignedInt
- */
-function isUnsignedLong(arg) {
-	if (!arg || arg=="") return false
-	let val=parseInt(arg)
-	return !(isNaN(val) || val<0 || val>MAX_UNSIGNED_LONG)
-}
-
-
-/**
- * determine if the value provided represents a valid boolean value
- *
- * @param {String}  Value a string containing a boolean
- * @returns {boolean} true if the argument represents a boolean - https://www.w3.org/TR/xmlschema-2/#boolean
- */
-function isBoolean(arg) {
-	return (arg=="true" || arg=="false" || arg=="1" || arg==1 || arg=="0" || arg==0 )
 }
 
 
@@ -1071,175 +944,6 @@ function hasSignalledApplication(SL_SCHEMA, SCHEMA_PREFIX, node) {
 
 
 /**
- * check that the specified child elements are in the parent element
- *
- * @param {string} SL_SCHEMA              Used when constructing Xpath queries
- * @param {string} SCHEMA_PREFIX          Used when constructing Xpath queries
- * @param {Object} elem                   the element whose children should be checked
- * @param {Array}  mandatoryChildElements the names of elements that are required within the element
- * @param {Array}  optionalChildElements  the names of elements that are optional within the element
- * @param {Class}  errs                   errors found in validaton
- * @param {string} errCode                error code to be used for any error found 
- * @returns {boolean} true if no errors are found (all mandatory elements are present and no extra elements are specified)
- */
-function checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, elem, mandatoryChildElements, optionalChildElements, errs, errCode=null) {
-	if (!elem) {
-		errs.pushCode(errCode?errCode+"-0":"TE000", "checkTopElements() called with a 'null' element to check");
-		return false;
-	}
-	let initialErrorCount=errs.length, 
-		thisElem=((elem&&elem.parent()&&(typeof elem.parent().name==='function'))?elem.parent().name().elementize():"")+elem.name().elementize();
-	
-	// check that each of the specifid childElements exists
-	mandatoryChildElements.forEach(elemS => {
-		if (!elem.get(xPath(SCHEMA_PREFIX, elemS), SL_SCHEMA)) 
-			errs.pushCode(errCode?errCode+"-1":"TE001", "Mandatory element "+elemS.elementize()+" not specified in "+thisElem);
-	});
-	
-	// check that no additional child elements existance if the "Other Child Elements are OK" flag is not set
-	if (!isIn(optionalChildElements, OTHER_ELEMENTS_OK)) {
-		let children=elem.childNodes()
-		if (children) children.forEach(ch => {
-			if (ch.type()=='element') {
-				let childName=ch.name()
-				if (!isIn(mandatoryChildElements, childName) && !isIn(optionalChildElements, childName)) 		
-					errs.pushCode(errCode?errCode+"-2":"TE002", "Element "+childName.elementize()+" is not permitted in "+thisElem);
-			}
-		})
-	}
-	return errs.length==initialErrorCount;
-}
-
-
-/**
- * check that the specified child elements are in the parent element
- *
- * @param {Object} elem                The element whose attributes should be checked
- * @param {Array}  requiredAttributes  The element names permitted within the parent
- * @param {Array}  optionalAttributes  The element names permitted within the parent
- * @param {Class}  errs                Errors found in validaton
- * @param {string} errCode             Error code prefix to be used in reports, if not present then use local codes
- */
-function checkAttributes(elem, requiredAttributes, optionalAttributes, errs, errCode=null)
-{
-	if (!elem)
-		errs.pushCode(errCode?errCode+"-1":"AT001", "checkAttributes() called with elem==null")
-
-	if (!requiredAttributes) 
-		errs.pushCode(errCode?errCode+"-2":"AT002", "checkAttributes() called with requiredAttributes==null")
-		
-	if (!elem || !requiredAttributes)
-		return;
-		
-	requiredAttributes.forEach(attributeName => {
-		if (!elem.attr(attributeName)) {
-			let src=(typeof elem.parent()=='object' && typeof elem.parent().name=='function' ? elem.parent().name()+"." : "")
-			errs.pushCode(errCode?errCode+"-10":"AT010", src+attributeName.attribute(typeof elem.name=='function'?elem.name():"")+" is a required attribute");	
-		}
-	});
-	
-	elem.attrs().forEach(attribute => {
-		if (!isIn(requiredAttributes, attribute.name()) && !isIn(optionalAttributes, attribute.name()))
-			errs.pushCode(errCode?errCode+"-11":"AT011", 
-			  attribute.name().attribute()+" is not permitted in "
-				+((typeof elem.parent().name==='function')?elem.parent().name().elementize():"")
-				+elem.name().elementize());
-	});
-}
-
-
-/**
- * check if the specificed element has the named child element
- * 
- * @param {string} SL_SCHEMA        Used when constructing Xpath queries
- * @param {string} SCHEMA_PREFIX    Used when constructing Xpath queries
- * @param {object} node             The node to check
- * @param {string} elementName      The name of the child element
- * @returns {boolean} true if an element named node.elementName exists, else false
- */
-function hasElement(SL_SCHEMA, SCHEMA_PREFIX, node, elementName) {
-	if (!node) return false;
-	return (node.get(xPath(SCHEMA_PREFIX, elementName), SL_SCHEMA)!=null);
-}
-
-
-/**
- * check the attributes (existance and values) of the given <DVBTriplet>
- * 
- * @param {object} node      The node to check
- * @param {Class}  errs      Errors found in validaton
- * @param {string} errCode   Error code prefix to be used in reports, if not present then use local codes
- */ 
-function validateTriplet(triplet, errs, errCode=null) {
-
-	function checkTripletAttributeValue(attr, parentElemName, errs, errCode) {
-		if (!attr) return;
-		if (!isUnsignedShort(attr.value()))
-			invalidValue(errs, errCode, parentElemName, attr.name(), attr.value())
-	}
-
-	if (!triplet) {
-		errs.pushCode(errCode?errCode+"-1":"VT001", "valudateTriplet() called with triplet==null")
-		return;
-	}
-	checkAttributes(triplet, [dvbi.a_serviceId], [dvbi.a_origNetId, dvbi.a_tsId], errs, errCode?errCode+"-2":"VT002")
-	checkTripletAttributeValue(triplet.attr(dvbi.a_serviceId), triplet.parent().name()+"."+triplet.name(), errs, errCode?errCode+"-3":"VT003")
-	checkTripletAttributeValue(triplet.attr(dvbi.a_origNetId), triplet.parent().name()+"."+triplet.name(), errs, errCode?errCode+"-4":"VT004")
-	checkTripletAttributeValue(triplet.attr(dvbi.a_tsId), triplet.parent().name()+"."+triplet.name(), errs, errCode?errCode+"-5":"VT005")	
-}
-
-
-/**
- * extract only an integer value from the given argument, anthing that is non-integer characters will cause failure
- *
- * @param {String} intStr  A string containing a integer value
- * @returns {integer} the integer representation of string
- */
-function cleanInt(intStr) {
-	intStr=Number(intStr);
-	return intStr >= 0 ? Math.floor(intStr) : Math.ceil(intStr);
-}
-
-
-/**
- * determine if the value provided represents a valid longitude value (i.e. -180.0 -> +180.0)
- *
- * @param {String} position  A string containing a longitude
- * @returns {boolean} true if the argument represents a longitudal angle
- */
-function validLongitude(position) {
-	let val=Number(position)
-	if (isNaN(val)) return false
-	return (val >= -180 && val <= 180)
-}
-
-
-/**
- * determine if the value provided represents a valid latitude value (i.e. -90.0 -> +90.0)
- *
- * @param {String} position  A string containing a latitude
- * @returns {boolean} true if the argument represents a latidudial angle
- */
-function validLatitude(position) {
-	let val=Number(position)
-	if (isNaN(xval)) return false
-	return (val >= -90 && val <= 90)
-}
-
-
-/**
- * determine if the value provided represents a valid transmission frequency
- *
- * @param {String} intStr  A string containing a frequency
- * @returns {boolean} true if the argument represents a frequency (anything greter than 0Hz)
- */
-function validFrequency(freq) {
-	let val=cleanInt(freq)
-	return (!isNaN(val) && val>=0)
-}
-
-
-/**
  * perform any validation on a ContentTypeSourceType element
  * 
  * @param {string} SL_SCHEMA         Used when constructing Xpath queries
@@ -1258,9 +962,6 @@ function validateAContentGuideSource(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE,
 	}
 	loc=loc?loc:source.parent().name().elementize();
 	
-	checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, source, [dvbi.e_ProviderName, dvbi.e_ScheduleInfoEndpoint], [dvbi.e_Name, tva.e_RelatedMaterial, dvbi.e_ProgramInfoEndpoint, dvbi.e_GroupInfoEndpoint, dvbi.e_MoreEpisodesEndpoint], errs, errCode?errCode+"a":"GS001")
-	checkAttributes(source, [dvbi.a_CGSID], [dvbi.a_minimumMetadataUpdatePeriod], errs, errCode?errCode+"b":"GS002")
-
 	checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, dvbi.e_Name, loc, source, errs, errCode?errCode+"c":"GS003")
 	checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, dvbi.e_ProviderName, loc, source, errs, errCode?errCode+"d":"GS004")
 	
@@ -1291,91 +992,6 @@ function validateAContentGuideSource(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE,
 
 
 /**
- * verifies if the specified ContentProtection element is valid according to specification (contents and location)
- *
- * @param {string} SL_SCHEMA          Used when constructing Xpath queries
- * @param {string} SCHEMA_PREFIX      Used when constructing Xpath queries
- * @param {string} SCHEMA_NAMESPACE   The namespace of XML document
- * @param {Object} ContentProtection  The <ContentProtection> element (a libxmls ojbect tree) to be checked
- * @param {string} Location           The printable name used to indicate the location of the <ContentProtection> element being checked. used for error reporting
- * @param {Object} errs               The class where errors and warnings relating to the serivce list processing are stored 
- * @param {string} errCode            Error code prefix to be used in reports, if not present then use local codes
- */
-function validateContentProtection(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, ContentProtection, Location, errs, errcode=null) {
-	if (!ContentProtection) {
-		errs.push("CP000", "validateContentProtection() called with ContentProtection==null")
-		return
-	}
-	checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, ContentProtection, [], [dvbi.e_CASystemId, dvbi.e_DRMSystemId], errs, errcode?errcode+"a":"CP001")
-	
-	let ca=0, CASystemId
-	while (CASystemId=ContentProtection.get(xPath(SCHEMA_PREFIX, dvbi.e_CASystemId, ++ca), SL_SCHEMA)) {
-		checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, CASystemId, [dvbi.e_CASystemId], errs, errcode?errcode+"b":"CP002")
-		checkAttributes(CASystemId, [], [dvbi.a_cpsIndex], errs, errcode?errcode+"c":"CP003")
-	}
-	
-	let dr=0, DRMSystemId
-	while (DRMSystemId=ContentProtection.get(xPath(SCHEMA_PREFIX, dvbi.e_DRMSystemId, ++dr), SL_SCHEMA)) {
-		checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, DRMSystemId, [dvbi.e_DRMSystemId], [], errs, errcode?errcode+"d":"CP004")
-		checkAttributes(DRMSystemId, [dvbi.a_encryptionScheme], [dvbi.a_cpsIndex], errs, errcode?errcode+"e":"CP005")
-		
-		if (DRMSystemId.attr(dvbi.a_encryptionScheme)) {
-			let scheme=DRMSystemId.attr(dvbi.a_encryptionScheme).value()
-			if (scheme && !isIn(dvbi.ENCRYPTION_VALID_TYPES, scheme)) 
-				errs.pushCode(errcode?errcode+"-6":"CP006", scheme.quote()+" is not valid for "+dvbi.a_encryptionScheme.attribute(ContentProtection.name()))
-		}
-	}
-}
-
-
-/**
- * validate an element against a TV-Anytime BitrateType
- *
- * @param {object} child       The node of the element to check
- * @param {Class}  errs        Errors found in validaton
- * @param {string} errCode     Error code prefix to be used in reports, if not present then use local codes
- */
-function checkBitRate(child, errs, errCode=null) {	
-	if (!child) {
-		errs.push("BR000", "checkBitRate() called with child==null")		
-		return
-	}
-	checkAttributes(child, [], [tva.a_variable, tva.a_minimum, tva.a_average, tva.a_maximum], errs, errCode?errCode+"a":"BR001")
-	
-	// check the value is a nonNegativeInteger
-	if (!isNonNegativeInteger(child.text()))
-		invalidValue(errs, errCode?errCode+"-2":"BR002", child.name(), null, child.text())
-	
-	// check any @variable attribute is a boolean
-	if (child.attr(tva.a_variable) && !isBoolean(child.attr(tva.a_variable).value()))
-		invalidValue(errs, errCode?errCode+"-3":"BR003", child.name(), tva.a_variable, child.attr(tva.a_variable).value())
-	
-	// check any @minimum attribute is an unsignedLong
-	if (child.attr(tva.a_minimum) && !isUnsignedLong(child.attr(tva.a_minimum).value()))
-		invalidValue(errs, errCode?errCode+"-4":"BR004", child.name(), tva.a_minimum, child.attr(tva.a_minimum).value())
-		
-	// check any @average attribute is an unsignedLong
-	if (child.attr(tva.a_average) && !isUnsignedLong(child.attr(tva.a_average).value()))
-		invalidValue(errs, errCode?errCode+"-5":"BR005", child.name(), tva.a_average, child.attr(tva.a_average).value())
-		
-	// check any @maximum attribute is an unsignedLong
-	if (child.attr(tva.a_maximum) && !isUnsignedLong(child.attr(tva.a_maximum).value()))
-		invalidValue(errs, errCode?errCode+"-6":"BR006", child.name(), tva.a_maximum, child.attr(tva.a_maximum).value())
-}
-
-
-/**
- * check if the specified value contains an IP address (v4 or v6) or a domain name
- *
- * @param {string} arg    contains an IP address (v4 or v6) or a domain name
- * @returns true is the arg contains an IP address (v4 or v6) or a domain name, else false 
- */
-function isIPorDomain(arg) {
-	return patterns.isDomainName(arg) || isIPv4(arg) || isIPv6(arg)
-}
-
-
-/**
  * validate an element against a DVB FECLayerAddressType
  *
  * @param {object} layerParams    The node of the element to check
@@ -1383,51 +999,8 @@ function isIPorDomain(arg) {
  * @param {string} errCode        Error code prefix to be used in reports, if not present then use local codes
  */
 function checkFECLayerAddressType(layerParams, errs, errcode=null) {
-	checkAttributes(layerParams, [], [dvbi.a_Address, dvbi.a_Source, dvbi.a_Port, dvbi.a_MaxBitrate, dvbi.a_RTSPControlURL, dvbi.a_PayloadTypeNumber, dvbi.a_TransportProtocol], errs, errcode?errcode+"-a":"LA001")
-	
-	if (layerParams.attr(dvbi.a_Address) && !isIPorDomain(layerParams.attr(dvbi.a_Address).value()))
-		invalidValue(errs, errcode?errcode+"-2":"LA002", layerParams.name(), dvbi.a_Address, layerParams.attr(dvbi.a_Address).value())
-	
-	if (layerParams.attr(dvbi.a_Source) && !isIPorDomain(layerParams.attr(dvbi.a_Source).value()))
-		invalidValue(errs, errcode?errcode+"-3":"LA003", layerParams.name(), dvbi.a_Source, layerParams.attr(dvbi.a_Source).value())
-	
-	if (layerParams.attr(dvbi.a_Port) && !isUnsignedShort(layerParams.attr(dvbi.a_Port).value()))
-		invalidValue(errs, errcode?errcode+"-4":"LA004", layerParams.name(), dvbi.a_Port, layerParams.attr(dvbi.a_Port).value())		
-	
-	if (layerParams.attr(dvbi.a_MaxBitrate) && !isPositiveInteger(layerParams.attr(dvbi.a_MaxBitrate).value()))
-		invalidValue(errs, errcode?errcode+"-5":"LA005", layerParams.name(), dvbi.a_MaxBitrate, layerParams.attr(dvbi.a_MaxBitrate).value())	
-	
 	if (layerParams.attr(dvbi.a_RTSPControlURL) && !patterns.isRTSPURL(layerParams.attr(dvbi.a_RTSPControlURL).value())) 
 		invalidValue(errs, errcode?errcode+"-6":"LA006", layerParams.name(), dvbi.a_RTSPControlURL, layerParams.attr(dvbi.a_RTSPControlURL).value())	
-			
-	if (layerParams.attr(dvbi.a_PayloadTypeNumber) && !isUnsignedInt(layerParams.attr(dvbi.a_MaxBitrate).value()))
-		invalidValue(errs, errcode?errcode+"-7":"LA007", layerParams.name(), dvbi.a_PayloadTypeNumber, layerParams.attr(dvbi.a_PayloadTypeNumber).value())
-			
-	if (layerParams.attr(dvbi.a_TransportProtocol) && !isIn(dvbi.ALLOWED_TRANSPORT_PROTOCOLS, layerParams.attr(dvbi.a_TransportProtocol).value()))
-		invalidValue(errs, errcode?errcode+"-8":"LA008", layerParams.name(), dvbi.a_TransportProtocol, layerParams.attr(dvbi.a_TransportProtocol).value())
-}
-
-
-/**
- * validate an element against a TVA AspectRatioType
- *
- * @param {object} node           The node of the element to check
- * @param {Class}  errs           Errors found in validaton
- * @param {string} errCode        Error code prefix to be used in reports, if not present then use local codes
- */
-function checkAspectRatioType(node, errs, errcode=null) {
-	
-	if (!node) {
-		errs.pushCode("AR010", "checkAspectRatioType() called with node==null", "args")
-		return
-	}
-	checkAttributes(node, [], [tva.a_type], errs, errcode?errcode+"a":"AR011")
-	
-	if (node.attr(tva.a_type)&& !isIn(tva.ALLOWED_ASPECT_RATIO_TYPES, node.attr(tva.a_type).value()))
-		invalidValue(errs, errcode?errcode+"-02":"AR012", node.name(), tva.a_type, node.attr(tva.a_type).value())
-	
-	if (!patterns.isRatioType(node.text()))
-		errs.pushCode(errcode?errcode+"-03":"ARo13", node.text.quote()+" is not a valid aspect ratio", "invalid value")
 }
 
 
@@ -1463,8 +1036,6 @@ function ValidateSynopsisType(SCHEMA, SCHEMA_PREFIX, Element, ElementName, requi
 	let briefLangs=[], shortLangs=[], mediumLangs=[], longLangs=[], extendedLangs=[];
 	while (ste=Element.get(xPath(SCHEMA_PREFIX, ElementName, ++s), SCHEMA)) {
 		
-		checkAttributes(SCHEMA, SCHEMA_PREFIX, ste, [tva.a_length], [tva.a_lang], errs, errcode?errcode+"a":"SY001");
-
 		let synopsisLang=GetLanguage(knownLanguages, errs, ste, parentLanguage, false, errcode?errcode+"b":"SY002");
 		let synopsisLength=ste.attr(tva.a_length)?ste.attr(tva.a_length).value():null;
 		
@@ -1563,8 +1134,6 @@ function validateServiceInstance(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, Ser
 		return
 	}
 
-	checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, ServiceInstance, [], [dvbi.e_DisplayName, tva.e_RelatedMaterial, dvbi.e_ContentProtection, dvbi.e_ContentAttributes, dvbi.e_Availability, dvbi.e_SubscriptionPackage, dvbi.e_FTAContentManagement, dvbi.e_SourceType, dvbi.e_DVBTDeliveryParameters, dvbi.e_DVBSDeliveryParameters, dvbi.e_DVBCDeliveryParameters, dvbi.e_SATIPDeliveryParameters, dvbi.e_RTSPDeliveryParameters, dvbi.e_MulticastTSDeliveryParameters, dvbi.e_DASHDeliveryParameters, dvbi.e_OtherDeliveryParameters], errs, "SI001")
-	checkAttributes(ServiceInstance, [], [dvbi.a_priority], errs, "SI002")
 	checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, dvbi.e_DisplayName, "service instance in service="+thisServiceId.quote(), ServiceInstance, errs, "SI010");
 
 	// check @href of <ServiceInstance><RelatedMaterial>
@@ -1577,37 +1146,26 @@ function validateServiceInstance(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, Ser
 	if (countControlApps>1)
 		errs.pushCode("SI021", "only a single service control application can be signalled in a service instance", "multi apps")
 
-	// <ServiceInstance><ContentProtection>
-	let cp=0, ContentProtection
-	while (ContentProtection=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_ContentProtection, ++cp), SL_SCHEMA))
-		validateContentProtection(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, ContentProtection, "service instance of "+thisServiceId.quote(), errs, "SI030")
-
 	// <ServiceInstance><ContentAttributes>
 	let ContentAttributes=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_ContentAttributes), SL_SCHEMA)
 	if (ContentAttributes) {
-		checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, ContentAttributes, [], [tva.e_AudioAttributes, dvbi.e_AudioConformancePoint, tva.e_VideoAttributes, dvbi.e_VideoConformancePoint, tva.e_CaptionLanguage, tva.e_SignLanguage], errs, "SI040")
 
 		// Check @href of ContentAttributes/AudioAttributes/tva:coding
 		let cp=0, conf
 		while (conf=ContentAttributes.get(xPath(SCHEMA_PREFIX, tva.e_AudioAttributes, ++cp), SL_SCHEMA)) {
-			checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, conf, [], [tva.e_Coding, tva.e_NumOfChannels, tva.e_MixType, tva.e_AudioLanguage, tva.e_SampleFrequency, tva.e_BitsPerSample, tva.e_BitRate], errs, "SI050")
 			
 			let children=conf.childNodes()
 			if (children) children.forEach(child => {
 				if (child.type()=='element')
 					switch (child.name()) {
 						case tva.e_Coding:
-							checkAttributes(child, [dvbi.a_href], [], errs, "SL051")
 							if (child.attr(dvbi.a_href) && !isIn(allowedAudioSchemes, child.attr(dvbi.a_href).value())) 
 								errs.pushCode("SI052", "invalid "+dvbi.a_href.attribute(child.name())+" value for ("+child.attr(dvbi.a_href).value()+")", "audio codec");
 							break;
 						case tva.e_NumOfChannels:
-							if (!isUnsignedShort(child.text()))
-								invalidValue(errs, "SI053", child.name(), null, child.text(), conf.name())
 							break;
 						case tva.e_MixType:
 							// taken from MPEG-7 AudioPresentationCS
-							checkAttributes(child, [dvbi.a_href], [], errs, "SL054")
 							if (child.attr(dvbi.a_href) && !isIn(AudioPresentationCS, child.attr(dvbi.a_href).value())) 
 								errs.pushCode("SI055", "invalid "+dvbi.a_href.attribute(child.name())+" value for ("+child.attr(dvbi.a_href).value()+")", "audio codec");
 							break;
@@ -1615,15 +1173,10 @@ function validateServiceInstance(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, Ser
 							// TODO:
 							break;
 						case tva.e_SampleFrequency:
-							if (!isUnsignedInt(child.text()))
-								invalidValue(errs, "SI057", child.name(), null, child.text())
 							break;
 						case tva.e_BitsPerSample:
-							if (!isUnsignedShort(child.text()))
-								invalidValue(errs, "SI058", child.name(), null, child.text(), conf.name())
 							break;
 						case tva.e_BitRate:
-							checkBitRate(child, errs, "SI059")
 							break;
 					}
 			})
@@ -1632,7 +1185,6 @@ function validateServiceInstance(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, Ser
 		// Check @href of ContentAttributes/AudioConformancePoints
 		cp=0
 		while (conf=ContentAttributes.get(xPath(SCHEMA_PREFIX, dvbi.e_AudioConformancePoint, ++cp), SL_SCHEMA)) {
-			checkAttributes(conf, [dvbi.a_href], [], errs, "SI060")
 			if (conf.attr(dvbi.a_href)) {
 				if (!isIn(allowedAudioConformancePoints, conf.attr(dvbi.a_href).value())) 
 					errs.pushCode("SI061", "invalid "+dvbi.a_href.attribute(dvbi.e_AudioConformancePoint)+" ("+conf.attr(dvbi.a_href).value()+")", "audio conf point");
@@ -1642,54 +1194,33 @@ function validateServiceInstance(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, Ser
 		// Check @href of ContentAttributes/VideoAttributes/tva:coding
 		cp=0;
 		while (conf=ContentAttributes.get(xPath(SCHEMA_PREFIX, tva.e_VideoAttributes, ++cp), SL_SCHEMA)) {
-			let videoSubelements=[tva.e_Coding, tva.e_Scan, tva.e_HorizontalSize, tva.e_VerticalSize, tva.e_AspectRatio, tva.e_Color, tva.e_FrameRate, tva.e_BitRate, tva.e_PictureFormat]
-			if (SchemaVersion(SCHEMA_NAMESPACE) >= SCHEMA_v3)
-				videoSubelements.push(dvbi.e_Colorimetry)
-			checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, conf, [], videoSubelements, errs, "SI070")
-			
 			let children=conf.childNodes()
 			if (children) children.forEach(child => {
 				if (child.type()=='element')
 					switch (child.name()) {
 						case tva.e_Coding:
-							checkAttributes(child, [dvbi.a_href], [], errs, "SI071")
 							if (child.attr(dvbi.a_href) && !isIn(allowedVideoSchemes, child.attr(dvbi.a_href).value())) 
 								errs.pushCode("SI072", "invalid "+dvbi.a_href.attribute(tva.e_VideoAttributes)+" ("+child.attr(dvbi.a_href).value()+")", "video codec");
 							break;
 						case tva.e_Scan:
-							if (!isIn(tva.SCAN_TYPES, child.text()))
-								errs.pushCode("SI073", "invalid "+tva.e_Scan.elementize()+" value "+child.text().quote(), "video atributes")
 							break;
 						case tva.e_HorizontalSize:
-							if (!isUnsignedShort(child.text()))
-								errs.pushCode("SI074", "invalid "+tva.e_HorizontalSize.elementize()+" value "+child.text().quote(), "video attributes")
 							break;
 						case tva.e_VerticalSize:
-							if (!isUnsignedShort(child.text()))
-								errs.pushCode("SI075", "invalid "+tva.e_VerticalSize.elementize()+" value "+child.text().quote(), "video attributes")
 							break;
 						case tva.e_AspectRatio:
-							checkAspectRatioType(child, errs, "SI076")
 							break;
 						case tva.e_Color:
-							checkAttributes(child, [tva.a_type], [], errs, "SI077")
-							if (child.attr(tva.a_type) && !isIn(tva.COLOR_TYPES,child.text()))
-								errs.pushCode("SI078", "invalid "+tva.e_Color.elementize()+" value "+child.text().quote(), "video attributes")
 							break;
 						case tva.e_FrameRate:
-							if (!patterns.validFrameRate(child.text()))
-								errs.pushCode("SI079", "invalid "+tva.e_FrameRate.elementize()+" value "+child.text().quote(), "video attributes")
 							break;
 						case tva.e_BitRate:
-							checkBitRate(child, errs, "SI080")
 							break;
 						case tva.e_PictureFormat:
-							checkAttributes(child, [dvbi.a_href], [], errs, "SI081")
 							if (child.attr(dvbi.a_href) && !isIn(allowedPictureFormats, child.attr(dvbi.a_href).value())) 
 								errs.pushCode("SI082", "invalid "+dvbi.a_href.attribute(tva.e_PictureFormat)+" value ("+child.attr(dvbi.a_href).value()+")", tva.e_PictureFormat);
 							break;
 						case dvbi.e_Colorimetry:
-							checkAttributes(child, [dvbi.a_href], [], errs, "SI083")
 							if (child.attr(dvbi.a_href) && !isIn(dvbi.ALLOWED_COLORIMETRY, child.attr(dvbi.a_href).value())) 
 								errs.pushCode("SI084", "invalid "+dvbi.a_href.attribute(tva.e_Colorimetry)+" value ("+child.attr(dvbi.a_href).value()+")", tva.e_Colorimetry);
 							break;
@@ -1700,7 +1231,6 @@ function validateServiceInstance(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, Ser
 		// Check @href of ContentAttributes/VideoConformancePoints
 		cp=0;
 		while (conf=ContentAttributes.get(xPath(SCHEMA_PREFIX, dvbi.e_VideoConformancePoint, ++cp), SL_SCHEMA)) { 
-			checkAttributes(conf, [dvbi.a_href], [], errs, "SI090")
 			if (conf.attr(dvbi.a_href) && !isIn(allowedVideoConformancePoints, conf.attr(dvbi.a_href).value())) 
 				errs.pushCode("SI091", "invalid "+dvbi.a_href.attribute(dvbi.e_VideoConformancePoint)+" value ("+conf.attr(dvbi.a_href).value()+")", "video conf point");
 		}
@@ -1708,14 +1238,12 @@ function validateServiceInstance(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, Ser
 		// Check ContentAttributes/CaptionLanguage
 		cp=0;
 		while (conf=ContentAttributes.get(xPath(SCHEMA_PREFIX, tva.e_CaptionLanguage, ++cp), SL_SCHEMA)) { 
-			checkAttributes(conf, [], [tva.a_primary, tva.a_translation, tva.a_closed, tva.a_supplemental], errs, "SI100")
 			checkLanguage(conf.text(), tva.e_CaptionLanguage.elementize(), errs, "SI101")
 		}
 
 		// Check ContentAttributes/SignLanguage
 		cp=0;
 		while (conf=ContentAttributes.get(xPath(SCHEMA_PREFIX, tva.e_SignLanguage, ++cp), SL_SCHEMA)) { 
-			checkAttributes(conf, [], [tva.a_primary, tva.a_translation, tva.a_type, tva.a_closed], errs, "SI110")
 			checkLanguage(conf.text(), tva.e_SignLanguage.elementize(), errs, "SI111")
 		}
 	}
@@ -1723,11 +1251,8 @@ function validateServiceInstance(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, Ser
 	// <ServiceInstance><Availability>
 	let Availability=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_Availability), SL_SCHEMA)
 	if (Availability) {
-		checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, Availability, [dvbi.e_Period], [], errs, "SI121")
 		let Period, p=0
 		while (Period=Availability.get(xPath(SCHEMA_PREFIX, dvbi.e_Period, ++p), SL_SCHEMA)) {
-			checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, Period, [], [dvbi.e_Interval], errs, "SI122")
-			checkAttributes(Period, [], [dvbi.a_validFrom, dvbi.a_validTo], errs, "SI123")
 			if (Period.attr(dvbi.a_validFrom) && Period.attr(dvbi.a_validTo)) {
 				// validTo should be >= validFrom
 				let fr=new Date(Period.attr(dvbi.a_validFrom).value()), 
@@ -1736,55 +1261,12 @@ function validateServiceInstance(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, Ser
 				if (to.getTime() < fr.getTime()) 
 					errs.pushCode("SI124", "invalid availability period for service "+thisServiceId.quote()+". "+fr+">"+to, "period start>end");
 			}
-			
-			let Interval, i=0
-			while (Interval=Period.get(xPath(SCHEMA_PREFIX, dvbi.e_Interval, ++i), SL_SCHEMA)) {
-				checkAttributes(Interval, [], [dvbi.a_days, dvbi.a_recurrence, dvbi.a_startTime, dvbi.a_endTime], errs, "SI125")
-				
-				if (Interval.attr(dvbi.a_days) && !patterns.validServiceDaysList(Interval.attr(dvbi.a_days).value()))
-					errs.pushCode("SI126", dvbi.a_days.attribute(dvbi.e_Interval)+" is invalid ("+Interval.attr(dvbi.a_days).value().quote()+")")
-				
-				if (Interval.attr(dvbi.a_recurrence) && !isUnsignedInt(Interval.attr(dvbi.a_recurrence).value()))
-					errs.pushCode("SI127", dvbi.a_recurrence.a_startTime(dvbi.e_Interval)+" is invalid ("+Interval.attr(dvbi.a_recurrence).value().quote()+")")
-					
-				if (Interval.attr(dvbi.a_startTime) && !patterns.validZuluTimeType(Interval.attr(dvbi.a_startTime).value())) 
-					errs.pushCode("SI128", dvbi.a_days.a_startTime(dvbi.e_Interval)+" is invalid ("+Interval.attr(dvbi.a_startTime).value().quote()+")")
-
-				if (Interval.attr(dvbi.a_endTime) && !patterns.validZuluTimeType(Interval.attr(dvbi.a_endTime).value())) 
-					errs.pushCode("SI129", dvbi.a_days.a_endTime(dvbi.e_Interval)+" is invalid ("+Interval.attr(dvbi.a_endTime).value().quote()+")")
-			}
 		}
 	}
 
 	// <ServiceInstance><SubscriptionPackage>
 	checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, dvbi.e_SubscriptionPackage, ServiceInstance.name().elementize(), ServiceInstance, errs, "SI131")
-	let sp=0, SubscriptionPackage
-	while (SubscriptionPackage=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_SubscriptionPackage, ++sp), SL_SCHEMA)) {
-		// nothing to do here)
-	}
 			
-	// <ServiceInstance><FTAContentManagement>
-	let FTAContentManagement=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_FTAContentManagement), SL_SCHEMA)
-	if (FTAContentManagement) {
-		checkAttributes(FTAContentManagement, [dvbi.a_userDefined, dvbi.a_doNotScramble, dvbi.a_controlRemoteAccessOverInternet, dvbi.a_doNotApplyRevocation], [], errs, "SI141")
-		
-		let ud=FTAContentManagement.attr(dvbi.a_userDefined)?FTAContentManagement.attr(dvbi.a_userDefined).value():null;
-		if (ud && !isBoolean(ud))
-			invalidValue(errs, "SI142", dvbi.e_FTAContentManagement, dvbi.a_userDefined, ud)
-		
-		let dns=FTAContentManagement.attr(dvbi.a_doNotScramble)?FTAContentManagement.attr(dvbi.a_doNotScramble).value():null;
-		if (dns && !isBoolean(dns))
-			invalidValue(errs, "SI143", dvbi.e_FTAContentManagement, dvbi.a_doNotScramble, dns)
-					
-		let cRAOI=FTAContentManagement.attr(dvbi.a_controlRemoteAccessOverInternet)?FTAContentManagement.attr(dvbi.a_controlRemoteAccessOverInternet).value():null;	
-		if (cRAOI && (parseInt(cRAOI) < 0 || parseInt(cRAOI) > 3))
-			invalidValue(errs, "SI144", dvbi.e_FTAContentManagement, dvbi.a_controlRemoteAccessOverInternet, cRAOI)
-		
-		let dnar=FTAContentManagement.attr(dvbi.a_doNotApplyRevocation)?FTAContentManagement.attr(dvbi.a_doNotApplyRevocation).value():null;
-		if (dnar && !isBoolean(dnar))
-			invalidValue(errs, "SI145", dvbi.e_FTAContentManagement, dvbi.a_doNotApplyRevocation, dnar)		
-	}
-
 	// note that the <SourceType> element becomes optional and in A177v2, but if specified then the relevant
 	// delivery parameters also need to be specified
 	let SourceType=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_SourceType), SL_SCHEMA)
@@ -1859,11 +1341,8 @@ function validateServiceInstance(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, Ser
 	// <ServiceInstance><DASHDeliveryParameters>
 	let DASHDeliveryParameters=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_DASHDeliveryParameters), SL_SCHEMA)
 	if (DASHDeliveryParameters) {
-		checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, DASHDeliveryParameters, [dvbi.e_UriBasedLocation], [dvbi.e_MinimumBitRate, dvbi.e_Extension], errs, "SI170")
 		let URILoc=DASHDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_UriBasedLocation), SL_SCHEMA)
 		if (URILoc) {
-			checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, URILoc, [dvbi.e_URI], [], errs, "SI171")
-			checkAttributes(URILoc, [dvbi.a_contentType], [], errs, "SI172")
 			let uriContentType=URILoc.attr(dvbi.a_contentType)
 			if (uriContentType && !validDASHcontentType(uriContentType.value()))
 				errs.pushCode("SI173", dvbi.a_contentType.attribute()+"="+uriContentType.value().quote()+" in service "+thisServiceId.quote()+" is not valid", "no "+dvbi.a_contentType.attribute()+" for DASH");	
@@ -1873,33 +1352,14 @@ function validateServiceInstance(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, Ser
 				errs.pushCode("SI174", "invalid URL "+URI.text().quote()+" specified for "+dvbi.e_URI.elementize(), "invalid resource URL")
 		}
 		
-		// <DASHDeliveryParameters><MinimumBitRate>
-		let MinimumBitRate=DASHDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_MinimumBitRate), SL_SCHEMA)
-		if (MinimumBitRate && !isUnsignedInt(MinimumBitRate.text()))
-			errs.pushCode("SI175", MinimumBitRate.text().quote()+" is not valid for "+dvbi.e_MinimumBitRate.elementize(), "invalid value")			
-	
-		// <DASHDeliveryParameters><Extension>		
-		let e=0, extension
-		while (extension=DASHDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_Extension, ++e), SL_SCHEMA)) {
-			if (extension.attr(dvbi.a_extensionName)) {
-				if (!patterns.validExtensionName(extension.attr(dvbi.a_extensionName).value())) 
-					errs.pushCode("SI176", dvbi.a_extensionName.attribute()+"="+extension.attr(dvbi.a_extensionName).value().quote()+" is not valid in service "+thisServiceId.quote(), "invalid "+dvbi.a_extensionName.attribute())
-			}
-			else 
-				errs.pushCode("SI177", dvbi.a_extensionName.attribute()+" not specified for DASH extension in "+thisServiceId.quote(), "no "+dvbi.a_extensionName.attribute())
-		}
 	}
+
 	let haveDVBT=false, haveDVBS=false
 
 	// <ServiceInstance><DVBTDeliveryParameters>			
 	let DVBTDeliveryParameters=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_DVBTDeliveryParameters), SL_SCHEMA)
 	if (DVBTDeliveryParameters) {
 		haveDVBT=true
-		checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, DVBTDeliveryParameters, [dvbi.e_DVBTriplet, dvbi.e_TargetCountry], [], errs, "SI180")
-
-		let DVBTtriplet=DVBTDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_DVBTriplet), SL_SCHEMA);
-		if (DVBTtriplet) 
-			validateTriplet(DVBTtriplet, errs, "SI181")
 
 		let DVBTtargetCountry=DVBTDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_TargetCountry), SL_SCHEMA);
 		if (DVBTtargetCountry && !knownCountries.isISO3166code(DVBTtargetCountry.text())) 
@@ -1909,53 +1369,21 @@ function validateServiceInstance(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, Ser
 	// <ServiceInstance><DVBCDeliveryParameters>
 	let DVBCDeliveryParameters=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_DVBCDeliveryParameters), SL_SCHEMA);
 	if (DVBCDeliveryParameters) {
-		checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, DVBCDeliveryParameters, [dvbi.e_TargetCountry, dvbi.e_NetworkID], [dvbi.e_DVBTriplet], errs, "SI190")
-		
 		let DVBCtargetCountry=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_DVBCDeliveryParameters)+"/"+xPath(SCHEMA_PREFIX, dvbi.e_TargetCountry), SL_SCHEMA)
 		if (DVBCtargetCountry && !knownCountries.isISO3166code(DVBCtargetCountry.text()))  
 			InvalidCountryCode(DVBCtargetCountry.text(), "DVB-C", "service "+thisServiceId.quote(), errs, "SI191");
-		
-		let DVBCnetworkId=DVBCDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_NetworkID), SL_SCHEMA);
-		if (DVBCnetworkId) {
-			let val=parseInt(DVBCnetworkId.text())
-			if (DVBCnetworkId.text()=="" || val<0 || val>MAX_UNSIGNED_SHORT)
-				errs.pushCode("SI192", "invalid value specified for "+
-					dvbi.e_NetworkID.elementize()+" ("+DVBCnetworkId.text()+")")
-		}
-
-		let DVBCtriplet=DVBCDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_DVBTriplet), SL_SCHEMA)
-		if (DVBCtriplet) 
-			validateTriplet(DVBCtriplet, errs, "SI193")
 	}
 
 	// <ServiceInstance><DVBSDeliveryParameters>
 	let DVBSDeliveryParameters=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_DVBSDeliveryParameters), SL_SCHEMA)
 	if (DVBSDeliveryParameters) {
 		haveDVBS=true
-		checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, DVBSDeliveryParameters, [dvbi.e_DVBTriplet], [dvbi.e_OrbitalPosition, dvbi.e_Frequency, dvbi.e_Polarization], errs, "SI200")
-
-		let DVBStriplet=DVBSDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_DVBTriplet), SL_SCHEMA)
-		if (DVBStriplet) 
-			validateTriplet(DVBStriplet, errs, "SI201")
-		
-		let DVBSorbitalPosition=DVBSDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_OrbitalPosition), SL_SCHEMA)
-		if (DVBSorbitalPosition && !validLongitude(DVBSorbitalPosition.text()))
-			errs.pushCode("SI202", "invalid value for "+dvbi.e_DVBSDeliveryParameters+elementize()+dvbi.OrbitalPosition.elementize()+" ("+DVBSorbitalPosition.text()+")")
-
-		let DVBSfrequency=DVBSDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_Frequency), SL_SCHEMA)
-		if (DVBSfrequency && !validFrequency(DVBSfrequency.text()))
-			errs.pushCode("SI203", "invalid value for "+dvbi.e_DVBSDeliveryParameters+elementize()+dvbi.Frequency.elementize()+" ("+DVBSfrequency.text()+")")
-
-		let DVBSpolarization=DVBSDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_Polarization), SL_SCHEMA)
-		if (DVBSpolarization && !isIn(dvbi.DVBS_POLARIZATION_VALUES, DVBSpolarization.text()))
-			errs.pushCode("SI204", "invalid value for "+dvbi.e_DVBSDeliveryParameters.elementize()+dvbi.e_Polarization.elementize()+" ("+DVBSpolarization.text()+")")
 	}
 
 	// <ServiceInstance><SATIPDeliveryParameters>			
 	let SATIPDeliveryParameters=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_SATIPDeliveryParameters), SL_SCHEMA)
 	if (SATIPDeliveryParameters) {
-		checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, SATIPDeliveryParameters, [dvbi.e_QueryParameters], [], errs, "SI210")
-		
+	
 		// SAT-IP Delivery Parameters can only exist if DVB-T or DVB-S delivery parameters are specified
 		if (!haveDVBT && !haveDVBS)
 			errs.pushCode("SI211", dvbi.e_SATIPDeliveryParameters.elementize()+" can only be specified with "+dvbi.e_DVBSDeliveryParameters.elementize()+" or "+dvbi.e_DVBTDeliveryParameters.elementize())
@@ -1964,75 +1392,27 @@ function validateServiceInstance(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, Ser
 	// <ServiceInstance><RTSPDeliveryParameters>
 	let RTSPDeliveryParameters=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_RTSPDeliveryParameters), SL_SCHEMA)
 	if (RTSPDeliveryParameters) {
-		checkTopElements(SL_SCHEMA, SL_PREFIX, RTSPDeliveryParameters, [dvbi.e_RTSPURL], [dvbi.e_DVBTriplet, dvbi.e_MinimumBitRate], errs, "SI220")
-		
-		let Triplet=RTSPDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_DVBTriplet), SL_SCHEMA)
-		if (Triplet) 
-			validateTriplet(Triplet, errs, "SI221")
-		
 		let RTSPURL=RTSPDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_RTSPURL), SL_SCHEMA)
 		if (RTSPURL) {
-			checkAttributes(RTSPURL, [], [dvbi.a_RTSPControlURL], errs, "SI222")
 			if (!patterns.isRTSPURL(RTSPURL.text()))
 				errs.pushCode("SI223", RTSPURL.text().quote()+" is not a valid RTSP URL", "invalid URL")
 		}
-
-		let MinimumBitRate=RTSPDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_MinimumBitRate), SL_SCHEMA)
-		if (MinimumBitRate && !isUnsignedInt(MinimumBitRate.text()))
-			invalidValue(errs, "SI224", dvbi.e_MinimumBitRate, null, MinimumBitRate.text())	
 	}
 	
 	// <ServiceInstance><MulticastTSDeliveryParameters>
 	let MulticastTSDeliveryParameters=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_MulticastTSDeliveryParameters), SL_SCHEMA)
 	if (MulticastTSDeliveryParameters) {
-		checkTopElements(SL_SCHEMA, SL_PREFIX, MulticastTSDeliveryParameters, [dvbi.e_IPMulticastAddress], [dvbi.e_DVBTriplet, dvbi.e_MinimumBitRate], errs, "SI230")
-		
-		let Triplet=MulticastTSDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_DVBTriplet), SL_SCHEMA)
-		if (Triplet) 
-			validateTriplet(Triplet, errs, "SI230")
 		
 		let IPMulticastAddress=MulticastTSDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_IPMulticastAddress), SL_SCHEMA)
 		if (IPMulticastAddress) {
-			checkTopElements(SL_SCHEMA, SL_PREFIX, IPMulticastAddress, [], [dvbi.e_FECBaseLayer, dvbi.e_FECEnhancementLayer, dvbi.e_CNAME, dvbi.e_ssrc, dvbi.e_RTPRetransmission], errs, "SI232")
-			
-			let FECBaseLayer=IPMulticastAddress.get(xPath(SCHEMA_PREFIX, dvbi.e_FECBaseLayer), SL_SCHEMA)
-			if (FECBaseLayer) 
-				checkFECLayerAddressType(FECBaseLayer, errs, "SI233")
-
-			let el=0, FECEnhancementLayer
-			while (FECEnhancementLayer=IPMulticastAddress.get(xPath(SCHEMA_PREFIX, dvbi.e_FECEnhancementLayer, ++el), SL_SCHEMA)) 
-				checkFECLayerAddressType(FECEnhancementLayer, errs, "SI234")
-			
 			let CNAME=IPMulticastAddress.get(xPath(SCHEMA_PREFIX, dvbi.e_CNAME), SL_SCHEMA)
 			if (CNAME) {
 				if (!patterns.isDomainName(CNAME.text()))
 					errs.pushCode("SI235", dvbi.e_IPMulticastAddress.elementize()+dvbi.e_CNAME.elementize()+" is not a valid domain name for use as a CNAME", "incalid CNAME")
 			}
-			
-			let ssrc=IPMulticastAddress.get(xPath(SCHEMA_PREFIX, dvbi.e_ssrc), SL_SCHEMA)
-			if (ssrc && !isUnsignedInt(ssrc.text()))
-				invalidValue(errs, "SI236", dvbi.e_ssrc, null, ssrc.text())
-			
-			let RTPRetransmission=IPMulticastAddress.get(xPath(SCHEMA_PREFIX, dvbi.e_RTPRetransmission), SL_SCHEMA)
-			if (RTPRetransmission) {
-				// TODO:
-			}
 		}
-		
-		let MinimumBitRate=MulticastTSDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_MinimumBitRate), SL_SCHEMA)
-		if (MinimumBitRate && !isUnsignedInt(MinimumBitRate.text()))
-			errs.pushCode("SI238", MinimumBitRate.text().quote()+" is not valid for "+dvbi.e_MinimumBitRate.elementize(), "invalid value")
 	}
-	
-	// <ServiceInstance><OtherDeliveryParameters>			
-	let OtherDeliveryParameters=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_OtherDeliveryParameters), SL_SCHEMA)
-	if (OtherDeliveryParameters) {
-		checkAttributes(OtherDeliveryParameters, [dvbi.a_extensionName], [], errs, "SI250")
-
-		if (OtherDeliveryParameters.attr(dvbi.a_extensionName) && !patterns.validExtensionName(OtherDeliveryParameters.attr(dvbi.a_extensionName).value()))
-			errs.pushCode("SI251", dvbi.a_extensionName.attribute()+"="+OtherDeliveryParameters.attr(dvbi.a_extensionName).value().quote()+" is not valid in service "+thisServiceId.quote(), "invalid "+dvbi.a_extensionName.attribute());
 	}
-}
 
 
 /**
@@ -2097,28 +1477,6 @@ function doValidateServiceList(SLtext, errs) {
 			break;		
 	}
 
-	checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, SL.root(), [dvbi.e_Name, dvbi.e_ProviderName], [tva.e_RelatedMaterial, dvbi.e_RegionList, dvbi.e_TargetRegion, dvbi.e_LCNTableList, dvbi.e_ContentGuideSourceList, dvbi.e_ContentGuideSource, dvbi.e_Service, OTHER_ELEMENTS_OK], errs, "SL010")
-	checkAttributes(SL.root(), [dvbi.a_version], ["schemaLocation"], errs, "SL011")
-/*
-	checkTopElements2(SL_SCHEMA, SCHEMA_PREFIX, SL.root(), [
-		{name: dvbi.e_Name, minoccurs: 1, maxoccurs: UNBOUNDED},
-		{name: dvbi.e_ProviderName, minoccurs: 1, maxoccurs: UNBOUNDED},
-		{name: tva.e_RelatedMaterial, minoccurs: 0, maxoccurs: UNBOUNDED},
-		{name: dvbi.e_RegionList, minoccurs: 0, maxoccurs: 1},
-		{name: dvbi.e_TargetRegion, minoccurs: 0, maxoccurs: UNBOUNDED},
-		{name: dvbi.e_LCNTableList, minoccurs: 0, maxoccurs: 1},
-		{name: dvbi.e_ContentGuideSourceList, minoccurs: 0, maxoccurs: 1},
-		{name: dvbi.e_ContentGuideSource, minoccurs: 0, maxoccurs: 1},
-		{name: dvbi.e_Service, minoccurs: 0, maxoccurs: UNBOUNDED}, 
-		{name: OTHER_ELEMENTS_OK, minoccurs: 0, maxoccurs: UNBOUNDED}
-		], errs, "NEW00")
-*/
-	//check ServiceList@version
-	if (SL.root().attr(dvbi.a_version)) {
-		if (!isPositiveInteger(SL.root().attr(dvbi.a_version).value()))
-			errs.pushCode("SL012", dvbi.a_version.attribute(dvbi.e_ServiceList)+" is not a positiveInteger ("+SL.root().attr(dvbi.a_version).value()+")")
-	}
-
 	checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, dvbi.e_Name, dvbi.e_ServiceList, SL, errs, "SL020");
 	checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, dvbi.e_ProviderName, dvbi.e_ServiceList, SL, errs, "SL030");
 
@@ -2127,7 +1485,8 @@ function doValidateServiceList(SLtext, errs) {
 	while (RelatedMaterial=SL.get(xPath(SCHEMA_PREFIX, tva.e_RelatedMaterial, ++rm), SL_SCHEMA)) {
 		let foundHref=validateRelatedMaterial(RelatedMaterial, errs, "service list", SERVICE_LIST_RM, SCHEMA_NAMESPACE, "SL040")
 		if (foundHref!="" && validServiceControlApplication(foundHref)) 
-			countControlApps++	}
+			countControlApps++	
+	}
 
 	if (countControlApps>1)
 		errs.pushCode("SL041", "only a single service control application can be signalled in a service", "multi apps")
@@ -2135,13 +1494,6 @@ function doValidateServiceList(SLtext, errs) {
 	// check <ServiceList><RegionList> and remember regionID values
 	let knownRegionIDs=[], RegionList=SL.get(xPath(SCHEMA_PREFIX, dvbi.e_RegionList), SL_SCHEMA)
 	if (RegionList) {
-		checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, RegionList, [dvbi.e_Region], [], errs, "SL050")
-		checkAttributes(RegionList, [dvbi.a_version], [], errs, "SL051")
-
-		//check RegionList@version
-		if (RegionList.attr(dvbi.a_version) && !isPositiveInteger(RegionList.attr(dvbi.a_version).value())) 
-			errs.pushCode("SL052", dvbi.a_version.attribute(dvbi.e_RegionList)+" is not a positiveInteger ("+RegionList.attr(dvbi.a_version).value()+")")
-
 		// recurse the regionlist - Regions can be nested in Regions
 		let r=0, Region
 		while (Region=RegionList.get(xPath(SCHEMA_PREFIX, dvbi.e_Region, ++r), SL_SCHEMA)) 
@@ -2195,13 +1547,6 @@ function doValidateServiceList(SLtext, errs) {
 		if (SchemaVersion(SCHEMA_NAMESPACE) > SCHEMA_v2)
 			serviceOptionalElements.push(dvbi.e_ServiceDescription)
 		
-		checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, service, [dvbi.e_UniqueIdentifier, dvbi.e_ServiceName, dvbi.e_ProviderName], serviceOptionalElements, errs, "SL101")
-		checkAttributes(service, [dvbi.a_version], [dvbi.a_dynamic], errs, "SL102")
-		
-		//check Service@version
-		if (service.attr(dvbi.a_version) && !isPositiveInteger(service.attr(dvbi.a_version).value()))
-			errs.pushCode("SL103", dvbi.a_version.attribute(dvbi.e_Service)+" is not a positiveInteger ("+service.attr(dvbi.a_version).value()+")")
-
 		// check <Service><UniqueIdentifier>
 		let uID=service.get(xPath(SCHEMA_PREFIX, dvbi.e_UniqueIdentifier), SL_SCHEMA)
 		if (uID) {
@@ -2235,7 +1580,6 @@ function doValidateServiceList(SLtext, errs) {
 		//check <Service><ServiceGenre>
 		let ServiceGenre=service.get(xPath(SCHEMA_PREFIX, dvbi.e_ServiceGenre), SL_SCHEMA)
 		if (ServiceGenre) {
-			checkAttributes(ServiceGenre, [dvbi.a_href], [tva.a_type], errs, "SL160")
 			if (ServiceGenre.attr(dvbi.a_href) && !isIn(allowedGenres, ServiceGenre.attr(dvbi.a_href).value())) 
 				errs.pushCode("SL161", "service "+thisServiceId.quote()+" has an invalid "+dvbi.a_href.attribute(dvbi.e_ServiceGenre)+" "+ServiceGenre.attr(dvbi.a_href).value().quote(), "invalid "+dvbi.e_ServiceGenre);
 
@@ -2246,7 +1590,6 @@ function doValidateServiceList(SLtext, errs) {
 		//check <Service><ServiceType>                    
 		let ServiceType=service.get(xPath(SCHEMA_PREFIX, dvbi.e_ServiceType), SL_SCHEMA)
 		if (ServiceType) {
-			checkAttributes(ServiceType, [dvbi.a_href], [], errs, "SL163")
 			if (ServiceType.attr(dvbi.a_href) && !isIn(allowedServiceTypes, ServiceType.attr(dvbi.a_href).value())) 
 				errs.pushCode("SL164", "service "+thisServiceId.quote()+" has an invalid "+dvbi.e_ServiceType.elementize()+" ("+ServiceType.attr(dvbi.a_href).value()+")", "invalid ServiceType");
 		}
@@ -2257,7 +1600,6 @@ function doValidateServiceList(SLtext, errs) {
 		// check <Service><RecordingInfo>
 		let RecordingInfo=service.get(xPath(SCHEMA_PREFIX, dvbi.e_RecordingInfo), SL_SCHEMA)
 		if (RecordingInfo) {
-			checkAttributes(RecordingInfo, [dvbi.a_href], [], errs, "SL180")
 			if (RecordingInfo.attr(dvbi.a_href) && !isIn(RecordingInfoCSvalules, RecordingInfo.attr(dvbi.a_href).value())) 
 				errs.pushCode("SL181", "invalid "+dvbi.e_RecordingInfo.elementize()+" value "+RecordingInfo.attr(dvbi.a_href).value().quote()+"for service "+thisServiceId, "invalid RecordingInfo");
 		}
@@ -2273,10 +1615,6 @@ function doValidateServiceList(SLtext, errs) {
 			if (!isIn(ContentGuideSourceIDs, sCGref.text())) 
 				errs.pushCode("SL200", "content guide reference "+sCGref.text().quote()+" for service "+thisServiceId.quote()+" not specified", "unspecified content guide source");
 		}
-
-		// this should not happen if the XML document has passed schema validation
-		if (sCG && sCGref)
-			errs.pushCode("SL210", "only "+dvbi.e_ContentGuideSource.elementize()+" or "+dvbi.e_CountentGuideSourceRef.elementize()+" to be specifed for a service "+thisServiceId.quote(), "source and ref");
 	}        
 
 	// check <Service><ContentGuideServiceRef>
@@ -2296,11 +1634,8 @@ function doValidateServiceList(SLtext, errs) {
 	// check <ServiceList><LCNTableList>
 	let LCNtableList=SL.get("//"+xPath(SCHEMA_PREFIX, dvbi.e_LCNTableList), SL_SCHEMA)
 	if (LCNtableList) {
-		checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, LCNtableList, [], [dvbi.e_LCNTable], errs, "SL230")
 		let l=0, LCNTable
 		while (LCNTable=LCNtableList.get(xPath(SCHEMA_PREFIX, dvbi.e_LCNTable, ++l), SL_SCHEMA)) {
-			// checks on TargetRegion(s) for this LCNTable
-			checkTopElements(SL_SCHEMA, SCHEMA_PREFIX, LCNTable, [], [dvbi.e_TargetRegion, dvbi.e_SubscriptionPackage, dvbi.e_LCN], errs, "SL231")
 			
 			// <LCNTable><TargetRegion>
 			let tr=0, TargetRegion, lastTargetRegion=""
@@ -2317,14 +1652,10 @@ function doValidateServiceList(SLtext, errs) {
 			let LCNNumbers=[], e=0, LCN
 			while (LCN=LCNTable.get(xPath(SCHEMA_PREFIX, dvbi.e_LCN, ++e), SL_SCHEMA)) {
 				
-				checkAttributes(LCN, [dvbi.a_channelNumber, dvbi.a_serviceRef], [dvbi.a_selectable, dvbi.a_visible], errs, "SL260")
-				
 				// LCN@channelNumber
 				if (LCN.attr(dvbi.a_channelNumber)) {
-					let chanNum=LCN.attr(dvbi.a_channelNumber).value()
-					if (!isPositiveInteger(chanNum)) 
-						errs.pushCode("SL261", dvbi.a_channelNumber.attribute(dvbi.e_LCN)+" is not a positiveInteger "+chanNum.quote(), "invalid value")
-					
+					let chanNum=LCN.attr(dvbi.a_channelNumber).value()	
+
 					if (isIn(LCNNumbers, chanNum)) 
 						errs.pushCode("SL262", "duplicated channel number "+chanNum+" for "+dvbi.e_TargetRegion.elementize()+" "+lastTargetRegion, "duplicate channel number");
 					else LCNNumbers.push(chanNum);
@@ -2333,14 +1664,6 @@ function doValidateServiceList(SLtext, errs) {
 				// LCN@serviceRef
 				if (LCN.attr(dvbi.a_serviceRef) && !isIn(knownServices, LCN.attr(dvbi.a_serviceRef).value())) 
 					errs.pushCode("SL263", "LCN reference to unknown service "+LCN.attr(dvbi.a_serviceRef).value(), "LCN unknown services");
-				
-				// LCN@selectable
-				if (LCN.attr(dvbi.a_selectable) && !isBoolean(LCN.attr(dvbi.a_selectable).value())) 
-					errs.pushCode("SL264", dvbi.a_selectable.attribute(dvbi.e_LCN)+" is not a boolean value "+LCN.attr(dvbi.a_selectable).value().quote(), "not boolean")
-				
-				// LCN@visible
-				if (LCN.attr(dvbi.a_visible) && !isBoolean(LCN.attr(dvbi.a_visible).value()))
-					errs.pushCode("SL265", dvbi.a_visible.attribute(dvbi.e_LCN)+" is not a boolean value "+LCN.attr(dvbi.a_visible).value().quote(), "not boolean")
 			}
 		}
 	}
