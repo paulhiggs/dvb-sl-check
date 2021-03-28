@@ -1327,7 +1327,7 @@ function SchemaCheck( XML, XSD, errs, errCode) {
 	if (!XML.validate(XSD)) 
 		XML.validationErrors.forEach(ve => {
 			let s=ve.toString().split('\r')
-			s.forEach(err => errs.pushCode(errCode, err)); 
+			s.forEach(err => errs.pushCode(errCode, err, 'schema error'))
 		})
 }
 
@@ -1343,7 +1343,7 @@ module.exports.doValidateServiceList = function(SLtext, errs) {
 	if (SLtext) try {
 		SL=libxml.parseXmlString(SLtext);
 	} catch (err) {
-		errs.pushCode("SL001", "XML parsing failed: "+err.message, "malformed XML");
+		errs.pushCode("SL001", "XML parsing failed: "+err.message, "malformed XML", 'schema error')
 	}
 	if (!SL || !SL.root()) {
 		errs.pushCode("SL002", "SL is empty")
@@ -1356,12 +1356,12 @@ module.exports.doValidateServiceList = function(SLtext, errs) {
 		SL_SCHEMA[SCHEMA_PREFIX]=SCHEMA_NAMESPACE;
 
 	if (SL.root().name() !== dvbi.e_ServiceList) {
-		errs.pushCode("SL003", "Root element is not "+dvbi.e_ServiceList.elementize());
+		errs.pushCode("SL003", "Root element is not "+dvbi.e_ServiceList.elementize(), 'schema error');
 		return;
 	}
 
 	if (SchemaVersion(SCHEMA_NAMESPACE)==SCHEMA_unknown) {
-		errs.pushCode("SL004", "Unsupported namespace "+SCHEMA_NAMESPACE.quote());
+		errs.pushCode("SL004", "Unsupported namespace "+SCHEMA_NAMESPACE.quote(), 'schema error');
 		return;
 	}
 
