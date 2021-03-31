@@ -1111,7 +1111,7 @@ function validateServiceInstance(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, Ser
 	let ContentAttributes=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_ContentAttributes), SL_SCHEMA)
 	if (ContentAttributes) {
 
-		// Check @href of ContentAttributes/AudioAttributes/tva:coding
+		// Check ContentAttributes/AudioAttributes - other subelements are checked with schema based validation
 		let cp=0, conf
 		while (conf=ContentAttributes.get(xPath(SCHEMA_PREFIX, tva.e_AudioAttributes, ++cp), SL_SCHEMA)) {
 			
@@ -1122,25 +1122,11 @@ function validateServiceInstance(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, Ser
 						if (child.attr(dvbi.a_href) && !isIn(allowedAudioSchemes, child.attr(dvbi.a_href).value())) 
 							errs.pushCode("SI052", "invalid "+dvbi.a_href.attribute(child.name())+" value for ("+child.attr(dvbi.a_href).value()+")", "audio codec");
 						break;
-					case tva.e_NumOfChannels:
-						// TODO:
-						break;
+
 					case tva.e_MixType:
 						// taken from MPEG-7 AudioPresentationCS
 						if (child.attr(dvbi.a_href) && !isIn(AudioPresentationCS, child.attr(dvbi.a_href).value())) 
 							errs.pushCode("SI055", "invalid "+dvbi.a_href.attribute(child.name())+" value for ("+child.attr(dvbi.a_href).value()+")", "audio codec");
-						break;
-					case tva.e_AudioLanguage:
-						// TODO:
-						break;
-					case tva.e_SampleFrequency:
-						// TODO:
-						break;
-					case tva.e_BitsPerSample:
-						// TODO:
-						break;
-					case tva.e_BitRate:
-						// TODO:
 						break;
 				}
 			})
@@ -1155,7 +1141,7 @@ function validateServiceInstance(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, Ser
 			}	
 		}
 
-		// Check @href of ContentAttributes/VideoAttributes/tva:coding
+		// Check ContentAttributes/VideoAttributes - other subelements are checked with schema based validation
 		cp=0;
 		while (conf=ContentAttributes.get(xPath(SCHEMA_PREFIX, tva.e_VideoAttributes, ++cp), SL_SCHEMA)) {
 			let children=conf.childNodes()
@@ -1164,27 +1150,6 @@ function validateServiceInstance(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, Ser
 					case tva.e_Coding:
 						if (child.attr(dvbi.a_href) && !isIn(allowedVideoSchemes, child.attr(dvbi.a_href).value())) 
 							errs.pushCode("SI072", "invalid "+dvbi.a_href.attribute(tva.e_VideoAttributes)+" ("+child.attr(dvbi.a_href).value()+")", "video codec");
-						break;
-					case tva.e_Scan:
-						// TODO
-						break;
-					case tva.e_HorizontalSize:
-						// TODO
-						break;
-					case tva.e_VerticalSize:
-						// TODO
-						break;
-					case tva.e_AspectRatio:
-						// TODO
-						break;
-					case tva.e_Color:
-						// TODO
-						break;
-					case tva.e_FrameRate:
-						// TODO
-						break;
-					case tva.e_BitRate:
-						// TODO
 						break;
 					case tva.e_PictureFormat:
 						if (child.attr(dvbi.a_href) && !isIn(allowedPictureFormats, child.attr(dvbi.a_href).value())) 
