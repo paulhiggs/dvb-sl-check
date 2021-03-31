@@ -106,7 +106,7 @@ const SCHEMA_v1=1,
       SCHEMA_v2=2,
 	  SCHEMA_v3=3,
 	  SCHEMA_unknown= -1;
-	  
+ 
 /**
  * determine the schema version (and hence the specificaion version) in use 
  *
@@ -123,6 +123,67 @@ function SchemaVersion(namespace) {
 	
 	return SCHEMA_unknown;
 }
+
+
+// based on the polyfill at https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/forEach 
+/*
+ * alternate to Array.prototype.forEach that only returns XML tree nodes that are elements
+*/
+if (!Array.prototype['forEachSubElement']) {
+
+	Array.prototype.forEachSubElement = function(callback, thisArg) {
+  
+	  if (this == null) { throw new TypeError('Array.prototype.forEachSubElement called on null or undefined'); }
+  
+	  var T, k;
+	  // 1. Let O be the result of calling toObject() passing the
+	  // |this| value as the argument.
+	  var O = Object(this);
+  
+	  // 2. Let lenValue be the result of calling the Get() internal
+	  // method of O with the argument "length".
+	  // 3. Let len be toUint32(lenValue).
+	  var len = O.length >>> 0;
+  
+	  // 4. If isCallable(callback) is false, throw a TypeError exception.
+	  // See: https://es5.github.com/#x9.11
+	  if (typeof callback !== "function") { throw new TypeError(callback + ' is not a function'); }
+  
+	  // 5. If thisArg was supplied, let T be thisArg; else let
+	  // T be undefined.
+	  if (arguments.length > 1) { T = thisArg; }
+  
+	  // 6. Let k be 0
+	  k = 0;
+  
+	  // 7. Repeat, while k < len
+	  while (k < len) {
+  
+		var kValue;
+  
+		// a. Let Pk be ToString(k).
+		//    This is implicit for LHS operands of the in operator
+		// b. Let kPresent be the result of calling the HasProperty
+		//    internal method of O with argument Pk.
+		//    This step can be combined with c
+		// c. If kPresent is true, then
+		if (k in O) {
+  
+		  // i. Let kValue be the result of calling the Get internal
+		  // method of O with argument Pk.
+		  kValue = O[k];
+  
+		  // ii. Call the Call internal method of callback with T as
+		  // the this value and argument list containing kValue, k, and O.
+		  if (T.type()=='element')
+		  	callback.call(T, kValue, k, O);
+		}
+		// d. Increase k by 1.
+		k++;
+	  }
+	  // 8. return undefined
+	};
+  }
 
 
 /**
@@ -432,8 +493,8 @@ function checkValidLogo(HowRelated, Format, MediaLocator, errs, Location) {
     if (Format) {
         let subElems=Format.childNodes(), 
 		    hasStillPictureFormat=false
-        if (subElems) subElems.forEach(child => {
-            if (child.type()=='element' && child.name()==dvbi.e_StillPictureFormat) {
+        if (subElems) subElems.forEachSubElement(child => {
+            if (child.name()==dvbi.e_StillPictureFormat) {
                 hasStillPictureFormat=true;
                 if (!child.attr(dvbi.a_horizontalSize)) 
                     errs.pushCode("VL010", dvbi.a_horizontalSize.attribute()+" not specified for "+tva.e_RelatedMaterial.elementize()+tva.e_Format.elementize()+dvbi.e_StillPictureFormat.elementize()+" in "+Location, "no "+dvbi.a_horizontalSize.attribute());
@@ -460,8 +521,8 @@ function checkValidLogo(HowRelated, Format, MediaLocator, errs, Location) {
 
     if (MediaLocator) {
         let subElems=MediaLocator.childNodes(), hasMediaURI=false
-        if (subElems) subElems.forEach(child => {
-            if (child.type()=='element' && child.name()==tva.e_MediaUri) {
+        if (subElems) subElems.forEachSubElement(child => {
+            if (child.name()==tva.e_MediaUri) {
                 hasMediaURI=true;
 				
                 if (child.attr(tva.a_contentType)) {
@@ -497,8 +558,8 @@ function checkSignalledApplication(MediaLocator, errs, Location) {
 		NoMediaLocator("application", Location, errs, "SA001");
 	else {
         let subElems=MediaLocator.childNodes(), hasMediaURI=false
-        if (subElems) subElems.forEach(child => {
-            if (child.type()=='element' && child.name()==tva.e_MediaUri) {
+        if (subElems) subElems.forEachSubElement(child => {
+            if (child.name()==tva.e_MediaUri) {
                 hasMediaURI=true;
                 if (child.attr(tva.a_contentType)) {
 					if (!isIn(validApplicationTypes, child.attr(tva.a_contentType).value)) 
@@ -534,19 +595,18 @@ function validateRelatedMaterial(RelatedMaterial, errs, Location, LocationType, 
 	
     let HowRelated=null, Format=null, MediaLocator=[]
 	let elems=RelatedMaterial.childNodes()
-	if (elems) elems.forEach(elem => {
-		if (elem.type()=='element')
-			switch (elem.name()) {
-				case tva.e_HowRelated:
-					HowRelated=elem
-					break
-				case tva.e_Format:
-					Format=elem
-					break
-				case tva.e_MediaLocator:
-					MediaLocator.push(elem)
-					break
-			}
+	if (elems) elems.forEachSubElement(elem => {
+		switch (elem.name()) {
+			case tva.e_HowRelated:
+				HowRelated=elem
+				break
+			case tva.e_Format:
+				Format=elem
+				break
+			case tva.e_MediaLocator:
+				MediaLocator.push(elem)
+				break
+		}
 	})
 	
     if (!HowRelated) {
@@ -1056,30 +1116,33 @@ function validateServiceInstance(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, Ser
 		while (conf=ContentAttributes.get(xPath(SCHEMA_PREFIX, tva.e_AudioAttributes, ++cp), SL_SCHEMA)) {
 			
 			let children=conf.childNodes()
-			if (children) children.forEach(child => {
-				if (child.type()=='element')
-					switch (child.name()) {
-						case tva.e_Coding:
-							if (child.attr(dvbi.a_href) && !isIn(allowedAudioSchemes, child.attr(dvbi.a_href).value())) 
-								errs.pushCode("SI052", "invalid "+dvbi.a_href.attribute(child.name())+" value for ("+child.attr(dvbi.a_href).value()+")", "audio codec");
-							break;
-						case tva.e_NumOfChannels:
-							break;
-						case tva.e_MixType:
-							// taken from MPEG-7 AudioPresentationCS
-							if (child.attr(dvbi.a_href) && !isIn(AudioPresentationCS, child.attr(dvbi.a_href).value())) 
-								errs.pushCode("SI055", "invalid "+dvbi.a_href.attribute(child.name())+" value for ("+child.attr(dvbi.a_href).value()+")", "audio codec");
-							break;
-						case tva.e_AudioLanguage:
-							// TODO:
-							break;
-						case tva.e_SampleFrequency:
-							break;
-						case tva.e_BitsPerSample:
-							break;
-						case tva.e_BitRate:
-							break;
-					}
+			if (children) children.forEachSubElement(child => {
+				switch (child.name()) {
+					case tva.e_Coding:
+						if (child.attr(dvbi.a_href) && !isIn(allowedAudioSchemes, child.attr(dvbi.a_href).value())) 
+							errs.pushCode("SI052", "invalid "+dvbi.a_href.attribute(child.name())+" value for ("+child.attr(dvbi.a_href).value()+")", "audio codec");
+						break;
+					case tva.e_NumOfChannels:
+						// TODO:
+						break;
+					case tva.e_MixType:
+						// taken from MPEG-7 AudioPresentationCS
+						if (child.attr(dvbi.a_href) && !isIn(AudioPresentationCS, child.attr(dvbi.a_href).value())) 
+							errs.pushCode("SI055", "invalid "+dvbi.a_href.attribute(child.name())+" value for ("+child.attr(dvbi.a_href).value()+")", "audio codec");
+						break;
+					case tva.e_AudioLanguage:
+						// TODO:
+						break;
+					case tva.e_SampleFrequency:
+						// TODO:
+						break;
+					case tva.e_BitsPerSample:
+						// TODO:
+						break;
+					case tva.e_BitRate:
+						// TODO:
+						break;
+				}
 			})
 		}
 		
@@ -1096,36 +1159,42 @@ function validateServiceInstance(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, Ser
 		cp=0;
 		while (conf=ContentAttributes.get(xPath(SCHEMA_PREFIX, tva.e_VideoAttributes, ++cp), SL_SCHEMA)) {
 			let children=conf.childNodes()
-			if (children) children.forEach(child => {
-				if (child.type()=='element')
-					switch (child.name()) {
-						case tva.e_Coding:
-							if (child.attr(dvbi.a_href) && !isIn(allowedVideoSchemes, child.attr(dvbi.a_href).value())) 
-								errs.pushCode("SI072", "invalid "+dvbi.a_href.attribute(tva.e_VideoAttributes)+" ("+child.attr(dvbi.a_href).value()+")", "video codec");
-							break;
-						case tva.e_Scan:
-							break;
-						case tva.e_HorizontalSize:
-							break;
-						case tva.e_VerticalSize:
-							break;
-						case tva.e_AspectRatio:
-							break;
-						case tva.e_Color:
-							break;
-						case tva.e_FrameRate:
-							break;
-						case tva.e_BitRate:
-							break;
-						case tva.e_PictureFormat:
-							if (child.attr(dvbi.a_href) && !isIn(allowedPictureFormats, child.attr(dvbi.a_href).value())) 
-								errs.pushCode("SI082", "invalid "+dvbi.a_href.attribute(tva.e_PictureFormat)+" value ("+child.attr(dvbi.a_href).value()+")", tva.e_PictureFormat);
-							break;
-						case dvbi.e_Colorimetry:
-							if (child.attr(dvbi.a_href) && !isIn(dvbi.ALLOWED_COLORIMETRY, child.attr(dvbi.a_href).value())) 
-								errs.pushCode("SI084", "invalid "+dvbi.a_href.attribute(tva.e_Colorimetry)+" value ("+child.attr(dvbi.a_href).value()+")", tva.e_Colorimetry);
-							break;
-					}
+			if (children) children.forEachSubElement(child => {
+				switch (child.name()) {
+					case tva.e_Coding:
+						if (child.attr(dvbi.a_href) && !isIn(allowedVideoSchemes, child.attr(dvbi.a_href).value())) 
+							errs.pushCode("SI072", "invalid "+dvbi.a_href.attribute(tva.e_VideoAttributes)+" ("+child.attr(dvbi.a_href).value()+")", "video codec");
+						break;
+					case tva.e_Scan:
+						// TODO
+						break;
+					case tva.e_HorizontalSize:
+						// TODO
+						break;
+					case tva.e_VerticalSize:
+						// TODO
+						break;
+					case tva.e_AspectRatio:
+						// TODO
+						break;
+					case tva.e_Color:
+						// TODO
+						break;
+					case tva.e_FrameRate:
+						// TODO
+						break;
+					case tva.e_BitRate:
+						// TODO
+						break;
+					case tva.e_PictureFormat:
+						if (child.attr(dvbi.a_href) && !isIn(allowedPictureFormats, child.attr(dvbi.a_href).value())) 
+							errs.pushCode("SI082", "invalid "+dvbi.a_href.attribute(tva.e_PictureFormat)+" value ("+child.attr(dvbi.a_href).value()+")", tva.e_PictureFormat);
+						break;
+					case dvbi.e_Colorimetry:
+						if (child.attr(dvbi.a_href) && !isIn(dvbi.ALLOWED_COLORIMETRY, child.attr(dvbi.a_href).value())) 
+							errs.pushCode("SI084", "invalid "+dvbi.a_href.attribute(tva.e_Colorimetry)+" value ("+child.attr(dvbi.a_href).value()+")", tva.e_Colorimetry);
+						break;
+				}
 			})
 		}
 
