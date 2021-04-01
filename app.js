@@ -32,14 +32,6 @@ const https=require("https")
 const DEFAULT_HTTP_SERVICE_PORT=3010
 const keyFilename=path.join(".","selfsigned.key"), certFilename=path.join(".","selfsigned.crt")
 
-const {parse}=require("querystring")
-
-// https://github.com/alexei/sprintf.js
-var sprintf=require("sprintf-js").sprintf
-
-
-
-
 
 /**
  * checks of the object provided is empty, either contains no values or properties
@@ -73,16 +65,16 @@ function drawForm(URLmode, res, lastInput=null, error=null, errors=null) {
 	const TABLE_STYLE="<style>table {border-collapse: collapse;border: 1px solid black;} th, td {text-align: left; padding: 8px; }	tr:nth-child(even) {background-color: #f2f2f2;}	</style>"
 	const FORM_TOP="<html><head>"+TABLE_STYLE+"<title>DVB-I Service List Validator</title></head><body>";
 	const PAGE_HEADING="<h1>DVB-I Service List Validator</h1>";
-	const ENTRY_FORM_URL="<form method=\"post\"><p><i>URL:</i></p><input type=\"url\" name=\"SLurl\" value=\"%s\"><input type=\"submit\" value=\"submit\"></form>";
-	const ENTRY_FORM_FILE="<form method=\"post\" encType=\"multipart/form-data\"><p><i>FILE:</i></p><input type=\"file\" name=\"SLfile\" value=\"%s\"><input type=\"submit\" value=\"submit\"></form>";
+	const ENTRY_FORM_URL=`<form method=\"post\"><p><i>URL:</i></p><input type=\"url\" name=\"SLurl\" value=\"${lastInput?lastInput:""}\"><input type=\"submit\" value=\"submit\"></form>`
+	const ENTRY_FORM_FILE=`<form method=\"post\" encType=\"multipart/form-data\"><p><i>FILE:</i></p><input type=\"file\" name=\"SLfile\" value=\"${lastInput?lastInput:""}\"><input type=\"submit\" value=\"submit\"></form>`
 	const RESULT_WITH_INSTRUCTION="<br><p><i>Results:</i></p>";
 	const SUMMARY_FORM_HEADER="<table><tr><th>item</th><th>count</th></tr>";
-	const DETAIL_FORM_HEADER="<table><tr><th>code</th><th>%s</th></tr>"
+	function DETAIL_FORM_HEADER(mode) { return `table><tr><th>code</th><th>${mode}</th></tr>` }
 	const FORM_BOTTOM="</body></html>";
 	
     res.write(FORM_TOP);    
 	res.write(PAGE_HEADING);   
-	res.write(sprintf(URLmode?ENTRY_FORM_URL:ENTRY_FORM_FILE, lastInput?lastInput:""))
+	res.write(URLmode?ENTRY_FORM_URL:ENTRY_FORM_FILE)
     res.write(RESULT_WITH_INSTRUCTION);
 
 	if (error) 
@@ -90,7 +82,7 @@ function drawForm(URLmode, res, lastInput=null, error=null, errors=null) {
 	let resultsShown=false
 	if (errors) {
 		let tableHeader=false
-		for (let i in errors.counts) {
+		for (let i of errors.counts) {
 			if (errors.counts[i]!=0) {
 				if (!tableHeader) {
 					res.write(SUMMARY_FORM_HEADER);
@@ -100,7 +92,7 @@ function drawForm(URLmode, res, lastInput=null, error=null, errors=null) {
 				resultsShown=true;
 			}
 		}
-		for (let i in errors.countsWarn) {
+		for (let i of errors.countsWarn) {
 			if (errors.countsWarn[i]!=0) {
 				if (!tableHeader) {
 					res.write(SUMMARY_FORM_HEADER);
@@ -115,7 +107,7 @@ function drawForm(URLmode, res, lastInput=null, error=null, errors=null) {
 		tableHeader=false;
 		errors.messages.forEach(function(value) {
 			if (!tableHeader) {
-				res.write(sprintf(DETAIL_FORM_HEADER, "errors"))
+				res.write(DETAIL_FORM_HEADER("errors"))
 				tableHeader=true;                    
 			}
 			if (value.includes(errors.delim)) {
@@ -131,7 +123,7 @@ function drawForm(URLmode, res, lastInput=null, error=null, errors=null) {
 		tableHeader=false;
 		errors.messagesWarn.forEach(function(value) {
 			if (!tableHeader) {
-				res.write(sprintf(DETAIL_FORM_HEADER, "warnings"))
+				res.write(DETAIL_FORM_HEADER("warnings"))
 				tableHeader=true;                    
 			}
 			if (value.includes(errors.delim)) {
