@@ -78,7 +78,7 @@ function drawForm(URLmode, res, lastInput=null, error=null, errors=null) {
     res.write(RESULT_WITH_INSTRUCTION);
 
 	if (error) 
-		res.write("<p>"+error+"</p>");
+		res.write(`<p>${error}</p>`)
 	let resultsShown=false
 	if (errors) {
 		let tableHeader=false
@@ -88,7 +88,7 @@ function drawForm(URLmode, res, lastInput=null, error=null, errors=null) {
 					res.write(SUMMARY_FORM_HEADER);
 					tableHeader=true;
 				}
-				res.write("<tr><td>"+phlib.HTMLize(i)+"</td><td>"+errors.counts[i]+"</td></tr>");
+				res.write(`<tr><td>${phlib.HTMLize(i)}</td><td>${errors.counts[i]}</td></tr>`)
 				resultsShown=true;
 			}
 		}
@@ -98,7 +98,7 @@ function drawForm(URLmode, res, lastInput=null, error=null, errors=null) {
 					res.write(SUMMARY_FORM_HEADER);
 					tableHeader=true;
 				}
-				res.write("<tr><td><i>"+phlib.HTMLize(i)+"</i></td><td>"+errors.countsWarn[i]+"</td></tr>");
+				res.write(`<tr><td><i>${phlib.HTMLize(i)}</i></td><td>${errors.countsWarn[i]}</td></tr>`)
 				resultsShown=true;
 			}
 		}
@@ -112,10 +112,10 @@ function drawForm(URLmode, res, lastInput=null, error=null, errors=null) {
 			}
 			if (value.includes(errors.delim)) {
 				let x=value.split(errors.delim)
-				res.write("<tr><td>"+nonBreakingHyphen(x[0])+"</td><td>"+phlib.HTMLize(x[1])+"</td></tr>");	
+				res.write(`<tr><td>${nonBreakingHyphen(x[0])}</td><td>${phlib.HTMLize(x[1])}</td></tr>`)	
 			}
 			else 
-				res.write("<tr><td></td><td>"+phlib.HTMLize(value)+"</td></tr>");
+				res.write(`<tr><td></td><td>${phlib.HTMLize(value)}</td></tr>`)
 			resultsShown=true;
 		});
 		if (tableHeader) res.write("</table>");
@@ -128,10 +128,10 @@ function drawForm(URLmode, res, lastInput=null, error=null, errors=null) {
 			}
 			if (value.includes(errors.delim)) {
 				let x=value.split(errors.delim)
-				res.write("<tr><td>"+nonBreakingHyphen(x[0])+"</td><td>"+phlib.HTMLize(x[1])+"</td></tr>");	
+				res.write(`<tr><td>${nonBreakingHyphen(x[0])}</td><td>${phlib.HTMLize(x[1])}</td></tr>`)	
 			}
 			else 
-				res.write("<tr><td></td><td>"+phlib.HTMLize(value)+"</td></tr>");
+				res.write(`<tr><td></td><td>${phlib.HTMLize(value)}</td></tr>`)
 
 			resultsShown=true;
 		});
@@ -176,8 +176,8 @@ function processQuery(req, res) {
 			.then(errs=>drawForm(true, res, req.query.SLurl, null, errs))
 			.then(res=>res.end())
 			.catch(error => {
-				console.log("error ("+error+") handling "+req.query.SLurl) 
-				drawForm(true, res, req.query.SLurl, "error ("+error+") handling "+req.query.SLurl, null)
+				console.log(`error (${error}) handling ${req.query.SLurl}`) 
+				drawForm(true, res, req.query.SLurl, `error (${error}) handling ${req.query.SLurl}`, null)
 				res.end()
 			})
    }
@@ -205,7 +205,7 @@ function processFile(req, res) {
             SLxml=req.files.SLfile.data;
         }
         catch (err) {
-            errs.pushCode("PR101", "retrieval of FILE ("+req.query.SLfile+") failed");
+            errs.pushCode("PR101", `retrieval of FILE (${req.query.SLfile}) failed`)
         }
 		if (SLxml) 
 			slCheck.doValidateServiceList(SLxml.toString().replace(/(\r\n|\n|\r|\t)/gm,""), errs)
