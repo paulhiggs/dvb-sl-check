@@ -247,16 +247,16 @@ app.use(favicon(path.join('phlib','ph-icon.ico')))
 morgan.token("protocol", function getProtocol(req) {
     return req.protocol;
 });
-morgan.token("parseErr",function getParseErr(req) {
-    if (req.parseErr) return "("+req.parseErr+")";
+morgan.token("parseErr", function getParseErr(req) {
+    if (req.parseErr) return `(${req.parseErr})`
     return "";
 });
-morgan.token("agent",function getAgent(req) {
-    return "("+req.headers["user-agent"]+")";
+morgan.token("agent", function getAgent(req) {
+    return `(${req.headers["user-agent"]})`
 });
-morgan.token("slLoc",function getCheckedLocation(req) {
-	if (req.files && req.files.SLfile) return "["+req.files.SLfile.name+"]";
-    if (req.query.SLurl) return "["+req.query.SLurl+"]";
+morgan.token("slLoc", function getCheckedLocation(req) {
+	if (req.files && req.files.SLfile) return `[${req.files.SLfile.name}]`
+    if (req.query.SLurl) return `[${req.query.SLurl}]`
 	return "[*]";
 });
 
@@ -308,7 +308,7 @@ app.get("*", function(req,res) {
 
 // start the HTTP server
 var http_server=app.listen(options.port, function() {
-    console.log("HTTP listening on port number", http_server.address().port);
+    console.log(`HTTP listening on port number ${http_server.address().port}`)
 })
 
 
@@ -325,7 +325,7 @@ if (https_options.key && https_options.cert) {
 	
     var https_server=https.createServer(https_options, app);
     https_server.listen(options.sport, function(){
-        console.log("HTTPS listening on port number", https_server.address().port);
+        console.log(`HTTPS listening on port number ${https_server.address().port}`)
     });
 }
 

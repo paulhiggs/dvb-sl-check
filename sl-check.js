@@ -29,53 +29,69 @@ const DVB_COMMON_DIR="dvb-common",
       COMMON_REPO_RAW="https://raw.githubusercontent.com/paulhiggs/dvb-common/master/",
       DVB_METADATA="https://dvb.org/metadata/"
 
-const TVA_ContentCSFilename=path.join(DVB_COMMON_DIR, "tva","ContentCS.xml"),
-	  TVA_ContentCSURL=COMMON_REPO_RAW + "tva/" + "ContentCS.xml",
+const TVA_ContentCS="ContentCS.xml",
+	  TVA_ContentCSFilename=path.join(DVB_COMMON_DIR, "tva", TVA_ContentCS),
+	  TVA_ContentCSURL=`${COMMON_REPO_RAW}tva/${TVA_ContentCS}`,
 	  
-	  TVA_FormatCSFilename=path.join(DVB_COMMON_DIR, "tva","FormatCS.xml"),
-	  TVA_FormatCSURL=COMMON_REPO_RAW + "tva/" + "FormatCS.xml",
+	  TVA_FormatCS="FormatCS.xml",
+	  TVA_FormatCSFilename=path.join(DVB_COMMON_DIR, "tva", TVA_FormatCS),
+	  TVA_FormatCSURL=`${COMMON_REPO_RAW}tva/${TVA_FormatCS}`,
 
-	  TVA_PictureFormatCSFilename=path.join(DVB_COMMON_DIR, "tva","PictureFormatCS.xml"),
-	  TVA_PictureFormatCSURL=COMMON_REPO_RAW + "tva/" + "PictureFormatCS.xml",
+	  TVA_PictureCS="PictureFormatCS.xml",
+	  TVA_PictureFormatCSFilename=path.join(DVB_COMMON_DIR, "tva", TVA_PictureCS),
+	  TVA_PictureFormatCSURL=`${COMMON_REPO_RAW}tva/${TVA_PictureCS}`,
 
-	  DVBI_ContentSubjectFilename=path.join(DVB_COMMON_DIR, "dvbi","DVBContentSubjectCS-2019.xml"),
-	  DVBI_ContentSubjectURL=COMMON_REPO_RAW + "dvbi/" + "DVBContentSubjectCS-2019.xml",
+	  DVB_ContentSubjectCS="DVBContentSubjectCS-2019.xml",
+	  DVBI_ContentSubjectFilename=path.join(DVB_COMMON_DIR, "dvbi", DVB_ContentSubjectCS),
+	  DVBI_ContentSubjectURL=`${COMMON_REPO_RAW}dvbi/${DVB_ContentSubjectCS}`,
 	  
-	  DVBI_ServiceTypeCSFilename=path.join(DVB_COMMON_DIR, "dvbi","DVBServiceTypeCS-2019.xml"),
-	  DVBI_ServiceTypeCSURL=COMMON_REPO_RAW + "dvbi/" + "DVBServiceTypeCS-2019.xml",
+	  DVB_ServiceTypeCS="DVBServiceTypeCS-2019.xml",
+	  DVBI_ServiceTypeCSFilename=path.join(DVB_COMMON_DIR, "dvbi", DVB_ServiceTypeCS),
+	  DVBI_ServiceTypeCSURL=`${COMMON_REPO_RAW}dvbi/${DVB_ServiceTypeCS}`,
 
-	  DVB_AudioCodecCSFilename=path.join(DVB_COMMON_DIR, "dvb/cs/2007","AudioCodecCS.xml"),
-	  DVB_AudioCodecCSURL=DVB_METADATA + "cs/2007/" + "AudioCodecCS.xml",
+	  DVB_AudioCodecCS2007="2007/AudioCodecCS.xml",
+	  DVB_AudioCodecCSFilename=path.join(DVB_COMMON_DIR, "dvb/cs/", DVB_AudioCodecCS),
+	  DVB_AudioCodecCSURL=`${DVB_METADATA}cs/${DVB_AudioCodecCS}`,
 
-	  DVB_AudioCodecCS2020Filename=path.join(DVB_COMMON_DIR, "dvb/cs/2020","AudioCodecCS.xml"),
-	  DVB_AudioCodecCS2020URL=DVB_METADATA + "cs/2020/" + "AudioCodecCS.xml",
+	  DVB_AudioCodecCS2020="2020/AudioCodecCS.xml",
+	  DVB_AudioCodecCS2020Filename=path.join(DVB_COMMON_DIR, "dvb/cs/", DVB_AudioCodecCS2020),
+	  DVB_AudioCodecCS2020URL=`${DVB_METADATA}cs/${DVB_AudioCodecCS2020}`,
 
-	  DVB_VideoCodecCSFilename=path.join(DVB_COMMON_DIR, "dvb/cs/2007","VideoCodecCS.xml"),
-	  DVB_VideoCodecCSURL=DVB_METADATA + "cs/2007/" + "VideoCodecCS.xml",
+	  DVB_VideoCodecCS2007="2007/VideoCodecCS.xml",
+	  DVB_VideoCodecCSFilename=path.join(DVB_COMMON_DIR, "dvb/cs/", DVB_VideoCodecCS2007),
+	  DVB_VideoCodecCSURL=`${DVB_METADATA}cs/${DVB_VideoCodecCS2007}`,
 
-	  DVB_VideoCodecCS2020Filename=path.join(DVB_COMMON_DIR, "dvb/cs/2020","VideoCodecCS.xml"),
-	  DVB_VideoCodecCS2020URL=DVB_METADATA + "cs/2020/" + "VideoCodecCS.xml",
+	  DVB_VideoCodecCS2020="2020/VideoCodecCS.xml",
+	  DVB_VideoCodecCS2020Filename=path.join(DVB_COMMON_DIR, "dvb/cs", DVB_VideoCodecCS2020),
+	  DVB_VideoCodecCS2020URL=`${DVB_METADATA}cs/${DVB_VideoCodecCS2020}`,
 
-	  MPEG7_AudioCodingFormatCSFilename=path.join(DVB_COMMON_DIR, "mpeg7","AudioCodingFormatCS.xml"),
-	  MPEG7_AudioCodingFormatCSURL=COMMON_REPO_RAW + "mpeg7/" + "AudioCodingFormatCS.xml",
+	  MPEG_AudioCodingFormatCS="AudioCodingFormatCS.xml",
+	  MPEG7_AudioCodingFormatCSFilename=path.join(DVB_COMMON_DIR, "mpeg7", MPEG_AudioCodingFormatCS),
+	  MPEG7_AudioCodingFormatCSURL=`${COMMON_REPO_RAW}mpeg7/${MPEG_AudioCodingFormatCS}`,
 
-	  MPEG7_VisualCodingFormatCSFilename=path.join(DVB_COMMON_DIR, "mpeg7","VisualCodingFormatCS.xml"),
-	  MPEG7_VisualCodingFormatCSURL=COMMON_REPO_RAW + "mpeg7/" + "VisualCodingFormatCS.xml",
+	  MPEG7_VisualCodingFormatCS="VisualCodingFormatCS.xml",
+	  MPEG7_VisualCodingFormatCSFilename=path.join(DVB_COMMON_DIR, "mpeg7", MPEG7_VisualCodingFormatCS),
+	  MPEG7_VisualCodingFormatCSURL=`${COMMON_REPO_RAW}mpeg7/${MPEG7_VisualCodingFormatCS}`,
 
-	  MPEG7_AudioPresentationCSFilename=path.join(DVB_COMMON_DIR, "mpeg7", "AudioPresentationCS.xml"),
-	  MPEG7_AudioPresentationCSURL=COMMON_REPO_RAW + "mpeg7/" + "AudioPresentationCS.xml",
+	  MPEG7_AudioPresentationCS="AudioPresentationCS.xml",
+	  MPEG7_AudioPresentationCSFilename=path.join(DVB_COMMON_DIR, "mpeg7", MPEG7_AudioPresentationCS),
+	  MPEG7_AudioPresentationCSURL=`${COMMON_REPO_RAW}mpeg7/${MPEG7_AudioPresentationCS}`,
 
-	  DVB_AudioConformanceCSFilename=path.join(DVB_COMMON_DIR, "dvb/cs/2017","AudioConformancePointsCS.xml"),
-	  DVB_AudioConformanceCSURL=DVB_METADATA + "cs/2017/" + "AudioConformancePointsCS.xml",
+	  DVB_AudioConformanceCS="AudioConformancePointsCS.xml",
+	  DVB_AudioConformanceCSFilename=path.join(DVB_COMMON_DIR, "dvb/cs/2017", DVB_AudioConformanceCS),
+	  DVB_AudioConformanceCSURL=`${DVB_METADATA}cs/2017/${DVB_AudioConformanceCS}`,
 
-	  DVB_VideoConformanceCSFilename=path.join(DVB_COMMON_DIR, "dvb/cs/2017","VideoConformancePointsCS.xml"),
-	  DVB_VideoConformanceCSURL=DVB_METADATA + "cs/2017/" + "VideoConformancePointsCS.xml",
+	  DVB_VideoConformanceCS="VideoConformancePointsCS.xml",
+	  DVB_VideoConformanceCSFilename=path.join(DVB_COMMON_DIR, "dvb/cs/2017", DVB_VideoConformanceCS),
+	  DVB_VideoConformanceCSURL=`${DVB_METADATA}cs/2017/${DVB_VideoConformanceCS}`,
 
-	  ISO3166_Filename=path.join(DVB_COMMON_DIR, "iso3166-countries.json"),
-	  ISO3166_URL=COMMON_REPO_RAW + "iso3166-countries.json",
+	  ISO3166="iso3166-countries.json",
+	  ISO3166_Filename=path.join(DVB_COMMON_DIR, ISO3166),
+	  ISO3166_URL=`${COMMON_REPO_RAW}${ISO3166}`,
 
-	  DVBI_RecordingInfoCSFilename=path.join(DVB_COMMON_DIR, "dvbi","DVBRecordingInfoCS-2019.xml"),
-	  DVBI_RecordingInfoCSURL=COMMON_REPO_RAW + "dvbi/" + "DVBRecordingInfoCS-2019.xml"
+	  DVBI_RecordingInfoCS="dvbi","DVBRecordingInfoCS-2019.xml"
+	  DVBI_RecordingInfoCSFilename=path.join(DVB_COMMON_DIR, DVBI_RecordingInfoCS),
+	  DVBI_RecordingInfoCSURL=`${COMMON_REPO_RAW}dvbi/${DVBI_RecordingInfoCS}`
 
 const SERVICE_LIST_RM="service list",
       SERVICE_RM="service",
