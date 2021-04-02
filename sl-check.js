@@ -25,9 +25,6 @@ const libxml=require("libxmljs2")
 
 const fs=require("fs"), path=require("path")
 
-// https://github.com/alexei/sprintf.js
-var sprintf=require("sprintf-js").sprintf
-
 const DVB_COMMON_DIR="dvb-common", 
       COMMON_REPO_RAW="https://raw.githubusercontent.com/paulhiggs/dvb-common/master/",
       DVB_METADATA="https://dvb.org/metadata/"
@@ -147,7 +144,7 @@ if (!Array.prototype['forEachSubElement']) {
   
 	  // 4. If isCallable(callback) is false, throw a TypeError exception.
 	  // See: https://es5.github.com/#x9.11
-	  if (typeof callback !== "function") { throw new TypeError(callback + ' is not a function'); }
+	  if (typeof callback !== "function") { throw new TypeError(`${callback} is not a function`); }
   
 	  // 5. If thisArg was supplied, let T be thisArg; else let
 	  // T be undefined.
@@ -195,7 +192,7 @@ if (!Array.prototype['forEachSubElement']) {
  * @returns {string} the XPath selector
  */
 function xPath(SCHEMA_PREFIX, elementName, index=null) {
-	return `${SCHEMA_PREFIX}:${elementName}${index?"["+index+"]":""}`
+	return `${SCHEMA_PREFIX}:${elementName}${index?`[${index}]`:""}`
 }
 
 
@@ -210,7 +207,7 @@ function xPath(SCHEMA_PREFIX, elementName, index=null) {
 	let t=""
 	elementNames.forEach(elementName => {
 		if (t.length) { t+="/"; first=false;}
-		t+=(SCHEMA_PREFIX+":"+elementName)	
+		t+=`${SCHEMA_PREFIX}:${elementName}`	
 	});
 	return t
 }
@@ -224,7 +221,7 @@ function xPath(SCHEMA_PREFIX, elementName, index=null) {
  * @returns {boolean} true if value is in the set of values
  */
 function isIn(values, value){
-    if (typeof(values)=="string")
+    if (typeof values=="string" || values instanceof String)
         return values==value;
    
     if (Array.isArray(values)) 	
@@ -245,10 +242,10 @@ function isIn(values, value){
 function checkLanguage(lang, loc, errs, errCode) {
 	switch (knownLanguages.isKnown(lang)) {
 		case knownLanguages.languageUnknown:
-			errs.pushCode(errCode?errCode+"-1":"CL001", `${loc?loc:"language"} value ${lang.quote()} is invalid`, "invalid language")
+			errs.pushCode(errCode?`${errCode}-1`:"CL001", `${loc?loc:"language"} value ${lang.quote()} is invalid`, "invalid language")
 			break;
 		case knownLanguages.languageRedundant:
-			errs.pushCodeW(errCode?errCode+"-2":"CL002", `${loc?loc:"language"} value ${lang.quote()} is redundant`, "redundant language")
+			errs.pushCodeW(errCode?`${errCode}-2`:"CL002", `${loc?loc:"language"} value ${lang.quote()} is redundant`, "redundant language")
 			break;	
 	}
 }
@@ -318,7 +315,7 @@ function addRegion(SL_SCHEMA, SCHEMA_PREFIX, Region, depth, knownRegionIDs, errs
 			})
     }
 
-	checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, dvbi.e_RegionName, dvbi.a_regionID.attribute(dvbi.e_Region)+"="+regionID.quote(), Region, errs, "AR006")
+	checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, dvbi.e_RegionName, `${dvbi.a_regionID.attribute(dvbi.e_Region)}=${regionID.quote()}`, Region, errs, "AR006")
 	
 	// <Region><Postcode>
 	let pc=0, Postcode, PostcodeErrorMessage="invalid postcode"
@@ -516,11 +513,11 @@ function checkValidLogo(HowRelated, Format, MediaLocator, errs, Location) {
                 if (!child.attr(dvbi.a_horizontalSize)) 
                     errs.pushCode("VL010", 
 						`${dvbi.a_horizontalSize.attribute()} not specified for ${tva.e_RelatedMaterial.elementize()}${tva.e_Format.elementize()}${dvbi.e_StillPictureFormat.elementize()} in ${Location}`, 
-						"no "+dvbi.a_horizontalSize.attribute())
+						`no ${dvbi.a_horizontalSize.attribute()}`)
                 if (!child.attr(dvbi.a_verticalSize)) 
                     errs.pushCode("VL011", 
 						`${dvbi.a_verticalSize.attribute()} not specified for ${tva.e_RelatedMaterial.elementize()}${tva.e_Format.elementize()}${dvbi.e_StillPictureFormat.elementize()} in ${Location}`, 
-						"no "+dvbi.a_verticalSize.attribute())
+						`no ${dvbi.a_verticalSize.attribute()}`)
                 if (child.attr(dvbi.a_href)) {
                     let href=child.attr(dvbi.a_href).value()
 					switch (href) {
@@ -614,7 +611,7 @@ function checkSignalledApplication(MediaLocator, errs, Location) {
 function validateRelatedMaterial(RelatedMaterial, errs, Location, LocationType, SCHEMA_NAMESPACE, errcode=null) {
 	let rc=""
 	if (!RelatedMaterial) {
-		errs.pushCode("RM000", "validateRelatedMaterial() called with RelatedMaterial==null", "invalid args")
+		errs.pushCode(errcode?`${errcode}-1`:"RM000", "validateRelatedMaterial() called with RelatedMaterial==null", "invalid args")
 		return rc;
 	}
 	
@@ -635,7 +632,7 @@ function validateRelatedMaterial(RelatedMaterial, errs, Location, LocationType, 
 	})
 	
     if (!HowRelated) {
-        errs.pushCode(errcode?errcode+"-1":"RM001", `${tva.e_HowRelated.elementize()} not specified for ${tva.e_RelatedMaterial.elementize()} in ${Location}`, `no ${tva.e_HowRelated}`)
+        errs.pushCode(errcode?`${errcode}-1`:"RM001", `${tva.e_HowRelated.elementize()} not specified for ${tva.e_RelatedMaterial.elementize()} in ${Location}`, `no ${tva.e_HowRelated}`)
 		return rc
     }
 
@@ -648,12 +645,12 @@ function validateRelatedMaterial(RelatedMaterial, errs, Location, LocationType, 
 						checkValidLogo(HowRelated, Format, locator, errs, Location))
 				}
 				else
-					InvalidHrefValue(HowRelated.attr(dvbi.a_href).value(), tva.e_RelatedMaterial.elementize(), Location, errs, errcode?errcode+"-11":"RM011")	
+					InvalidHrefValue(HowRelated.attr(dvbi.a_href).value(), tva.e_RelatedMaterial.elementize(), Location, errs, errcode?`${errcode}-11`:"RM011")	
 				break;
 			case SERVICE_RM:
 			case SERVICE_INSTANCE_RM:
 				if (validContentFinishedBanner(HowRelated, ANY_NAMESPACE) && (SchemaVersion(SCHEMA_NAMESPACE)==SCHEMA_v1)) 
-					errs.pushCode(errcode?errcode+"-21":"RM021", 
+					errs.pushCode(errcode?`${errcode}-21`:"RM021", 
 						`${HowRelated.attr(dvbi.href).value().quote()} not permitted for ${SCHEMA_NAMESPACE.quote()} in ${Location}`, "invalid CS value")
 				
 				if (validOutScheduleHours(HowRelated, SCHEMA_NAMESPACE) || validContentFinishedBanner(HowRelated, SCHEMA_NAMESPACE) || validServiceApplication(HowRelated) || validServiceLogo(HowRelated, SCHEMA_NAMESPACE)) {
@@ -666,7 +663,7 @@ function validateRelatedMaterial(RelatedMaterial, errs, Location, LocationType, 
 							checkSignalledApplication(locator, errs, Location));
 				}
 				else 
-					InvalidHrefValue(HowRelated.attr(dvbi.a_href).value(), tva.e_RelatedMaterial.elementize(), Location, errs, errcode?errcode+"-22":"RM022")
+					InvalidHrefValue(HowRelated.attr(dvbi.a_href).value(), tva.e_RelatedMaterial.elementize(), Location, errs, errcode?`${errcode}-22`:"RM022")
 				break;
 			case CONTENT_GUIDE_RM:
 				if (validContentGuideSourceLogo(HowRelated, SCHEMA_NAMESPACE)) {
@@ -675,7 +672,7 @@ function validateRelatedMaterial(RelatedMaterial, errs, Location, LocationType, 
 						checkValidLogo(HowRelated, Format, locator, errs, Location))
 				}
 				else
-					InvalidHrefValue(HowRelated.attr(dvbi.a_href).value(), tva.e_RelatedMaterial.elementize(), Location, errs, errcode?errcode+"-31":"RM031")
+					InvalidHrefValue(HowRelated.attr(dvbi.a_href).value(), tva.e_RelatedMaterial.elementize(), Location, errs, errcode?`${errcode}-31`:"RM031")
 				break;
 		}
 	}
@@ -696,19 +693,19 @@ function validateRelatedMaterial(RelatedMaterial, errs, Location, LocationType, 
  */
 function checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, elementName, elementLocation, node, errs, errCode=null) {
 	if (!node) {
-		errs.pushCode(errCode?errCode+"-0":"XL000", "checkXMLLangs() called with node==null", "invalid args")
+		errs.pushCode(errCode?`${errcode}-0`:"XL000", "checkXMLLangs() called with node==null", "invalid args")
 		return;
 	}
     let elementLanguages=[], i=0, elem
     while (elem=node.get(xPath(SCHEMA_PREFIX, elementName, ++i), SL_SCHEMA)) {
 		let lang=elem.attr(dvbi.a_lang)?elem.attr(dvbi.a_lang).value():"unspecified"
         if (isIn(elementLanguages, lang)) 
-            errs.pushCode(errCode?errCode+"-1":"XL001", `xml:lang=${lang.quote()} already specifed for ${elementName.elementize()} for ${elementLocation}`, "duplicate @xml:lang")
+            errs.pushCode(errCode?`${errcode}-1`:"XL001", `xml:lang=${lang.quote()} already specifed for ${elementName.elementize()} for ${elementLocation}`, "duplicate @xml:lang")
         else elementLanguages.push(lang);
 
         //if lang is specified, validate the format and value of the attribute against BCP47 (RFC 5646)
 		if (lang!="unspecified") 
-			checkLanguage(lang, "xml:lang", errs, errCode?errCode+"-2":"XL002")
+			checkLanguage(lang, "xml:lang", errs, errCode?`${errcode}-2`:"XL002")
     }
 }
 
@@ -807,7 +804,7 @@ function NoMediaLocator(src, loc, errs, errCode=null) {
  */
 function invalidValue(errs, errcode, elementName, attribName, invValue, parentElementName) {
 	errs.pushCode(errcode, 
-		`Invalid value ${invValue?(invValue.quote()+" "):""} for ${attribName?attribName.attribute(elementName):elementName.elementize()}${parentElementName?" in "+parentElementName.elementize():""}`,
+		`Invalid value ${invValue?`${invValue.quote()} `:""} for ${attribName?attribName.attribute(elementName):elementName.elementize()}${parentElementName?` in ${parentElementName.elementize()}`:""}`,
 		"invalid value")	
 }
 
@@ -852,46 +849,34 @@ function validateAContentGuideSource(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE,
 	}
 	loc=loc?loc:source.parent().name().elementize();
 	
-	checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, dvbi.e_Name, loc, source, errs, errCode?errCode+"c":"GS003")
-	checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, dvbi.e_ProviderName, loc, source, errs, errCode?errCode+"d":"GS004")
+	checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, dvbi.e_Name, loc, source, errs, errCode?`${errcode}c`:"GS003")
+	checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, dvbi.e_ProviderName, loc, source, errs, errCode?`${errcode}d`:"GS004")
 	
 	let rm=0, RelatedMaterial;
 	while (RelatedMaterial=source.get(xPath(SCHEMA_PREFIX, tva.e_RelatedMaterial, ++rm), SL_SCHEMA))
-		validateRelatedMaterial(RelatedMaterial, errs, loc, CONTENT_GUIDE_RM, SCHEMA_NAMESPACE, errCode?errCode+"e":"GS005")
+		validateRelatedMaterial(RelatedMaterial, errs, loc, CONTENT_GUIDE_RM, SCHEMA_NAMESPACE, errCode?`${errcode}-e`:"GS005")
 	
 	// ContentGuideSourceType::ScheduleInfoEndpoint - should be a URL
 	let sie=source.get(xPath(SCHEMA_PREFIX, dvbi.e_ScheduleInfoEndpoint), SL_SCHEMA)
 	if (sie && !patterns.isHTTPURL(sie.text()))
-		errs.pushCode(errCode?errCode+"f":"GS006", `${dvbi.e_ScheduleInfoEndpoint.elementize()} is not a valid URL`, "not URL")
+		errs.pushCode(errCode?`${errcode}-f`:"GS006", `${dvbi.e_ScheduleInfoEndpoint.elementize()} is not a valid URL`, "not URL")
 	
 	// ContentGuideSourceType::ProgramInfoEndpoint - should be a URL
 	let pie=source.get(xPath(SCHEMA_PREFIX, dvbi.e_ProgramInfoEndpoint), SL_SCHEMA)
 	if (pie && !patterns.isHTTPURL(pie.text()))
-		errs.pushCode(errCode?errCode+"g":"GS007", `${dvbi.e_ProgramInfoEndpoint.elementize()} is not a valid URL`, "not URL")
+		errs.pushCode(errCode?`${errcode}-g`:"GS007", `${dvbi.e_ProgramInfoEndpoint.elementize()} is not a valid URL`, "not URL")
 	
 	// ContentGuideSourceType::GroupInfoEndpoint - should be a URL
 	let gie=source.get(xPath(SCHEMA_PREFIX, dvbi.e_GroupInfoEndpoint), SL_SCHEMA)
 	if (gie && !patterns.isHTTPURL(gie.text()))
-		errs.pushCode(errCode?errCode+"h":"GS008", `${dvbi.e_GroupInfoEndpoint.elementize()} is not a valid URL`, "not URL")
+		errs.pushCode(errCode?`${errcode}-h`:"GS008", `${dvbi.e_GroupInfoEndpoint.elementize()} is not a valid URL`, "not URL")
 	
 	// ContentGuideSourceType::MoreEpisodesEndpoint - should be a URL
 	let mee=source.get(xPath(SCHEMA_PREFIX, dvbi.e_MoreEpisodesEndpoint), SL_SCHEMA)
 	if (mee && !patterns.isHTTPURL(mee.text()))
-		errs.pushCode(errCode?errCode+"h":"GS008", `${dvbi.e_MoreEpisodesEndpoint.elementize()} is not a valid URL}`, "not URL")
+		errs.pushCode(errCode?`${errcode}-i`:"GS008", `${dvbi.e_MoreEpisodesEndpoint.elementize()} is not a valid URL}`, "not URL")
 }
 
-
-/**
- * validate an element against a DVB FECLayerAddressType
- *
- * @param {object} layerParams    The node of the element to check
- * @param {Class}  errs           Errors found in validaton
- * @param {string} errCode        Error code prefix to be used in reports, if not present then use local codes
- */
-function checkFECLayerAddressType(layerParams, errs, errcode=null) {
-	if (layerParams.attr(dvbi.a_RTSPControlURL) && !patterns.isRTSPURL(layerParams.attr(dvbi.a_RTSPControlURL).value())) 
-		invalidValue(errs, errcode?errcode+"-6":"LA006", layerParams.name(), dvbi.a_RTSPControlURL, layerParams.attr(dvbi.a_RTSPControlURL).value())	
-}
 
 
 /**
@@ -910,9 +895,9 @@ function checkFECLayerAddressType(layerParams, errs, errcode=null) {
 function ValidateSynopsisType(SCHEMA, SCHEMA_PREFIX, Element, ElementName, requiredLengths, optionalLengths, parentLanguage, errs, errCode=null) {
 
 	function synopsisLengthError(elem, label, length) {
-		return `length of ${elementize(tva.a_length.attribute(elem)+"="+label.quote())} exceeds ${length} characters` }
+		return `length of ${elementize(`${tva.a_length.attribute(elem)}=${label.quote()}`)} exceeds ${length} characters` }
 	function synopsisToShortError(elem, label, length) {
-		return `length of ${elementize(tva.a_length.attribute(elem)+"="+label.quote())} is less than ${length} characters` }
+		return `length of ${elementize(`${tva.a_length.attribute(elem)}=${label.quote()}`)} is less than ${length} characters` }
 	function singleLengthLangError(elem, length, lang) {
 		return `only a single ${elementize(elem)} is permitted per length (${length}) and language (${lang})` }
 	function requiredSynopsisError(elem, length) {
@@ -926,7 +911,7 @@ function ValidateSynopsisType(SCHEMA, SCHEMA_PREFIX, Element, ElementName, requi
 	let briefLangs=[], shortLangs=[], mediumLangs=[], longLangs=[], extendedLangs=[];
 	while (ste=Element.get(xPath(SCHEMA_PREFIX, ElementName, ++s), SCHEMA)) {
 		
-		let synopsisLang=GetLanguage(knownLanguages, errs, ste, parentLanguage, false, errcode?errcode+"b":"SY002");
+		let synopsisLang=GetLanguage(knownLanguages, errs, ste, parentLanguage, false, errcode?`${errcode}-2`:"SY002");
 		let synopsisLength=ste.attr(tva.a_length)?ste.attr(tva.a_length).value():null;
 		
 		if (synopsisLength) {
@@ -935,60 +920,60 @@ function ValidateSynopsisType(SCHEMA, SCHEMA_PREFIX, Element, ElementName, requi
 				switch (synopsisLength) {
 					case tva.SYNOPSIS_BRIEF_LABEL:
 						if (cleanSynopsisLength > tva.SYNOPSIS_BRIEF_LENGTH)
-							errs.pushCode(errCode?errCode+"-10":"SY010", synopsisLengthError(ElementName, tva.SYNOPSIS_BRIEF_LABEL, tva.SYNOPSIS_BRIEF_LENGTH), "synopsis");
+							errs.pushCode(errCode?`${errcode}-10`:"SY010", synopsisLengthError(ElementName, tva.SYNOPSIS_BRIEF_LABEL, tva.SYNOPSIS_BRIEF_LENGTH), "synopsis");
 						hasBrief=true;
 						break;
 					case tva.SYNOPSIS_SHORT_LABEL:
 						if (cleanSynopsisLength > tva.SYNOPSIS_SHORT_LENGTH)
-							errs.pushCode(errCode?errCode+"-11":"SY011", synopsisLengthError(ElementName, tva.SYNOPSIS_SHORT_LABEL, tva.SYNOPSIS_SHORT_LENGTH), "synopsis");
+							errs.pushCode(errCode?`${errcode}-11`:"SY011", synopsisLengthError(ElementName, tva.SYNOPSIS_SHORT_LABEL, tva.SYNOPSIS_SHORT_LENGTH), "synopsis");
 						hasShort=true;
 						break;
 					case tva.SYNOPSIS_MEDIUM_LABEL:
 						if (cleanSynopsisLength > tva.SYNOPSIS_MEDIUM_LENGTH)
-							errs.pushCode(errCode?errCode+"-12":"SY012", synopsisLengthError(ElementName, tva.SYNOPSIS_MEDIUM_LABEL, tva.SYNOPSIS_MEDIUM_LENGTH), "synopsis");
+							errs.pushCode(errCode?`${errcode}-12`:"SY012", synopsisLengthError(ElementName, tva.SYNOPSIS_MEDIUM_LABEL, tva.SYNOPSIS_MEDIUM_LENGTH), "synopsis");
 						hasMedium=true;
 						break;
 					case tva.SYNOPSIS_LONG_LABEL:
 						if (cleanSynopsisLength > tva.SYNOPSIS_LONG_LENGTH)
-							errs.pushCode(errCode?errCode+"-13":"SY013", synopsisLengthError(ElementName, tva.SYNOPSIS_LONG_LABEL, tva.SYNOPSIS_LONG_LENGTH), "synopsis");
+							errs.pushCode(errCode?`${errcode}-13`:"SY013", synopsisLengthError(ElementName, tva.SYNOPSIS_LONG_LABEL, tva.SYNOPSIS_LONG_LENGTH), "synopsis");
 						hasLong=true;
 						break;						
 					case tva.SYNOPSIS_EXTENDED_LABEL:
 						if (cleanSynopsisLength < tva.SYNOPSIS_LENGTH_LENGTH)
-							errs.pushCode(errCode?errCode+"-14":"SY014", synopsisToShortError(ElementName, tva.SYNOPSIS_EXTENDED_LABEL, tva.SYNOPSIS_LONG_LENGTH), "synopsis");
+							errs.pushCode(errCode?`${errcode}-14`:"SY014", synopsisToShortError(ElementName, tva.SYNOPSIS_EXTENDED_LABEL, tva.SYNOPSIS_LONG_LENGTH), "synopsis");
 						hasExtended=true;
 						break;
 				}
 			}
 			else
-				errs.pushCode(errCode?errCode+"-15":"SY015", `${tva.a_length.attribute()}=${quote(synopsisLength)} is not permitted`, "synopsis")
+				errs.pushCode(errCode?`${errcode}-15`:"SY015", `${tva.a_length.attribute()}=${quote(synopsisLength)} is not permitted`, "synopsis")
 		}
 	
 		if (synopsisLang && synopsisLength) {
 			switch (synopsisLength) {
 				case tva.SYNOPSIS_BRIEF_LABEL:
 					if (isIn(briefLangs, synopsisLang)) 
-						errs.pushCode(errCode?errCode+"-21":"SY021", singleLengthLangError(ElementName, synopsisLength, synopsisLang), "synopsis");
+						errs.pushCode(errCode?`${errcode}-21`:"SY021", singleLengthLangError(ElementName, synopsisLength, synopsisLang), "synopsis");
 					else briefLangs.push(synopsisLang);
 					break;
 				case tva.SYNOPSIS_SHORT_LABEL:
 					if (isIn(shortLangs, synopsisLang)) 
-						errs.pushCode(errCode?errCode+"-22":"SY022", singleLengthLangError(ElementName, synopsisLength, synopsisLang), "synopsis");
+						errs.pushCode(errCode?`${errcode}-22`:"SY022", singleLengthLangError(ElementName, synopsisLength, synopsisLang), "synopsis");
 					else shortLangs.push(synopsisLang);
 					break;
 				case tva.SYNOPSIS_MEDIUM_LABEL:
 					if (isIn(mediumLangs, synopsisLang)) 
-						errs.pushCode(errCode?errCode+"-23":"SY023", singleLengthLangError(ElementName, synopsisLength, synopsisLang), "synopsis");
+						errs.pushCode(errCode?`${errcode}-23`:"SY023", singleLengthLangError(ElementName, synopsisLength, synopsisLang), "synopsis");
 					else mediumLangs.push(synopsisLang);
 					break;
 				case tva.SYNOPSIS_LONG_LABEL:
 					if (isIn(longLangs, synopsisLang)) 
-						errs.pushCode(errCode?errCode+"-24":"SY024", singleLengthLangError(ElementName, synopsisLength, synopsisLang), "synopsis");
+						errs.pushCode(errCode?`${errcode}-24`:"SY024", singleLengthLangError(ElementName, synopsisLength, synopsisLang), "synopsis");
 					else longLangs.push(synopsisLang);
 					break;
 				case tva.SYNOPSIS_EXTENDED_LABEL:
 					if (isIn(extendedLangs, synopsisLang)) 
-						errs.pushCode(errCode?errCode+"-25":"SY025", singleLengthLangError(ElementName, synopsisLength, synopsisLang), "synopsis");
+						errs.pushCode(errCode?`${errcode}-25`:"SY025", singleLengthLangError(ElementName, synopsisLength, synopsisLang), "synopsis");
 					else extendedLangs.push(synopsisLang);
 					break;
 			}
@@ -996,15 +981,15 @@ function ValidateSynopsisType(SCHEMA, SCHEMA_PREFIX, Element, ElementName, requi
 	}
 	
 	if (isIn(requiredLengths, tva.SYNOPSIS_BRIEF_LABEL) && !hasBrief)
-		errs.pushCode(errCode?errCode+"-31":"SY031", requiredSynopsisError(tva.SYNOPSIS_BRIEF_LABEL), "synopsis");	
+		errs.pushCode(errCode?`${errcode}-31`:"SY031", requiredSynopsisError(tva.SYNOPSIS_BRIEF_LABEL), "synopsis");	
 	if (isIn(requiredLengths, tva.SYNOPSIS_SHORT_LABEL) && !hasShort)
-		errs.pushCode(errCode?errCode+"-32":"SY032",requiredSynopsisError(tva.SYNOPSIS_SHORT_LABEL), "synopsis");	
+		errs.pushCode(errCode?`${errcode}-32`:"SY032",requiredSynopsisError(tva.SYNOPSIS_SHORT_LABEL), "synopsis");	
 	if (isIn(requiredLengths, tva.SYNOPSIS_MEDIUM_LABEL) && !hasMedium)
-		errs.pushCode(errCode?errCode+"-33":"SY022",requiredSynopsisError(tva.SYNOPSIS_MEDIUM_LABEL), "synopsis");	
+		errs.pushCode(errCode?`${errcode}-33`:"SY022",requiredSynopsisError(tva.SYNOPSIS_MEDIUM_LABEL), "synopsis");	
 	if (isIn(requiredLengths, tva.SYNOPSIS_LONG_LABEL) && !hasLong)
-		errs.pushCode(errCode?errCode+"-34":"SY034",requiredSynopsisError(tva.SYNOPSIS_LONG_LABEL), "synopsis");	
+		errs.pushCode(errCode?`${errcode}-34`:"SY034",requiredSynopsisError(tva.SYNOPSIS_LONG_LABEL), "synopsis");	
 	if (isIn(requiredLengths, tva.SYNOPSIS_EXTENDED_LABEL) && !hasExtended)
-		errs.pushCode(errCode?errCode+"-35":"SY035",requiredSynopsisError(tva.SYNOPSIS_EXTENDED_LABEL), "synopsis");	
+		errs.pushCode(errCode?`${errcode}-35`:"SY035",requiredSynopsisError(tva.SYNOPSIS_EXTENDED_LABEL), "synopsis");	
 }
 
 
@@ -1378,7 +1363,7 @@ module.exports.doValidateServiceList = function(SLtext, errs) {
 
 	//check service list <ContentGuideSourceList>
 	let ContentGuideSourceIDs=[],
-	    CGSourceList=SL.get("//"+xPath(SCHEMA_PREFIX, dvbi.e_ContentGuideSourceList), SL_SCHEMA)
+	    CGSourceList=SL.get(`//${xPath(SCHEMA_PREFIX, dvbi.e_ContentGuideSourceList)}`, SL_SCHEMA)
 	if (CGSourceList) {
 		let cgs=0, CGSource
 		while (CGSource=CGSourceList.get(xPath(SCHEMA_PREFIX, dvbi.e_ContentGuideSource, ++cgs), SL_SCHEMA)) {
@@ -1408,10 +1393,10 @@ module.exports.doValidateServiceList = function(SLtext, errs) {
 
 	// check <Service>
 	let s=0, service, knownServices=[], thisServiceId
-	while (service=SL.get("//"+xPath(SCHEMA_PREFIX, dvbi.e_Service, ++s), SL_SCHEMA)) {
+	while (service=SL.get(`//${xPath(SCHEMA_PREFIX, dvbi.e_Service, ++s)}`, SL_SCHEMA)) {
 		// for each service
 		errs.set("num services", s);
-		thisServiceId="service-"+s;  // use a default value in case <UniqueIdentifier> is not specified
+		thisServiceId=`service-${s}`;  // use a default value in case <UniqueIdentifier> is not specified
 		
 		let serviceOptionalElements=[dvbi.e_ServiceInstance, dvbi.e_TargetRegion, tva.e_RelatedMaterial, dvbi.e_ServiceGenre, dvbi.e_ServiceType, dvbi.e_RecordingInfo, dvbi.e_ContentGuideSource, dvbi.e_ContentGuideSourceRef, dvbi.e_ContentGuideServiceRef]
 		if (SchemaVersion(SCHEMA_NAMESPACE) > SCHEMA_v2)
@@ -1490,13 +1475,13 @@ module.exports.doValidateServiceList = function(SLtext, errs) {
 	// check <Service><ContentGuideServiceRef>
 	// issues a warning if this is not a reference to another service or is a reference to self
 	s=0;
-	while (service=SL.get("//"+xPath(SCHEMA_PREFIX, dvbi.e_Service, ++s), SL_SCHEMA)) {
+	while (service=SL.get(`//${xPath(SCHEMA_PREFIX, dvbi.e_Service, ++s)}`, SL_SCHEMA)) {
 		let CGSR=service.get(xPath(SCHEMA_PREFIX, dvbi.e_ContentGuideServiceRef), SL_SCHEMA);
 		if (CGSR) {
 			let uniqueID=service.get(xPath(SCHEMA_PREFIX, dvbi.e_UniqueIdentifier), SL_SCHEMA);
 			if (!isIn(knownServices, CGSR.text())) 
 				errs.pushCodeW("SL220", 
-					`${dvbi.e_ContentGuideServiceRef.elementize()}=${CGSR.text().quote()}${uniqueID?(" in service "+uniqueID.text().quote()):""} does not refer to another service`, 
+					`${dvbi.e_ContentGuideServiceRef.elementize()}=${CGSR.text().quote()}${uniqueID?(` in service ${uniqueID.text().quote()}`):""} does not refer to another service`, 
 					`invalid ${dvbi.e_ContentGuideServiceRef.elementize()}`)
 			if (uniqueID && (CGSR.text()==uniqueID.text()))
 				errs.pushCodeW("SL221", `${dvbi.e_ContentGuideServiceRef.elementize()} is self`, `self ${dvbi.e_ContentGuideServiceRef.elementize()}`)
@@ -1504,7 +1489,7 @@ module.exports.doValidateServiceList = function(SLtext, errs) {
 	}
 
 	// check <ServiceList><LCNTableList>
-	let LCNtableList=SL.get("//"+xPath(SCHEMA_PREFIX, dvbi.e_LCNTableList), SL_SCHEMA)
+	let LCNtableList=SL.get(`//${xPath(SCHEMA_PREFIX, dvbi.e_LCNTableList)}`, SL_SCHEMA)
 	if (LCNtableList) {
 		let l=0, LCNTable
 		while (LCNTable=LCNtableList.get(xPath(SCHEMA_PREFIX, dvbi.e_LCNTable, ++l), SL_SCHEMA)) {
