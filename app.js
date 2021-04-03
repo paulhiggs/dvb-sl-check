@@ -63,7 +63,7 @@ function drawForm(URLmode, res, lastInput=null, error=null, errors=null) {
 	function nonBreakingHyphen(s) { return s.replace(/-/g,"&#8209;")  }
 
 	const TABLE_STYLE="<style>table {border-collapse: collapse;border: 1px solid black;} th, td {text-align: left; padding: 8px; }	tr:nth-child(even) {background-color: #f2f2f2;}	</style>"
-	const FORM_TOP="<html><head>"+TABLE_STYLE+"<title>DVB-I Service List Validator</title></head><body>";
+	const FORM_TOP=`<html><head>${TABLE_STYLE}<title>DVB-I Service List Validator</title></head><body>`
 	const PAGE_HEADING="<h1>DVB-I Service List Validator</h1>";
 	const ENTRY_FORM_URL=`<form method=\"post\"><p><i>URL:</i></p><input type=\"url\" name=\"SLurl\" value=\"${lastInput?lastInput:""}\"><input type=\"submit\" value=\"submit\"></form>`
 	const ENTRY_FORM_FILE=`<form method=\"post\" encType=\"multipart/form-data\"><p><i>FILE:</i></p><input type=\"file\" name=\"SLfile\" value=\"${lastInput?lastInput:""}\"><input type=\"submit\" value=\"submit\"></form>`
