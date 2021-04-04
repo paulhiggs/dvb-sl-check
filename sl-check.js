@@ -1,4 +1,4 @@
-/*jshint esversion: 6 */
+/* jshint esversion: 6 */
 // pauls useful tools
 const phlib=require('./phlib/phlib.js');
 
@@ -1025,6 +1025,38 @@ function validateServiceInstance(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, Ser
 		return;
 	}
 
+	function checkAudioAttributes(child, index, array) {
+		switch (child.name()) {
+			case tva.e_Coding:
+				if (child.attr(dvbi.a_href) && !isIn(allowedAudioSchemes, child.attr(dvbi.a_href).value())) 
+					errs.pushCode("SI052", `invalid ${dvbi.a_href.attribute(child.name())} value for (${child.attr(dvbi.a_href).value()})`, "audio codec");
+				break;
+
+			case tva.e_MixType:
+				// taken from MPEG-7 AudioPresentationCS
+				if (child.attr(dvbi.a_href) && !isIn(AudioPresentationCS, child.attr(dvbi.a_href).value())) 
+					errs.pushCode("SI055", `invalid ${dvbi.a_href.attribute(child.name())} value for (${child.attr(dvbi.a_href).value()})`, "audio codec");
+				break;
+		}
+	}
+
+	function checkVideoAttributes(child, index, array) {
+		switch (child.name()) {
+			case tva.e_Coding:
+				if (child.attr(dvbi.a_href) && !isIn(allowedVideoSchemes, child.attr(dvbi.a_href).value())) 
+					errs.pushCode("SI072", `invalid ${dvbi.a_href.attribute(tva.e_VideoAttributes)} (${child.attr(dvbi.a_href).value()})`, "video codec");
+				break;
+			case tva.e_PictureFormat:
+				if (child.attr(dvbi.a_href) && !isIn(allowedPictureFormats, child.attr(dvbi.a_href).value())) 
+					errs.pushCode("SI082", `invalid ${dvbi.a_href.attribute(tva.e_PictureFormat)} value (${child.attr(dvbi.a_href).value()})`, tva.e_PictureFormat);
+				break;
+			case dvbi.e_Colorimetry:
+				if (child.attr(dvbi.a_href) && !isIn(dvbi.ALLOWED_COLORIMETRY, child.attr(dvbi.a_href).value())) 
+					errs.pushCode("SI084", `invalid ${dvbi.a_href.attribute(tva.e_Colorimetry)} value (${child.attr(dvbi.a_href).value()})`, tva.e_Colorimetry);
+				break;
+		}
+	}
+
 	checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, dvbi.e_DisplayName, `service instance in service=${thisServiceId.quote()}`, ServiceInstance, errs, "SI010");
 
 	// check @href of <ServiceInstance><RelatedMaterial>
@@ -1044,24 +1076,7 @@ function validateServiceInstance(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, Ser
 		// Check ContentAttributes/AudioAttributes - other subelements are checked with schema based validation
 		let cp=0, conf;
 		while ((conf=ContentAttributes.get(xPath(SCHEMA_PREFIX, tva.e_AudioAttributes, ++cp), SL_SCHEMA))!=null) {
-			
-			let children=conf.childNodes();
-			/* jslint -W083*/
-			if (children) children.forEachSubElement(child => {
-				switch (child.name()) {
-					case tva.e_Coding:
-						if (child.attr(dvbi.a_href) && !isIn(allowedAudioSchemes, child.attr(dvbi.a_href).value())) 
-							errs.pushCode("SI052", `invalid ${dvbi.a_href.attribute(child.name())} value for (${child.attr(dvbi.a_href).value()})`, "audio codec");
-						break;
-
-					case tva.e_MixType:
-						// taken from MPEG-7 AudioPresentationCS
-						if (child.attr(dvbi.a_href) && !isIn(AudioPresentationCS, child.attr(dvbi.a_href).value())) 
-							errs.pushCode("SI055", `invalid ${dvbi.a_href.attribute(child.name())} value for (${child.attr(dvbi.a_href).value()})`, "audio codec");
-						break;
-				}
-			});
-			/* jslint +W083*/
+			if (conf.childNodes()) conf.childNodes().forEachSubElement(checkAudioAttributes);
 		}
 		
 		// Check @href of ContentAttributes/AudioConformancePoints
@@ -1076,25 +1091,7 @@ function validateServiceInstance(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, Ser
 		// Check ContentAttributes/VideoAttributes - other subelements are checked with schema based validation
 		cp=0;
 		while ((conf=ContentAttributes.get(xPath(SCHEMA_PREFIX, tva.e_VideoAttributes, ++cp), SL_SCHEMA))!=null) {
-			let children=conf.childNodes();
-			/* jslint -W083 */
-			if (children) children.forEachSubElement(child => {
-				switch (child.name()) {
-					case tva.e_Coding:
-						if (child.attr(dvbi.a_href) && !isIn(allowedVideoSchemes, child.attr(dvbi.a_href).value())) 
-							errs.pushCode("SI072", `invalid ${dvbi.a_href.attribute(tva.e_VideoAttributes)} (${child.attr(dvbi.a_href).value()})`, "video codec");
-						break;
-					case tva.e_PictureFormat:
-						if (child.attr(dvbi.a_href) && !isIn(allowedPictureFormats, child.attr(dvbi.a_href).value())) 
-							errs.pushCode("SI082", `invalid ${dvbi.a_href.attribute(tva.e_PictureFormat)} value (${child.attr(dvbi.a_href).value()})`, tva.e_PictureFormat);
-						break;
-					case dvbi.e_Colorimetry:
-						if (child.attr(dvbi.a_href) && !isIn(dvbi.ALLOWED_COLORIMETRY, child.attr(dvbi.a_href).value())) 
-							errs.pushCode("SI084", `invalid ${dvbi.a_href.attribute(tva.e_Colorimetry)} value (${child.attr(dvbi.a_href).value()})`, tva.e_Colorimetry);
-						break;
-				}
-			});
-			/* jslint +W083 */
+			if (conf.childNodes()) conf.childNodes().forEachSubElement(checkVideoAttributes);
 		}
 
 		// Check @href of ContentAttributes/VideoConformancePoints
