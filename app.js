@@ -83,16 +83,17 @@ function drawForm(URLmode, res, lastInput=null, error=null, errors=null) {
 	let resultsShown=false;
 	if (errors) {
 		let tableHeader=false;
-		for (let i of errors.counts) {
-			if (errors.counts[i]!=0) {
-				if (!tableHeader) {
-					res.write(SUMMARY_FORM_HEADER);
-					tableHeader=true;
+		for (let i in errors.counts) 
+			if (errors.counts.hasOwnProperty(i)) {
+				if (errors.counts[i]!=0) {
+					if (!tableHeader) {
+						res.write(SUMMARY_FORM_HEADER);
+						tableHeader=true;
+					}
+					res.write(`<tr><td>${phlib.HTMLize(i)}</td><td>${errors.counts[i]}</td></tr>`);
+					resultsShown=true;
 				}
-				res.write(`<tr><td>${phlib.HTMLize(i)}</td><td>${errors.counts[i]}</td></tr>`);
-				resultsShown=true;
 			}
-		}
 		for (let i in errors.countsWarn) 
 			if (errors.countsWarn.hasOwnProperty(i)) {
 				if (errors.countsWarn[i]!=0) {
