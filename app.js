@@ -7,7 +7,8 @@ const express=require("express");
 const phlib=require('./phlib/phlib.js');
 
 // the service list validation
-const slCheck=require('./sl-check.js');
+const ServiceListCheck=require('./sl-check.js');
+var slcheck;
 
 // error buffer
 const ErrorList=require("./dvb-common/ErrorList.js");
@@ -175,7 +176,7 @@ function processQuery(req, res) {
 		fetch(req.query.SLurl)
 			.then(handleErrors)
 			.then(response => response.text())
-			.then(res=>slCheck.validateServiceList(res.replace(/(\r\n|\n|\r|\t)/gm,"")))
+			.then(res=>slcheck.validateServiceList(res.replace(/(\r\n|\n|\r|\t)/gm,"")))
 			.then(errs=>drawForm(true, res, req.query.SLurl, null, errs))
 			.then(res=>res.end())
 			.catch(error => {
@@ -212,7 +213,7 @@ function processFile(req, res) {
             errs.pushCode("PR101", `retrieval of FILE (${req.query.SLfile}) failed`);
         }
 		if (SLxml) 
-			slCheck.doValidateServiceList(SLxml.toString().replace(/(\r\n|\n|\r|\t)/gm,""), errs);
+			slcheck.doValidateServiceList(SLxml.toString().replace(/(\r\n|\n|\r|\t)/gm,""), errs);
 
         drawForm(false, res, req.query.SLfile, null, errs);
     }
@@ -276,8 +277,9 @@ const optionDefinitions=[
  
 const options=commandLineArgs(optionDefinitions);
 
+slcheck=new ServiceListCheck(options.urls);
 // read in the validation data
-slCheck.loadDataFiles(options.urls);
+// slCheck.loadDataFiles(options.urls);
 
 // initialize Express
 app.use(express.urlencoded({ extended: true }));
@@ -302,6 +304,17 @@ app.post("/checkFile", function(req,res) {
 // handle HTTP GET requests to /checkFile
 app.get("/checkFile", function(req,res){
     processFile(req,res);
+});
+
+app.get('/stats', function(req,res){
+	res.write("<html><head><title>Service List Verifier (stats)</title></head>");
+	res.write("<body>");
+	slcheck.getStats().forEach(e => {
+		res.write(`${e}<BR/>`);
+
+	});
+	res.write("</body></html>");
+	res.end();
 });
 
 // dont handle any other requests
