@@ -9,9 +9,8 @@ const dvbi=require("./dvb-common/DVB-I_definitions.js");
 const tva=require("./dvb-common/TVA_definitions.js");
 const {isJPEGmime, isPNGmime}=require("./dvb-common/MIME_checks.js");
 const {isTAGURI}=require("./dvb-common/URI_checks.js");
-//const {loadCSx}=require("./dvb-common/CS_handler.js");
 
-const {xPath, xPathM, isIn}=require("./sl-check-utils.js");
+const {xPath, xPathM, isIn}=require("./dvb-common/utils.js");
 
 const patterns=require("./dvb-common/pattern_checks.js");
 
