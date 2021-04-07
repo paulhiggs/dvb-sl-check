@@ -1443,16 +1443,12 @@ class ServiceListCheck {
 	}        
 
 	// check <Service><ContentGuideServiceRef>
-	// issues a warning if this is not a reference to another service or is a reference to self
+	// issues a warning if this is a reference to self
 	s=0;
 	while ((service=SL.get(`//${xPath(SCHEMA_PREFIX, dvbi.e_Service, ++s)}`, SL_SCHEMA))!=null) {
 		let CGSR=service.get(xPath(SCHEMA_PREFIX, dvbi.e_ContentGuideServiceRef), SL_SCHEMA);
 		if (CGSR) {
 			let uniqueID=service.get(xPath(SCHEMA_PREFIX, dvbi.e_UniqueIdentifier), SL_SCHEMA);
-			if (!isIn(knownServices, CGSR.text())) 
-				errs.pushCodeW("SL220", 
-					`${dvbi.e_ContentGuideServiceRef.elementize()}=${CGSR.text().quote()}${uniqueID?(` in service ${uniqueID.text().quote()}`):""} does not refer to another service`, 
-					`invalid ${dvbi.e_ContentGuideServiceRef.elementize()}`);
 			if (uniqueID && (CGSR.text()==uniqueID.text()))
 				errs.pushCodeW("SL221", `${dvbi.e_ContentGuideServiceRef.elementize()} is self`, `self ${dvbi.e_ContentGuideServiceRef.elementize()}`);
 		}
