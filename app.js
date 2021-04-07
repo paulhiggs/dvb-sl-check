@@ -62,8 +62,6 @@ function isEmpty(obj) {
  */
 function drawForm(URLmode, res, lastInput=null, error=null, errs=null) {
 	
-	function nonBreakingHyphen(s) { return s.replace(/-/g,"&#8209;");  }
-
 	const TABLE_STYLE="<style>table {border-collapse: collapse;border: 1px solid black;} th, td {text-align: left; padding: 8px; }	tr:nth-child(even) {background-color: #f2f2f2;}	</style>";
 	const XML_STYLE="<style>.xmlfont {font-family: Arial, Helvetica, sans-serif; font-size:90%;}</style>";
 
@@ -89,6 +87,9 @@ function drawForm(URLmode, res, lastInput=null, error=null, errs=null) {
 	res.write(PAGE_HEADING);   
 	res.write(URLmode?ENTRY_FORM_URL:ENTRY_FORM_FILE);
     res.write(RESULT_WITH_INSTRUCTION);
+
+	if (!URLmode && lastInput)
+		res.write(`${lastInput}: `);
 
 	if (error) 
 		res.write(`<p>${error}</p>`);
@@ -123,8 +124,10 @@ function drawForm(URLmode, res, lastInput=null, error=null, errs=null) {
 			res.write("</table><br/>");
 		}       
 	}
-	if (!error && !resultsShown) res.write("no errors or warnings");
-	
+	if (!error && !resultsShown)  {
+		res.write("no errors or warnings");
+		console.log(`URLmode=${URLmode}  lastInput=${lastInput}`);	
+	}
 	res.write(PAGE_BOTTOM);
 	
 	return new Promise((resolve, reject) => {
@@ -192,15 +195,16 @@ function processFile(req, res) {
             SLxml=req.files.SLfile.data;
         }
         catch (err) {
-            errs.pushCode("PR101", `retrieval of FILE (${req.query.SLfile}) failed`);
+			// this should not happen as file is read and uploaded through the browser
+            errs.pushCode("PR101", `reading of FILE (${req.files.SLfile.name}) failed`);
         }
 		if (SLxml) 
 			slcheck.doValidateServiceList(SLxml.toString().replace(/(\r\n|\n|\r|\t)/gm,""), errs);
 
-        drawForm(false, res, req.query.SLfile, null, errs);
+        drawForm(false, res, req.files.SLfile.name, null, errs);
     }
 	else {
-        drawForm(false, res, req.query.SLfile, "File not specified");
+        drawForm(false, res, req.files.SLfile.name, "File not specified");
         res.status(400);
     }
     
