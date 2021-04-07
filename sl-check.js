@@ -860,7 +860,7 @@ class ServiceListCheck {
  * @param {string} ElementName
  * @param {array}  requiredLengths	   @length attributes that are required to be present
  * @param {array}  optionalLengths	   @length attributes that can optionally be present
- * @param {string} parentLanguage	   the xml:lang of the parent element to ProgramInformation
+ * @param {string} parentLanguage	   the xml:lang of the parent element
  * @param {Class}  errs                errors found in validaton
  * @param {string} errCode             error code prefix to be used in reports, if not present then use local codes
  */
@@ -981,6 +981,7 @@ class ServiceListCheck {
 		return;
 	}
 
+	//<ServiceInstance><DisplayName>
 	this.checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, dvbi.e_DisplayName, `service instance in service=${thisServiceId.quote()}`, ServiceInstance, errs, "SI010");
 
 	// check @href of <ServiceInstance><RelatedMaterial>
@@ -993,6 +994,8 @@ class ServiceListCheck {
 	if (countControlApps>1)
 		errs.pushCode("SI021", "only a single service control application can be signalled in a service instance", "multi apps");
 
+	// <ServiceInstance><ContentProtection>
+
 	// <ServiceInstance><ContentAttributes>
 	let ContentAttributes=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_ContentAttributes), SL_SCHEMA);
 	if (ContentAttributes) {
@@ -1000,6 +1003,7 @@ class ServiceListCheck {
 		// Check ContentAttributes/AudioAttributes - other subelements are checked with schema based validation
 		let cp=0, conf;
 		while ((conf=ContentAttributes.get(xPath(SCHEMA_PREFIX, tva.e_AudioAttributes, ++cp), SL_SCHEMA))!=null) {
+			/* jshint -W083 */
 			if (conf.childNodes()) conf.childNodes().forEachSubElement(child => {
 				switch (child.name()) {
 					case tva.e_Coding:
@@ -1014,6 +1018,7 @@ class ServiceListCheck {
 						break;
 				}				
 			});
+			/* jshint +W083 */
 		}
 		
 		// Check @href of ContentAttributes/AudioConformancePoints
@@ -1028,6 +1033,7 @@ class ServiceListCheck {
 		// Check ContentAttributes/VideoAttributes - other subelements are checked with schema based validation
 		cp=0;
 		while ((conf=ContentAttributes.get(xPath(SCHEMA_PREFIX, tva.e_VideoAttributes, ++cp), SL_SCHEMA))!=null) {
+			/* jshint -W083 */
 			if (conf.childNodes()) conf.childNodes().forEachSubElement(child => {
 				switch (child.name()) {
 					case tva.e_Coding:
@@ -1044,6 +1050,7 @@ class ServiceListCheck {
 						break;
 				}				
 			});
+			/* jshint +W083 */
 		}
 
 		// Check @href of ContentAttributes/VideoConformancePoints
@@ -1084,7 +1091,9 @@ class ServiceListCheck {
 
 	// <ServiceInstance><SubscriptionPackage>
 	this.checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, dvbi.e_SubscriptionPackage, ServiceInstance.name().elementize(), ServiceInstance, errs, "SI131");
-			
+
+	// <ServicrInstance><FTAContentManagement>
+	
 	// note that the <SourceType> element becomes optional and in A177v2, but if specified then the relevant
 	// delivery parameters also need to be specified
 	let SourceType=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_SourceType), SL_SCHEMA);
@@ -1337,7 +1346,7 @@ class ServiceListCheck {
 		let cgs=0, CGSource;
 		while ((CGSource=CGSourceList.get(xPath(SCHEMA_PREFIX, dvbi.e_ContentGuideSource, ++cgs), SL_SCHEMA))!=null) {
 
-			this.validateAContentGuideSource(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, CGsource, errs,
+			this.validateAContentGuideSource(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, CGSource, errs,
 				`${dvbi.e_ServiceList}.${dvbi.e_ContentGuideSourceList}.${dvbi.e_ContentGuideSource}[${cgs}]`,  "SL070");
 			
 			if (CGSource.attr(dvbi.a_CGSID)) {
@@ -1419,7 +1428,7 @@ class ServiceListCheck {
 		}
 
 		// check <Service><ServiceDescription>
-		this.ValidateSynopsisType(SL_SCHEMA, SCHEMA_PREFIX, service, tva.e_ServiceDescription, 
+		this.ValidateSynopsisType(SL_SCHEMA, SCHEMA_PREFIX, service, dvbi.e_ServiceDescription, 
 			[], [tva.SYNOPSIS_LENGTH_BRIEF, tva.SYNOPSIS_LENGTH_SHORT, tva.SYNOPSIS_LENGTH_MEDIUM, tva.SYNOPSIS_LENGTH_LONG, tva.SYNOPSIS_LENGTH_EXTENDED], "***", errs, "SL170");
 
 		// check <Service><RecordingInfo>
