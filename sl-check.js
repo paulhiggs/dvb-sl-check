@@ -10,7 +10,7 @@ const tva=require("./dvb-common/TVA_definitions.js");
 const {isJPEGmime, isPNGmime}=require("./dvb-common/MIME_checks.js");
 const {isTAGURI}=require("./dvb-common/URI_checks.js");
 
-const {xPath, xPathM, isIn}=require("./dvb-common/utils.js");
+const {xPath, xPathM, isIn, unEntity}=require("./dvb-common/utils.js");
 
 const patterns=require("./dvb-common/pattern_checks.js");
 
@@ -650,7 +650,7 @@ class ServiceListCheck {
 							this.checkSignalledApplication(locator, errs, Location));
 				}
 				else 
-					this.InvalidHrefValue(HowRelated.attr(dvbi.a_href).value(), tva.e_RelatedMaterial.elementize(), Location, errs, errcode?`${errcode}-22`:"RM022");
+					this.InvalidHrefValue(HowRelated.attr(dvbi.a_href).value(), tva.e_RelatedMaterial.elementize(), Location, errs, errcode?`${errcode}-22`:"RM022");  //!!
 				break;
 			case CONTENT_GUIDE_RM:
 				if (this.validContentGuideSourceLogo(HowRelated, SCHEMA_NAMESPACE)) {
@@ -850,7 +850,6 @@ class ServiceListCheck {
 }
 
 
-
 /**
  * validate the SynopsisType elements 
  *
@@ -887,7 +886,7 @@ class ServiceListCheck {
 		let synopsisLength=ste.attr(tva.a_length)?ste.attr(tva.a_length).value():null;
 		
 		if (synopsisLength) {
-			let cleanSynopsisLength=ste.text().replace(/(&.+;)/ig,"*");  // replace ENTITY strings with a generic characterSet
+			let cleanSynopsisLength=unEntity(ste.text()).length;  // replace ENTITY strings with a generic characterSet
 			if (isIn(requiredLengths, synopsisLength) || isIn(optionalLengths, synopsisLength)) {
 				switch (synopsisLength) {
 					case tva.SYNOPSIS_BRIEF_LABEL:
@@ -1092,8 +1091,8 @@ class ServiceListCheck {
 	// <ServiceInstance><SubscriptionPackage>
 	this.checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, dvbi.e_SubscriptionPackage, ServiceInstance.name().elementize(), ServiceInstance, errs, "SI131");
 
-	// <ServicrInstance><FTAContentManagement>
-	
+	// <ServiceInstance><FTAContentManagement>
+
 	// note that the <SourceType> element becomes optional and in A177v2, but if specified then the relevant
 	// delivery parameters also need to be specified
 	let SourceType=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_SourceType), SL_SCHEMA);
@@ -1159,7 +1158,7 @@ class ServiceListCheck {
 				}
 		}
 		if (v1Params && this.SchemaVersion(SCHEMA_NAMESPACE)>=SCHEMA_v2)
-			errs.pushCodeW("SI160", `${dvbi.e_SourceType.elementize()} is deprecated in this version`);
+			errs.pushCodeW("SI160", `${dvbi.e_SourceType.elementize()} is deprecated in this version (serivce ${thisServiceId.quote()})`);
 	}
 	else {
 		if (this.SchemaVersion(SCHEMA_NAMESPACE)==SCHEMA_v1) 
