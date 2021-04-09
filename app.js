@@ -82,7 +82,6 @@ function drawForm(URLmode, res, lastInput=null, error=null, errs=null) {
 		res.write(`<td>${value.message?phlib.HTMLize(value.message):""}${value.element?`<br/><span class=\"xmlfont\">${phlib.HTMLize(value.element)}</span>`:""}</td></tr>`);
 	}	
 
-	
     res.write(PAGE_TOP);    
 	res.write(PAGE_HEADING);   
 	res.write(URLmode?ENTRY_FORM_URL:ENTRY_FORM_FILE);
@@ -124,10 +123,9 @@ function drawForm(URLmode, res, lastInput=null, error=null, errs=null) {
 			res.write("</table><br/>");
 		}       
 	}
-	if (!error && !resultsShown)  {
+	if (!error && !resultsShown) 
 		res.write("no errors or warnings");
-		console.log(`URLmode=${URLmode}  lastInput=${lastInput}`);	
-	}
+
 	res.write(PAGE_BOTTOM);
 	
 	return new Promise((resolve, reject) => {
@@ -247,7 +245,7 @@ morgan.token("agent", function getAgent(req) {
 });
 morgan.token("slLoc", function getCheckedLocation(req) {
 	if (req.files && req.files.SLfile) return `[${req.files.SLfile.name}]`;
-    if (req.query.SLurl) return `[${req.query.SLurl}]`;
+    if (req.query && req.query.SLurl) return `[${req.query.SLurl}]`;
 	return "[*]";
 });
 
@@ -257,8 +255,8 @@ app.use(morgan(":remote-addr :protocol :method :url :status :res[content-length]
 // parse command line options
 const optionDefinitions=[
   {name: 'urls', alias: 'u', type: Boolean, defaultValue: false},
-  {name: 'port', alias: 'p', type: Number, defaultValue:DEFAULT_HTTP_SERVICE_PORT },
-  {name: 'sport', alias: 's', type: Number, defaultValue:DEFAULT_HTTP_SERVICE_PORT+1 }
+  {name: 'port', alias: 'p', type: Number, defaultValue: DEFAULT_HTTP_SERVICE_PORT },
+  {name: 'sport', alias: 's', type: Number, defaultValue: DEFAULT_HTTP_SERVICE_PORT+1 }
 ];
  
 const options=commandLineArgs(optionDefinitions);
@@ -297,7 +295,6 @@ app.get('/stats', function(req,res){
 	res.write("<body>");
 	slcheck.getStats().forEach(e => {
 		res.write(`${e}<BR/>`);
-
 	});
 	res.write("</body></html>");
 	res.end();
@@ -318,8 +315,8 @@ var http_server=app.listen(options.port, function() {
 // start the HTTPS server
 // sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout ./selfsigned.key -out selfsigned.crt
 var https_options={
-    key:readmyfile(keyFilename),
-    cert:readmyfile(certFilename)
+    key: readmyfile(keyFilename),
+    cert: readmyfile(certFilename)
 };
 
 if (https_options.key && https_options.cert) {
