@@ -978,6 +978,15 @@ class ServiceListCheck {
 		return;
 	}
 
+	function checkMulticastDeliveryParams(params, errs, errCode) {
+		let IPMulticastAddress=params.get(xPath(SCHEMA_PREFIX, dvbi.e_IPMulticastAddress), SL_SCHEMA);
+		if (IPMulticastAddress) {
+			let CNAME=IPMulticastAddress.get(xPath(SCHEMA_PREFIX, dvbi.e_CNAME), SL_SCHEMA);
+			if (CNAME && !patterns.isDomainName(CNAME.text()))
+				errs.pushCode(`${errCode}-1`, `${dvbi.e_IPMulticastAddress.elementize()}${dvbi.e_CNAME.elementize()} is not a valid domain name for use as a CNAME`, "invalid CNAME");
+		}
+	}
+
 	//<ServiceInstance><DisplayName>
 	this.checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, dvbi.e_DisplayName, `service instance in service=${thisServiceId.quote()}`, ServiceInstance, errs, "SI010");
 
@@ -1156,31 +1165,35 @@ class ServiceListCheck {
 	// <ServiceInstance><DASHDeliveryParameters>
 	let DASHDeliveryParameters=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_DASHDeliveryParameters), SL_SCHEMA);
 	if (DASHDeliveryParameters) {
-		let URILoc=DASHDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_UriBasedLocation), SL_SCHEMA);
-		if (URILoc) {
-			let uriContentType=URILoc.attr(dvbi.a_contentType);
+		let URIBasedLocation=DASHDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_UriBasedLocation), SL_SCHEMA);
+		if (URIBasedLocation) {
+			let uriContentType=URIBasedLocation.attr(dvbi.a_contentType);
 			if (uriContentType && !validDASHcontentType(uriContentType.value()))
 				errs.pushCode("SI173", 
 					`${dvbi.a_contentType.attribute()}=${uriContentType.value().quote()} in service ${thisServiceId.quote()} is not valid`, 
 					`no ${dvbi.a_contentType.attribute()} for DASH`);
 
-			let URI=DASHDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_URI), SL_SCHEMA);
+			let URI=URIBasedLocation.get(xPath(SCHEMA_PREFIX, dvbi.e_URI), SL_SCHEMA);
 			if (URI && !patterns.isHTTPURL(URI.text()))
 				errs.pushCode("SI174", `invalid URL ${URI.text().quote()} specified for ${dvbi.e_URI.elementize()}`, "invalid resource URL");
 		}
 		
+		// <DASHDeliveryParameters><MulticastTSDeliveryParameters>
+		let MulticastTSDeliveryParameters=DASHDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_MulticastTSDeliveryParameters), SL_SCHEMA);
+		if (MulticastTSDeliveryParameters) {
+			checkMulticastDeliveryParams(MulticastTSDeliveryParameters, errs, "SI176");
+		}
+
+		// <DASHDeliveryParameters><Extension>
 		let e=0, Extension;
 		while ((Extension=DASHDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_Extension, ++e)), SL_SCHEMA)!=null) {
 			this.CheckExtension(Extension, EXTENSION_LOCATION_DASH_INSTANCE, errs, "SI175");
 		}
 	}
 
-	let haveDVBT=false, haveDVBS=false;
-
 	// <ServiceInstance><DVBTDeliveryParameters>			
 	let DVBTDeliveryParameters=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_DVBTDeliveryParameters), SL_SCHEMA);
 	if (DVBTDeliveryParameters) {
-		haveDVBT=true;
 
 		let DVBTtargetCountry=DVBTDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_TargetCountry), SL_SCHEMA);
 		if (DVBTtargetCountry && !this.knownCountries.isISO3166code(DVBTtargetCountry.text())) 
@@ -1196,16 +1209,11 @@ class ServiceListCheck {
 	}
 
 	// <ServiceInstance><DVBSDeliveryParameters>
-	let DVBSDeliveryParameters=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_DVBSDeliveryParameters), SL_SCHEMA);
-	if (DVBSDeliveryParameters)
-		haveDVBS=true;
+	// checked by schema validation	
 
 	// <ServiceInstance><SATIPDeliveryParameters>	
 	// SAT-IP Delivery Parameters can only exist if DVB-T or DVB-S delivery parameters are specified		
-	let SATIPDeliveryParameters=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_SATIPDeliveryParameters), SL_SCHEMA);
-	if (SATIPDeliveryParameters && (!haveDVBT || !haveDVBS))
-		errs.pushCode("SI211", 
-			`${dvbi.e_SATIPDeliveryParameters.elementize()} can only be specified with ${dvbi.e_DVBSDeliveryParameters.elementize()} or ${dvbi.e_DVBTDeliveryParameters.elementize()}`);
+	// checked by schema validation
 
 	// <ServiceInstance><RTSPDeliveryParameters>
 	let RTSPDeliveryParameters=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_RTSPDeliveryParameters), SL_SCHEMA);
@@ -1218,13 +1226,7 @@ class ServiceListCheck {
 	// <ServiceInstance><MulticastTSDeliveryParameters>
 	let MulticastTSDeliveryParameters=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_MulticastTSDeliveryParameters), SL_SCHEMA);
 	if (MulticastTSDeliveryParameters) {
-		
-		let IPMulticastAddress=MulticastTSDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_IPMulticastAddress), SL_SCHEMA);
-		if (IPMulticastAddress) {
-			let CNAME=IPMulticastAddress.get(xPath(SCHEMA_PREFIX, dvbi.e_CNAME), SL_SCHEMA);
-			if (CNAME && !patterns.isDomainName(CNAME.text()))
-				errs.pushCode("SI235", `${dvbi.e_IPMulticastAddress.elementize()}${dvbi.e_CNAME.elementize()} is not a valid domain name for use as a CNAME`, "invalid CNAME");
-		}
+		checkMulticastDeliveryParams(MulticastTSDeliveryParameters, errs, "SI235");
 	}
 
 	// <ServiceInstance><OtherDeliveryParameters>
