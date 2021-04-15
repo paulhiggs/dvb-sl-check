@@ -71,6 +71,7 @@
 			<element name="ServiceGenre" type="tva:GenreType" minOccurs="0"/>
 			<element name="ServiceType" type="tva:ControlledTermType" minOccurs="0"/>
 			<element name="ServiceDescription" type="tva:SynopsisType" minOccurs="0" maxOccurs="unbounded"/>
+			<element name="AdditionalServiceParameters" type="dvbisd:ExtensionBaseType" minOccurs="0" maxOccurs="unbounded"/>
 			<element name="RecordingInfo" type="tva:ControlledTermType" minOccurs="0"/>
 			<choice minOccurs="0">
 				<element name="ContentGuideSource" type="dvbisd:ContentGuideSourceType"/>

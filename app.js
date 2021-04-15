@@ -1,4 +1,4 @@
-/* jshint esversion: 6 */
+/* jshint esversion: 8 */
 // node.js - https://nodejs.org/en/
 // express framework - https://expressjs.com/en/4x/api.html
 const express=require("express");
@@ -74,9 +74,8 @@ function drawForm(URLmode, res, lastInput=null, error=null, errs=null) {
 	const RESULT_WITH_INSTRUCTION="<br><p><i>Results:</i></p>";
 	const SUMMARY_FORM_HEADER="<table><tr><th>item</th><th>count</th></tr>";
 
-	function DETAIL_FORM_HEADER(mode) {
-		 return `<table><tr><th>code</th><th>${mode}</th></tr>`; 
-	}
+	DETAIL_FORM_HEADER = (mode) => `<table><tr><th>code</th><th>${mode}</th></tr>`;
+
 	function tabluateMessage(value) {
 		res.write(`<tr><td>${value.code?phlib.HTMLize(value.code):""}</td>`);
 		res.write(`<td>${value.message?phlib.HTMLize(value.message):""}${value.element?`<br/><span class=\"xmlfont\">${phlib.HTMLize(value.element)}</span>`:""}</td></tr>`);
@@ -196,7 +195,7 @@ function processFile(req, res) {
 			// this should not happen as file is read and uploaded through the browser
             errs.pushCode("PR101", `reading of FILE (${req.files.SLfile.name}) failed`);
         }
-		if (SLxml) 
+		if (SLxml)
 			slcheck.doValidateServiceList(SLxml.toString().replace(/(\r\n|\n|\r|\t)/gm,""), errs);
 
         drawForm(false, res, req.files.SLfile.name, null, errs);

@@ -111,6 +111,60 @@ const SCHEMA_v2=2;
 const SCHEMA_v3=3;
 const SCHEMA_unknown= -1;
 
+const EXTENSION_LOCATION_SERVICE_LIST_REGISTRY=101,
+      EXTENSION_LOCATION_SERVICE_ELEMENT=201,
+	  EXTENSION_LOCATION_DASH_INSTANCE=202,
+	  EXTENSION_LOCATION_OTHER_DELIVERY=203;
+
+
+
+/** 
+ * determines if the identifer provided complies with the requirements for a service identifier
+ * at this stage only IETF RFC 4151 TAG URIs are permitted
+ *
+ * @param {String} identifier  The service identifier
+ * @returns {boolean} true if the service identifier complies with the specification otherwise false
+ */ 
+validServiceIdentifier = (identifier) => isTAGURI(identifier);
+
+/** 
+ * determines if the identifer provided is unique against a list of known identifiers
+ *
+ * @param {String} identifier  The service identifier
+ * @param {Array} identifiers  The list of known service identifiers
+ * @returns {boolean} true if the service identifier is unique otherwise false
+ */
+uniqueServiceIdentifier = (identifier, identifiers) => !isIn(identifiers, identifier);
+
+
+/** 
+ * determines if the identifer provided refers to a valid application being used with the service
+ *
+ * @param {String} hrefType  The type of the service application
+ * @returns {boolean} true if this is a valid application being used with the service else false
+ */
+validServiceControlApplication = (hrefType) => [dvbi.APP_IN_PARALLEL, dvbi.APP_IN_CONTROL].includes(hrefType);
+
+
+/** 
+ * determines if the identifer provided refers to a valid application to be launched when a service is unavailable
+ *
+ * @param {String} hrefType  The type of the service application
+ * @returns {boolean} true if this is a valid application to be launched when a service is unavailable else false
+ */
+validServiceUnavailableApplication = (hrefType) => hrefType==dvbi.APP_OUTSIDE_AVAILABILITY;
+
+
+/** 
+ * determines if the identifer provided refers to a valid DASH media type (single MPD or MPD playlist)
+ * per A177 clause 5.2.7.2
+ * 
+ * @param {String} contentType  The contentType for the file
+ * @returns {boolean} true if this is a valid MPD or playlist identifier
+ */
+validDASHcontentType = (contentType) => [dvbi.CONTENT_TYPE_DASH_MPD, dvbi.CONTENT_TYPE_DVB_PLAYLIST].includes(contentType);
+
+
 class ServiceListCheck {
 
 	constructor(useURLS) {
@@ -219,7 +273,6 @@ class ServiceListCheck {
 }
 
 
-
 /**
  * check a language code and log its result
  *
@@ -237,30 +290,6 @@ class ServiceListCheck {
 			errs.pushCodeW(errCode?`${errCode}-2`:"CL002", `${loc?loc:"language"} value ${lang.quote()} is redundant`, "redundant language");
 			break;	
 	}
-}
-
-
-/** 
- * determines if the identifer provided complies with the requirements for a service identifier
- * at this stage only IETF RFC 4151 TAG URIs are permitted
- *
- * @param {String} identifier  The service identifier
- * @returns {boolean} true if the service identifier complies with the specification otherwise false
- */ 
-/*private*/  validServiceIdentifier(identifier){
-    return isTAGURI(identifier);
-}
-
-
-/** 
- * determines if the identifer provided is unique against a list of known identifiers
- *
- * @param {String} identifier  The service identifier
- * @param {Array} identifiers  The list of known service identifiers
- * @returns {boolean} true if the service identifier is unique otherwise false
- */
-/*private*/  uniqueServiceIdentifier(identifier, identifiers) {
-    return !isIn(identifiers, identifier);
 }
 
 
@@ -316,54 +345,6 @@ class ServiceListCheck {
 	let rc=0, RegionChild;
 	while ((RegionChild=Region.get(xPath(SCHEMA_PREFIX, dvbi.e_Region, ++rc), SL_SCHEMA))!=null)
 		this.addRegion(SL_SCHEMA, SCHEMA_PREFIX, RegionChild, depth+1, knownRegionIDs, errs);
-}
-
-
-/** 
- * determines if the identifer provided refers to a valid application being used with the service
- *
- * @param {String} hrefType  The type of the service application
- * @returns {boolean} true if this is a valid application being used with the service else false
- */
-/*private*/  validServiceControlApplication(hrefType) {
-	return hrefType==dvbi.APP_IN_PARALLEL || hrefType==dvbi.APP_IN_CONTROL;
-}
-
-/** 
- * determines if the identifer provided refers to a valid application to be launched when a service is unavailable
- *
- * @param {String} hrefType  The type of the service application
- * @returns {boolean} true if this is a valid application to be launched when a service is unavailable else false
- */
-/*private*/  validServiceUnavailableApplication(hrefType) {
-	return hrefType==dvbi.APP_OUTSIDE_AVAILABILITY;
-}
-
-/** 
- * determines if the identifer provided refers to a valid application launching method
- *
- * @param {String} HowRelated  The service identifier
- * @returns {boolean} true if this is a valid application launching method else false
- */
-/*private*/  validServiceApplication(HowRelated) {
-    // return true if the HowRelated element has a 	valid CS value for Service Related Applications (A177 5.2.3)
-	// urn:dvb:metadata:cs:LinkedApplicationCS:2019
-	if (!HowRelated) return false;
-    let val=HowRelated.attr(dvbi.a_href)?HowRelated.attr(dvbi.a_href).value():null;
-	if (!val) return false;
-    return this.validServiceControlApplication(val) || this.validServiceUnavailableApplication(val);
-}
-
-
-/** 
- * determines if the identifer provided refers to a valid DASH media type (single MPD or MPD playlist)
- *
- * @param {String} contentType  The contentType for the file
- * @returns {boolean} true if this is a valid MPD or playlist identifier
- */
-/*private*/  validDASHcontentType(contentType) {
-    // per A177 clause 5.2.7.2
-    return contentType==dvbi.CONTENT_TYPE_DASH_MPD || contentType==dvbi.CONTENT_TYPE_DVB_PLAYLIST;
 }
 
 
@@ -579,6 +560,24 @@ class ServiceListCheck {
     }
 }
 
+/** 
+ * determines if the identifer provided refers to a valid application launching method
+ *
+ * @param {String} HowRelated  The service identifier
+ * @returns {boolean} true if this is a valid application launching method else false
+ */
+/*private*/  validServiceApplication(HowRelated) {
+    // return true if the HowRelated element has a 	valid CS value for Service Related Applications (A177 5.2.3)
+	// urn:dvb:metadata:cs:LinkedApplicationCS:2019
+	if (!HowRelated) return false;
+    let val=HowRelated.attr(dvbi.a_href)?HowRelated.attr(dvbi.a_href).value():null;
+	if (!val) return false;
+    return validServiceControlApplication(val) || validServiceUnavailableApplication(val);
+}
+
+
+
+
 
 /**
  * verifies if the specified RelatedMaterial element is valid according to specification (contents and location)
@@ -793,7 +792,7 @@ class ServiceListCheck {
 		let i=0, elem;
 		while ((elem=node.get(xPath(SCHEMA_PREFIX, tva.e_RelatedMaterial, ++i), SL_SCHEMA))!=null) {
 			let hr=elem.get(xPath(SCHEMA_PREFIX, tva.e_HowRelated), SL_SCHEMA);
-			if (hr && validServiceApplication(hr)) 
+			if (hr && this.validServiceApplication(hr)) 
 				return true;			
 		}
 	}
@@ -864,6 +863,7 @@ class ServiceListCheck {
  */
 /*private*/  ValidateSynopsisType(SCHEMA, SCHEMA_PREFIX, Element, ElementName, requiredLengths, optionalLengths, parentLanguage, errs, errCode=null) {
 
+	
 	function synopsisLengthError(elem, label, length) {
 		return `length of ${elementize(`${tva.a_length.attribute(elem)}=${label.quote()}`)} exceeds ${length} characters`; }
 	function synopsisToShortError(elem, label, length) {
@@ -872,7 +872,7 @@ class ServiceListCheck {
 		return `only a single ${elementize(elem)} is permitted per length (${length}) and language (${lang})`; }
 	function requiredSynopsisError(elem, length) {
 		return `a ${elementize(elem)} element with ${tva.a_length.attribute()}=${quote(length)} is required`; }
-	
+
 	if (!Element) {
 		errs.pushCode("SY000", "ValidateSynopsisType() called with Element==null");
 		return;
@@ -952,13 +952,13 @@ class ServiceListCheck {
 	if (isIn(requiredLengths, tva.SYNOPSIS_BRIEF_LABEL) && !hasBrief)
 		errs.pushCode(errCode?`${errCode}-31`:"SY031", requiredSynopsisError(tva.SYNOPSIS_BRIEF_LABEL), "synopsis");	
 	if (isIn(requiredLengths, tva.SYNOPSIS_SHORT_LABEL) && !hasShort)
-		errs.pushCode(errCode?`${errCode}-32`:"SY032",requiredSynopsisError(tva.SYNOPSIS_SHORT_LABEL), "synopsis");	
+		errs.pushCode(errCode?`${errCode}-32`:"SY032", requiredSynopsisError(tva.SYNOPSIS_SHORT_LABEL), "synopsis");	
 	if (isIn(requiredLengths, tva.SYNOPSIS_MEDIUM_LABEL) && !hasMedium)
-		errs.pushCode(errCode?`${errCode}-33`:"SY022",requiredSynopsisError(tva.SYNOPSIS_MEDIUM_LABEL), "synopsis");	
+		errs.pushCode(errCode?`${errCode}-33`:"SY022", requiredSynopsisError(tva.SYNOPSIS_MEDIUM_LABEL), "synopsis");	
 	if (isIn(requiredLengths, tva.SYNOPSIS_LONG_LABEL) && !hasLong)
-		errs.pushCode(errCode?`${errCode}-34`:"SY034",requiredSynopsisError(tva.SYNOPSIS_LONG_LABEL), "synopsis");	
+		errs.pushCode(errCode?`${errCode}-34`:"SY034", requiredSynopsisError(tva.SYNOPSIS_LONG_LABEL), "synopsis");	
 	if (isIn(requiredLengths, tva.SYNOPSIS_EXTENDED_LABEL) && !hasExtended)
-		errs.pushCode(errCode?`${errCode}-35`:"SY035",requiredSynopsisError(tva.SYNOPSIS_EXTENDED_LABEL), "synopsis");	
+		errs.pushCode(errCode?`${errCode}-35`:"SY035", requiredSynopsisError(tva.SYNOPSIS_EXTENDED_LABEL), "synopsis");	
 }
 
 
@@ -985,7 +985,7 @@ class ServiceListCheck {
 	let rm=0, countControlApps=0, RelatedMaterial;
 	while ((RelatedMaterial=ServiceInstance.get(xPath(SCHEMA_PREFIX, tva.e_RelatedMaterial, ++rm), SL_SCHEMA))!=null) {
 		let foundHref=this.validateRelatedMaterial(RelatedMaterial, errs, `service instance of ${thisServiceId.quote()}`, SERVICE_INSTANCE_RM, SCHEMA_NAMESPACE, "SI020");
-		if (foundHref!="" && this.validServiceControlApplication(foundHref)) 
+		if (foundHref!="" && validServiceControlApplication(foundHref)) 
 			countControlApps++;
 	}
 	if (countControlApps>1)
@@ -1159,7 +1159,7 @@ class ServiceListCheck {
 		let URILoc=DASHDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_UriBasedLocation), SL_SCHEMA);
 		if (URILoc) {
 			let uriContentType=URILoc.attr(dvbi.a_contentType);
-			if (uriContentType && !this.validDASHcontentType(uriContentType.value()))
+			if (uriContentType && !validDASHcontentType(uriContentType.value()))
 				errs.pushCode("SI173", 
 					`${dvbi.a_contentType.attribute()}=${uriContentType.value().quote()} in service ${thisServiceId.quote()} is not valid`, 
 					`no ${dvbi.a_contentType.attribute()} for DASH`);
@@ -1242,6 +1242,47 @@ class ServiceListCheck {
 }
 
 
+/*private*/ CheckExtension(extn, extLoc, errs, errCode=null) {
+	if (!extn) {
+		errs.pushCode(errCode?`${errCode}-0`:"CE000", "CheckExtension() called with extn=null");
+		return;
+	}
+	// extension type is checked in schema validation
+
+	if (extn.attr(dvbi.a_extensionName)) {
+		switch (extn.attr(dvbi.a_extensionName).value) {
+			case 'DVB-HB': 
+				if (extLoc != EXTENSION_LOCATION_SERVICE_LIST_REGISTRY)
+					errs.pushCode(errCode?`${errCode}-11`:"CE011", "DVB-HB Extension only permitted in Service List Registry");
+
+				break;
+		}
+
+	}
+}
+
+
+/*private*/ doSchemaVerification(ServiceList, SCHEMA_NAMESPACE, errs, errCode) {
+	let _rc=true;
+	switch (this.SchemaVersion(SCHEMA_NAMESPACE)) {
+		case SCHEMA_v1:
+			this.SchemaCheck(ServiceList, this.SLschema_v1, errs, `${errCode}-1`);
+			break;
+		case SCHEMA_v2:
+			this.SchemaCheck(ServiceList, this.SLschema_v2, errs, `${errCode}-2`);
+			break;
+		case SCHEMA_v3:
+			this.SchemaCheck(ServiceList, this.SLschema_v3, errs, `${errCode}-3`);
+			break;	
+		default:
+			_rc=false;
+			break;	
+	}
+	return _rc;
+
+}
+
+
 /**
  * validate the service list and record any errors
  *
@@ -1270,22 +1311,11 @@ class ServiceListCheck {
 		return;
 	}
 
-	if (this.SchemaVersion(SCHEMA_NAMESPACE)==SCHEMA_unknown) {
+	if (!this.doSchemaVerification(SL, SCHEMA_NAMESPACE, errs, "SL005")) {
 		errs.pushCode("SL004", `Unsupported namespace ${SCHEMA_NAMESPACE.quote()}`, 'schema error');
 		return;
 	}
 
-	switch (this.SchemaVersion(SCHEMA_NAMESPACE)) {
-		case SCHEMA_v1:
-			this.SchemaCheck(SL, this.SLschema_v1, errs, "SL005-1");
-			break;
-		case SCHEMA_v2:
-			this.SchemaCheck(SL, this.SLschema_v2, errs, "SL005-2");
-			break;
-		case SCHEMA_v3:
-			this.SchemaCheck(SL, this.SLschema_v3, errs, "SL005-3");
-			break;		
-	}
 
 	//check <ServiceList><Name>
 	this.checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, dvbi.e_Name, dvbi.e_ServiceList, SL, errs, "SL020");
@@ -1297,7 +1327,7 @@ class ServiceListCheck {
 	let rm=0, countControlApps=0, RelatedMaterial;
 	while ((RelatedMaterial=SL.get(xPath(SCHEMA_PREFIX, tva.e_RelatedMaterial, ++rm), SL_SCHEMA))!=null) {
 		let _foundHref=this.validateRelatedMaterial(RelatedMaterial, errs, "service list", SERVICE_LIST_RM, SCHEMA_NAMESPACE, "SL040");
-		if (_foundHref!="" && this.validServiceControlApplication(_foundHref)) 
+		if (_foundHref!="" && validServiceControlApplication(_foundHref)) 
 			countControlApps++;
 	}
 
@@ -1362,9 +1392,9 @@ class ServiceListCheck {
 		let uID=service.get(xPath(SCHEMA_PREFIX, dvbi.e_UniqueIdentifier), SL_SCHEMA);
 		if (uID) {
 			thisServiceId=uID.text();
-			if (!this.validServiceIdentifier(thisServiceId)) 
+			if (!validServiceIdentifier(thisServiceId)) 
 				errs.pushCode("SL110", `${thisServiceId.quote()} is not a valid service identifier`, "invalid tag");
-			if (!this.uniqueServiceIdentifier(thisServiceId, knownServices)) 
+			if (!uniqueServiceIdentifier(thisServiceId, knownServices)) 
 				errs.pushCode("SL111", `${thisServiceId.quote()} is not unique`, "non unique id");
 			knownServices.push(thisServiceId);			
 		}
@@ -1408,20 +1438,27 @@ class ServiceListCheck {
 		this.ValidateSynopsisType(SL_SCHEMA, SCHEMA_PREFIX, service, dvbi.e_ServiceDescription, 
 			[], [tva.SYNOPSIS_LENGTH_BRIEF, tva.SYNOPSIS_LENGTH_SHORT, tva.SYNOPSIS_LENGTH_MEDIUM, tva.SYNOPSIS_LENGTH_LONG, tva.SYNOPSIS_LENGTH_EXTENDED], "***", errs, "SL170");
 
+		// check <Service><AdditionalServiceParameters>
+		let _ap=0, AdditionalParams;
+		while ((AdditionalParams=service.get(xPath(SCHEMA_PREFIX, dvbi.e_AdditionalServiceParameters, ++_ap), SL_SCHEMA))!=null) {
+			errs.pushCodeW("SL180", `${dvbi.e_AdditionalServiceParameters.elementize()} is an experimental element`);
+			this.CheckExtension(AdditionalParams, EXTENSION_LOCATION_SERVICE_ELEMENT, errs, "SL181");
+		}
+
 		// check <Service><RecordingInfo>
 		let RecordingInfo=service.get(xPath(SCHEMA_PREFIX, dvbi.e_RecordingInfo), SL_SCHEMA);
 		if (RecordingInfo && RecordingInfo.attr(dvbi.a_href) && !this.RecordingInfoCSvalues.isIn(RecordingInfo.attr(dvbi.a_href).value())) 
-			errs.pushCode("SL181", `invalid ${dvbi.e_RecordingInfo.elementize()} value ${RecordingInfo.attr(dvbi.a_href).value().quote()} for service ${thisServiceId}`, `invalid ${dvbi.e_RecordingInfo}`);
+			errs.pushCode("SL190", `invalid ${dvbi.e_RecordingInfo.elementize()} value ${RecordingInfo.attr(dvbi.a_href).value().quote()} for service ${thisServiceId}`, `invalid ${dvbi.e_RecordingInfo}`);
 
 		// check <Service><ContentGuideSource>
 		let sCG=service.get(xPath(SCHEMA_PREFIX, dvbi.e_ContentGuideSource), SL_SCHEMA);
 		if (sCG) 
-			this.validateAContentGuideSource(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, sCG, errs, `${dvbi.e_ContentGuideSource.elementize()} in service ${thisServiceId}`, "SL190");
+			this.validateAContentGuideSource(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, sCG, errs, `${dvbi.e_ContentGuideSource.elementize()} in service ${thisServiceId}`, "SL200");
 
 		//check <Service><ContentGuideSourceRef>
 		let sCGref=service.get(xPath(SCHEMA_PREFIX, dvbi.e_ContentGuideSourceRef), SL_SCHEMA);
 		if (sCGref && !isIn(ContentGuideSourceIDs, sCGref.text())) 
-			errs.pushCode("SL200", `content guide reference ${sCGref.text().quote()} for service ${thisServiceId.quote()} not specified`, "unspecified content guide source");
+			errs.pushCode("SL210", `content guide reference ${sCGref.text().quote()} for service ${thisServiceId.quote()} not specified`, "unspecified content guide source");
 	}        
 
 	// check <Service><ContentGuideServiceRef>
