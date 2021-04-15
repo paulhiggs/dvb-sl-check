@@ -1169,6 +1169,10 @@ class ServiceListCheck {
 				errs.pushCode("SI174", `invalid URL ${URI.text().quote()} specified for ${dvbi.e_URI.elementize()}`, "invalid resource URL");
 		}
 		
+		let e=0, Extension;
+		while ((Extension=DASHDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_Extension, ++e)), SL_SCHEMA)!=null) {
+			this.CheckExtension(Extension, EXTENSION_LOCATION_DASH_INSTANCE, errs, "SI175");
+		}
 	}
 
 	let haveDVBT=false, haveDVBS=false;
@@ -1222,6 +1226,12 @@ class ServiceListCheck {
 				errs.pushCode("SI235", `${dvbi.e_IPMulticastAddress.elementize()}${dvbi.e_CNAME.elementize()} is not a valid domain name for use as a CNAME`, "invalid CNAME");
 		}
 	}
+
+	// <ServiceInstance><OtherDeliveryParameters>
+	let OtherDeliveryParameters=ServiceInstance.get(xPath(SCHEMA_PREFIX,e_OtherDeliveryParameters));
+	if (OtherDeliveryParameters) {
+		this.CheckExtension(OtherDeliveryParameters, EXTENSION_LOCATION_OTHER_DELIVERY, errs, "SI237");
+	}
 }
 
 
@@ -1254,7 +1264,6 @@ class ServiceListCheck {
 			case 'DVB-HB': 
 				if (extLoc != EXTENSION_LOCATION_SERVICE_LIST_REGISTRY)
 					errs.pushCode(errCode?`${errCode}-11`:"CE011", "DVB-HB Extension only permitted in Service List Registry");
-
 				break;
 		}
 
@@ -1441,7 +1450,7 @@ class ServiceListCheck {
 		// check <Service><AdditionalServiceParameters>
 		let _ap=0, AdditionalParams;
 		while ((AdditionalParams=service.get(xPath(SCHEMA_PREFIX, dvbi.e_AdditionalServiceParameters, ++_ap), SL_SCHEMA))!=null) {
-			errs.pushCodeW("SL180", `${dvbi.e_AdditionalServiceParameters.elementize()} is an experimental element`);
+			errs.pushCodeW("SL180", `${dvbi.e_AdditionalServiceParameters.elementize()} in ${dvbi.e_Service.elementize()} is an experimental element`);
 			this.CheckExtension(AdditionalParams, EXTENSION_LOCATION_SERVICE_ELEMENT, errs, "SL181");
 		}
 
