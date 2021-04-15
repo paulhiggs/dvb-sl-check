@@ -6,8 +6,10 @@ Validates the value space of the instance document, validation against the schem
 Supports 
 * the [:2019 schema](http://dvb.org/wp-content/uploads/2019/11/A177_DVB-I_Nov_2019.pdf) 
 * the [:2020 schema](https://dvb.org/wp-content/uploads/2019/11/A177r1_Service-Discovery-and-Programme-Metadata-for-DVB-I_July-2020.pdf) with its classification scheme updates
+* the :202x schema currently in development
 
 Checks performed:
+* validation against the appropriate schema
 * channel numbers are not duplictaed in LCN tables
 * region identifiers are unique
 * service identifiers are 
@@ -28,19 +30,17 @@ Checks performed:
   * DVB VideoCodecCS and DVB VideoCodecCS:2020
   * MPEG7 VisualCodingFormatCS
   * DVB VideoConformancePointsCS
-* channel numbers are unique in an LCN Table
 * ServiceType according to DVB ServiceTypeCS-2019
 * TargetRegion for the Service List, LCN Table and Services are defined in the region table
 * Validation of &lt;RelatedMaterial&gt; for Service List, Service, Service Instance, Content Guide Source
 * Unique @CGSID values
 * &lt;ContentGuideSourceRef&gt; refers to a &lt;ContentGuideSource&gt; in the &lt;ContentGuideSourceList&gt;
-* &lt;ContentGuideServiceRef&gt; refers to a different service in the service list
-* &lt;SourceType&gt; is according to specification and appropriate DeliveryParameters are provided
+* &lt;ContentGuideServiceRef&gt; for a servie is not the same as the &lt;UniqueIdentifier&gt; (warning)
+* &lt;SourceType&gt; is according to specification and appropriate DeliveryParameters are provided (note that &lt;SourceType&gt; is deprecated)
 * For &lt;DASHDeliveryParameters&gt;
   * valid @contentType in &lt;UriBasedLocation&gt;
 * only one element for each @xml:lang is specified in any mpeg7:TextualType element
-* valid format is used for DASHDeliveryParameters.Extension@extensionName
-* valid format is used for OtherDeliveryParameters@extensionName
+* SAT&lt;IP parameters are only specified with 
   
 ## Use
 
