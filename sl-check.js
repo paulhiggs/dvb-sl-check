@@ -165,6 +165,20 @@ validServiceUnavailableApplication = (hrefType) => hrefType==dvbi.APP_OUTSIDE_AV
 validDASHcontentType = (contentType) => [dvbi.CONTENT_TYPE_DASH_MPD, dvbi.CONTENT_TYPE_DVB_PLAYLIST].includes(contentType);
 
 
+
+/**
+ * Add an error message an incorrect country code is specified in transmission parameters
+ *
+ * @param {String} value    The invalid country code
+ * @param {String} src      The transmission mechanism
+ * @param {String} loc      The location of the element
+ */
+InvalidCountryCode = (value, src, loc) => `invalid country code ${value.quote()} for ${src} parameters in ${loc}`;
+
+
+
+
+
 class ServiceListCheck {
 
 	constructor(useURLS) {
@@ -335,18 +349,17 @@ class ServiceListCheck {
 	
 	// <Region><Postcode>
 	let pc=0, Postcode, PostcodeErrorMessage="invalid postcode";
-	while ((Postcode=Region.get(xPath(SCHEMA_PREFIX, dvbi.e_Postcode, ++pc), SL_SCHEMA))!=null)
+	while ((Postcode=Region.get(xPath(SCHEMA_PREFIX, dvbi.e_Postcode, ++pc), SL_SCHEMA))!=null) 
 		if (!patterns.isPostcode(Postcode.text()))
 			errs.pushCode("AR011", `${Postcode.text().quote()} is not a valid postcode`, PostcodeErrorMessage);
-
+	
     if (depth > dvbi.MAX_SUBREGION_LEVELS) 
         errs.pushCode("AR007", `${dvbi.e_Region.elementize()} depth exceeded (>${dvbi.MAX_SUBREGION_LEVELS}) for sub-region ${regionID.quote()}`, "region depth exceeded");
 
 	let rc=0, RegionChild;
-	while ((RegionChild=Region.get(xPath(SCHEMA_PREFIX, dvbi.e_Region, ++rc), SL_SCHEMA))!=null)
+	while ((RegionChild=Region.get(xPath(SCHEMA_PREFIX, dvbi.e_Region, ++rc), SL_SCHEMA))!=null) 
 		this.addRegion(SL_SCHEMA, SCHEMA_PREFIX, RegionChild, depth+1, knownRegionIDs, errs);
 }
-
 
 /**
  * looks for the {index, value} pair within the array of permitted values
@@ -357,15 +370,15 @@ class ServiceListCheck {
  * @returns {boolean} true if {index, value} pair exists in the list of allowed values when namespace is specific or if any val: equals value with namespace is ANY_NAMESPACE, else false
  */
 /*private*/  match(permittedValues, version, value) {
-	if (!value || !permittedValues) return false;
-	if (version==ANY_NAMESPACE) {
-		let i=permittedValues.find(elem => elem.value==value);
-		return i!=undefined;
+	if (value && permittedValues) {
+		if (version==ANY_NAMESPACE) 
+			return permittedValues.find(elem => elem.value==value)!=undefined;
+		else {
+			let i=permittedValues.find(elem => elem.ver==version);
+			return i && i.val==value;
+		}
 	}
-	else {
-		let i=permittedValues.find(elem => elem.ver==version);
-		return i && i.val==value;
-	}
+	return false;
 } 
  
 
@@ -723,20 +736,6 @@ class ServiceListCheck {
 
 
 /**
- * Add an error message an incorrect country code is specified in transmission parameters
- *
- * @param {String} value    The invalid country code
- * @param {String} src      The transmission mechanism
- * @param {String} loc      The location of the element
- * @param {Object} errs     Errors buffer
- * @param {String} errCode  The error code to be reported
- */
-/*private*/  InvalidCountryCode(value, src, loc, errs, errCode=null) {
-	errs.pushCode(errCode?errCode:"XX104", `invalid country code ${value.quote()} for ${src} parameters in ${loc}`, "invalid country code");
-}
-
-
-/**
  * Add an error message an unspecifed target region is used
  *
  * @param {String} region   The unspecified target region
@@ -823,7 +822,7 @@ class ServiceListCheck {
 	this.checkXMLLangs(SL_SCHEMA, SCHEMA_PREFIX, dvbi.e_ProviderName, loc, source, errs, errCode?`${errCode}d`:"GS004");
 	
 	let rm=0, RelatedMaterial;
-	while ((RelatedMaterial=source.get(xPath(SCHEMA_PREFIX, tva.e_RelatedMaterial, ++rm), SL_SCHEMA))!=null)
+	while ((RelatedMaterial=source.get(xPath(SCHEMA_PREFIX, tva.e_RelatedMaterial, ++rm), SL_SCHEMA))!=null) 
 		this.validateRelatedMaterial(RelatedMaterial, errs, loc, CONTENT_GUIDE_RM, SCHEMA_NAMESPACE, errCode?`${errCode}-e`:"GS005");
 	
 	// ContentGuideSourceType::ScheduleInfoEndpoint - should be a URL
@@ -854,7 +853,7 @@ class ServiceListCheck {
  * @param {string} SCHEMA              Used when constructing Xpath queries
  * @param {string} SCHEMA_PREFIX       Used when constructing Xpath queries
  * @param {Object} Element             the element whose children should be checked
- * @param {string} ElementName
+ * @param {string} ElementName		   the name of the child element to be checked
  * @param {array}  requiredLengths	   @length attributes that are required to be present
  * @param {array}  optionalLengths	   @length attributes that can optionally be present
  * @param {string} parentLanguage	   the xml:lang of the parent element
@@ -863,7 +862,6 @@ class ServiceListCheck {
  */
 /*private*/  ValidateSynopsisType(SCHEMA, SCHEMA_PREFIX, Element, ElementName, requiredLengths, optionalLengths, parentLanguage, errs, errCode=null) {
 
-	
 	function synopsisLengthError(elem, label, length) {
 		return `length of ${elementize(`${tva.a_length.attribute(elem)}=${label.quote()}`)} exceeds ${length} characters`; }
 	function synopsisToShortError(elem, label, length) {
@@ -1009,7 +1007,7 @@ class ServiceListCheck {
 		// Check ContentAttributes/AudioAttributes - other subelements are checked with schema based validation
 		let cp=0, conf;
 		while ((conf=ContentAttributes.get(xPath(SCHEMA_PREFIX, tva.e_AudioAttributes, ++cp), SL_SCHEMA))!=null) 
-			/* jshint -W083 */
+		    /* jshint -W083 */
 			if (conf.childNodes()) conf.childNodes().forEachSubElement(child => {
 				switch (child.name()) {
 					case tva.e_Coding:
@@ -1024,7 +1022,7 @@ class ServiceListCheck {
 				}				
 			});
 			/* jshint +W083 */
-		
+
 		// Check @href of ContentAttributes/AudioConformancePoints
 		cp=0;
 		while ((conf=ContentAttributes.get(xPath(SCHEMA_PREFIX, dvbi.e_AudioConformancePoint, ++cp), SL_SCHEMA))!=null) 
@@ -1061,12 +1059,12 @@ class ServiceListCheck {
 
 		// Check ContentAttributes/CaptionLanguage
 		cp=0;
-		while ((conf=ContentAttributes.get(xPath(SCHEMA_PREFIX, tva.e_CaptionLanguage, ++cp), SL_SCHEMA))!=null)
+		while ((conf=ContentAttributes.get(xPath(SCHEMA_PREFIX, tva.e_CaptionLanguage, ++cp), SL_SCHEMA))!=null) 
 			this.checkLanguage(conf.text(), tva.e_CaptionLanguage.elementize(), errs, "SI101");
 
 		// Check ContentAttributes/SignLanguage
 		cp=0;
-		while ((conf=ContentAttributes.get(xPath(SCHEMA_PREFIX, tva.e_SignLanguage, ++cp), SL_SCHEMA))!=null) 
+		while ((conf=ContentAttributes.get(xPath(SCHEMA_PREFIX, tva.e_SignLanguage, ++cp), SL_SCHEMA))!=null)
 			this.checkLanguage(conf.text(), tva.e_SignLanguage.elementize(), errs, "SI111");
 	}
 	
@@ -1074,7 +1072,7 @@ class ServiceListCheck {
 	let Availability=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_Availability), SL_SCHEMA);
 	if (Availability) {
 		let Period, p=0;
-		while ((Period=Availability.get(xPath(SCHEMA_PREFIX, dvbi.e_Period, ++p), SL_SCHEMA))!=null) 
+		while ((Period=Availability.get(xPath(SCHEMA_PREFIX, dvbi.e_Period, ++p), SL_SCHEMA))!=null)
 			if (Period.attr(dvbi.a_validFrom) && Period.attr(dvbi.a_validTo)) {
 				// validTo should be >= validFrom
 				let fr=new Date(Period.attr(dvbi.a_validFrom).value()), 
@@ -1155,7 +1153,7 @@ class ServiceListCheck {
 				}
 		}
 		if (v1Params && this.SchemaVersion(SCHEMA_NAMESPACE)>=SCHEMA_v2)
-			errs.pushCodeW("SI160", `${dvbi.e_SourceType.elementize()} is deprecated in this version (serivce ${thisServiceId.quote()})`);
+			errs.pushCodeW("SI160", `${dvbi.e_SourceType.elementize()} is deprecated in this version (serivce ${thisServiceId.quote()})`, 'deprecated feature');
 	}
 	else {
 		if (this.SchemaVersion(SCHEMA_NAMESPACE)==SCHEMA_v1) 
@@ -1186,7 +1184,7 @@ class ServiceListCheck {
 
 		// <DASHDeliveryParameters><Extension>
 		let e=0, Extension;
-		while ((Extension=DASHDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_Extension, ++e)), SL_SCHEMA)!=null) {
+		while ((Extension=DASHDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_Extension, ++e), SL_SCHEMA))!=null) {
 			this.CheckExtension(Extension, EXTENSION_LOCATION_DASH_INSTANCE, errs, "SI175");
 		}
 	}
@@ -1194,10 +1192,9 @@ class ServiceListCheck {
 	// <ServiceInstance><DVBTDeliveryParameters>			
 	let DVBTDeliveryParameters=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_DVBTDeliveryParameters), SL_SCHEMA);
 	if (DVBTDeliveryParameters) {
-
 		let DVBTtargetCountry=DVBTDeliveryParameters.get(xPath(SCHEMA_PREFIX, dvbi.e_TargetCountry), SL_SCHEMA);
 		if (DVBTtargetCountry && !this.knownCountries.isISO3166code(DVBTtargetCountry.text())) 
-			this.InvalidCountryCode(DVBTtargetCountry.text(), "DVB-T", `service ${thisServiceId.quote()}`, errs, "SI182");
+			errs.pushCode("SI182", InvalidCountryCode(DVBTtargetCountry.text(), "DVB-T", `service ${thisServiceId.quote()}`), "invalid country code");
 	}
 
 	// <ServiceInstance><DVBCDeliveryParameters>
@@ -1205,7 +1202,7 @@ class ServiceListCheck {
 	if (DVBCDeliveryParameters) {
 		let DVBCtargetCountry=ServiceInstance.get(xPathM(SCHEMA_PREFIX, [dvbi.e_DVBCDeliveryParameters, dvbi.e_TargetCountry]), SL_SCHEMA);
 		if (DVBCtargetCountry && !this.knownCountries.isISO3166code(DVBCtargetCountry.text()))  
-			this.InvalidCountryCode(DVBCtargetCountry.text(), "DVB-C", `service ${thisServiceId.quote()}`, errs, "SI191");
+			errs.pushCode("SI191", InvalidCountryCode(DVBCtargetCountry.text(), "DVB-C", `service ${thisServiceId.quote()}`), "invalid country code");
 	}
 
 	// <ServiceInstance><DVBSDeliveryParameters>
@@ -1230,7 +1227,7 @@ class ServiceListCheck {
 	}
 
 	// <ServiceInstance><OtherDeliveryParameters>
-	let OtherDeliveryParameters=ServiceInstance.get(xPath(SCHEMA_PREFIX,e_OtherDeliveryParameters));
+	let OtherDeliveryParameters=ServiceInstance.get(xPath(SCHEMA_PREFIX, dvbi.e_OtherDeliveryParameters), SL_SCHEMA);
 	if (OtherDeliveryParameters) {
 		this.CheckExtension(OtherDeliveryParameters, EXTENSION_LOCATION_OTHER_DELIVERY, errs, "SI237");
 	}
@@ -1386,13 +1383,13 @@ class ServiceListCheck {
 	if (slGCS) 
 		this.validateAContentGuideSource(SL_SCHEMA, SCHEMA_PREFIX, SCHEMA_NAMESPACE, slGCS, errs, `${dvbi.e_ServiceList}.${dvbi.e_ContentGuideSource}`, "SL080");
 
-	errs.set("num services", 0);
+	errs.setW("num services", 0);
 
 	// check <Service>
 	let s=0, service, knownServices=[], thisServiceId;
 	while ((service=SL.get(xPath(SCHEMA_PREFIX, dvbi.e_Service, ++s), SL_SCHEMA))!=null) {
 		// for each service
-		errs.set("num services", s);
+		errs.setW("num services", s);
 		thisServiceId=`service-${s}`;  // use a default value in case <UniqueIdentifier> is not specified
 		
 		let serviceOptionalElements=[dvbi.e_ServiceInstance, dvbi.e_TargetRegion, tva.e_RelatedMaterial, dvbi.e_ServiceGenre, dvbi.e_ServiceType, dvbi.e_RecordingInfo, dvbi.e_ContentGuideSource, dvbi.e_ContentGuideSourceRef, dvbi.e_ContentGuideServiceRef];
@@ -1475,7 +1472,7 @@ class ServiceListCheck {
 	// check <Service><ContentGuideServiceRef>
 	// issues a warning if this is a reference to self
 	s=0;
-	while ((service=SL.get(`//${xPath(SCHEMA_PREFIX, dvbi.e_Service, ++s)}`, SL_SCHEMA))!=null) {
+	while ((service=SL.get("//"+xPath(SCHEMA_PREFIX, dvbi.e_Service, ++s), SL_SCHEMA))!=null) {
 		let CGSR=service.get(xPath(SCHEMA_PREFIX, dvbi.e_ContentGuideServiceRef), SL_SCHEMA);
 		if (CGSR) {
 			let uniqueID=service.get(xPath(SCHEMA_PREFIX, dvbi.e_UniqueIdentifier), SL_SCHEMA);
@@ -1485,11 +1482,10 @@ class ServiceListCheck {
 	}
 
 	// check <ServiceList><LCNTableList>
-	let LCNtableList=SL.get(`//${xPath(SCHEMA_PREFIX, dvbi.e_LCNTableList)}`, SL_SCHEMA);
+	let LCNtableList=SL.get("//"+xPath(SCHEMA_PREFIX, dvbi.e_LCNTableList), SL_SCHEMA);
 	if (LCNtableList) {
 		let l=0, LCNTable;
 		while ((LCNTable=LCNtableList.get(xPath(SCHEMA_PREFIX, dvbi.e_LCNTable, ++l), SL_SCHEMA))!=null) {
-			
 			// <LCNTable><TargetRegion>
 			let tr=0, TargetRegion, lastTargetRegion="";
 			while ((TargetRegion=LCNTable.get(xPath(SCHEMA_PREFIX, dvbi.e_TargetRegion, ++tr), SL_SCHEMA))!=null) {
@@ -1504,7 +1500,6 @@ class ServiceListCheck {
 			// <LCNTable><LCN>
 			let LCNNumbers=[], e=0, LCN;
 			while ((LCN=LCNTable.get(xPath(SCHEMA_PREFIX, dvbi.e_LCN, ++e), SL_SCHEMA))!=null) {
-				
 				// LCN@channelNumber
 				if (LCN.attr(dvbi.a_channelNumber)) {
 					let _chanNum=LCN.attr(dvbi.a_channelNumber).value();
@@ -1602,7 +1597,6 @@ class ServiceListCheck {
 	this.SLschema_v1=libxml.parseXmlString(fs.readFileSync(DVBI_ServiceListSchemaFilename_v1));
     this.SLschema_v2=libxml.parseXmlString(fs.readFileSync(DVBI_ServiceListSchemaFilename_v2));
 	this.SLschema_v3=libxml.parseXmlString(fs.readFileSync(DVBI_ServiceListSchemaFilename_v3));
-
 }
 
 }
