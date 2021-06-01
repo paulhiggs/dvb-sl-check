@@ -62,12 +62,12 @@ const DVB_AudioCodecCS2020Filename=path.join(DVB_COMMON_DIR, "dvb/cs/", DVB_Audi
 const DVB_AudioCodecCS2020URL=`${DVB_METADATA}cs/${DVB_AudioCodecCS2020}`;
 
 const DVB_VideoCodecCS2007="2007/VideoCodecCS.xml";
-const DVB_VideoCodecCSFilename=path.join(DVB_COMMON_DIR, "dvb/cs/", DVB_VideoCodecCS2007);
-const DVB_VideoCodecCSURL=`${DVB_METADATA}cs/${DVB_VideoCodecCS2007}`;
+const DVB_VideoCodecCS2007Filename=path.join(DVB_COMMON_DIR, "dvb/cs/", DVB_VideoCodecCS2007);
+const DVB_VideoCodecCS2007URL=`${DVB_METADATA}cs/${DVB_VideoCodecCS2007}`;
 
-const DVB_VideoCodecCS2020="2020/VideoCodecCS.xml";
-const DVB_VideoCodecCS2020Filename=path.join(DVB_COMMON_DIR, "dvb/cs", DVB_VideoCodecCS2020);
-const DVB_VideoCodecCS2020URL=`${DVB_METADATA}cs/${DVB_VideoCodecCS2020}`;
+const DVB_VideoCodecCS2021="2021/VideoCodecCS.xml";
+const DVB_VideoCodecCS2021Filename=path.join(DVB_COMMON_DIR, "dvb/cs", DVB_VideoCodecCS2021);
+const DVB_VideoCodecCS2021URL=`${DVB_METADATA}cs/${DVB_VideoCodecCS2021}`;
 
 const MPEG_AudioCodingFormatCS="AudioCodingFormatCS.xml";
 const MPEG7_AudioCodingFormatCSFilename=path.join(DVB_COMMON_DIR, "mpeg7", MPEG_AudioCodingFormatCS);
@@ -86,8 +86,10 @@ const DVB_AudioConformanceCSFilename=path.join(DVB_COMMON_DIR, "dvb/cs/2017", DV
 const DVB_AudioConformanceCSURL=`${DVB_METADATA}cs/2017/${DVB_AudioConformanceCS}`;
 
 const DVB_VideoConformanceCS="VideoConformancePointsCS.xml";
-const DVB_VideoConformanceCSFilename=path.join(DVB_COMMON_DIR, "dvb/cs/2017", DVB_VideoConformanceCS);
-const DVB_VideoConformanceCSURL=`${DVB_METADATA}cs/2017/${DVB_VideoConformanceCS}`;
+const DVB_VideoConformanceCS2017Filename=path.join(DVB_COMMON_DIR, "dvb/cs/2017", DVB_VideoConformanceCS);
+const DVB_VideoConformanceCS2017URL=`${DVB_METADATA}cs/2017/${DVB_VideoConformanceCS}`;
+const DVB_VideoConformanceCS2021Filename=path.join(DVB_COMMON_DIR, "dvb/cs/2021", DVB_VideoConformanceCS);
+const DVB_VideoConformanceCS2021URL=`${DVB_METADATA}cs/2021/${DVB_VideoConformanceCS}`;
 
 const ISO3166="iso3166-countries.json";
 const ISO3166_Filename=path.join(DVB_COMMON_DIR, ISO3166);
@@ -1575,11 +1577,12 @@ class ServiceListCheck {
 
 	this.allowedAudioConformancePoints.loadCS(useURLs, DVB_AudioConformanceCSFilename, DVB_AudioConformanceCSURL, true);
 	
-    this.allowedVideoSchemes.loadCS(useURLs, DVB_VideoCodecCSFilename, DVB_VideoCodecCSURL, true);
-	this.allowedVideoSchemes.loadCS(useURLs, DVB_VideoCodecCS2020Filename, DVB_VideoCodecCS2020URL, true);
+    this.allowedVideoSchemes.loadCS(useURLs, DVB_VideoCodecCS2007Filename, DVB_VideoCodecCS2007URL, true);
+	this.allowedVideoSchemes.loadCS(useURLs, DVB_VideoCodecCS2021Filename, DVB_VideoCodecCS2021URL, true);
 	this.allowedVideoSchemes.loadCS(useURLs, MPEG7_VisualCodingFormatCSFilename, MPEG7_VisualCodingFormatCSURL, true);
 
-	this.allowedVideoConformancePoints.loadCS(useURLs, DVB_VideoConformanceCSFilename, DVB_VideoConformanceCSURL, true);
+	this.allowedVideoConformancePoints.loadCS(useURLs, DVB_VideoConformanceCS2017Filename, DVB_VideoConformanceCS2017URL, true);
+	this.allowedVideoConformancePoints.loadCS(useURLs, DVB_VideoConformanceCS2021Filename, DVB_VideoConformanceCS2021URL, true);
 
 	this.AudioPresentationCSvalues.loadCS(useURLs, MPEG7_AudioPresentationCSFilename, MPEG7_AudioPresentationCSURL);
 
